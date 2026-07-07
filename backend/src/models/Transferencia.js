@@ -47,7 +47,7 @@ const transferenciaSchema = new mongoose.Schema({
     required: true,
   },
   soporte: {
-    type: String,
+    type: String, // URL o base64 de la imagen
     required: true,
   },
   estado: {
@@ -65,6 +65,7 @@ const transferenciaSchema = new mongoose.Schema({
   },
 });
 
+// Índices para búsquedas
 transferenciaSchema.index({ codigoIdentificador: 1 });
 transferenciaSchema.index({ nombreUsuario: 1 });
 transferenciaSchema.index({ estado: 1 });
