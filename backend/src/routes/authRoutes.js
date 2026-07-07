@@ -8,10 +8,10 @@ const {
   updateUsuario,
   deleteUsuario,
   toggleUsuarioActivo,
-  changePassword,
-  registrarPushToken
+  changePassword
 } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
+const User = require('../models/User');
 
 // ============================================
 // RUTAS PÚBLICAS
@@ -27,27 +27,60 @@ router.post('/register', protect, authorize('Admin'), register);
 // ============================================
 // GESTIÓN DE USUARIOS
 // ============================================
-// Obtener todos los usuarios - Admin y Jefe pueden ver
 router.get('/usuarios', protect, authorize('Admin', 'Jefe'), getUsuarios);
-
-// Obtener un usuario específico - Admin y Jefe pueden ver
 router.get('/usuarios/:id', protect, authorize('Admin', 'Jefe'), getUsuario);
-
-// Actualizar usuario - SOLO ADMIN
 router.put('/usuarios/:id', protect, authorize('Admin'), updateUsuario);
-
-// Eliminar usuario - SOLO ADMIN
 router.delete('/usuarios/:id', protect, authorize('Admin'), deleteUsuario);
-
-// Activar/Desactivar usuario - SOLO ADMIN
 router.put('/usuarios/:id/toggle', protect, authorize('Admin'), toggleUsuarioActivo);
-
-// Cambiar contraseña - Admin o propio usuario
 router.put('/usuarios/:id/password', protect, changePassword);
 
 // ============================================
-// NOTIFICACIONES PUSH
+// NOTIFICACIONES PUSH - RUTA SIMPLIFICADA
 // ============================================
-router.post('/registrar-push-token', protect, registrarPushToken);
+router.post('/registrar-push-token', protect, async (req, res) => {
+  try {
+    const { userId, token } = req.body;
+    
+    console.log('📡 Registrando token push para usuario:', userId);
+    console.log('📡 Token:', token);
+    
+    if (!userId || !token) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'UserId y token son requeridos' 
+      });
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Usuario no encontrado' 
+      });
+    }
+    
+    user.expoPushToken = token;
+    await user.save();
+    
+    console.log(`✅ Token push registrado para ${user.email}`);
+    
+    res.json({
+      success: true,
+      message: 'Token push registrado correctamente',
+      user: {
+        id: user._id,
+        email: user.email,
+        rol: user.rol,
+        expoPushToken: user.expoPushToken,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error registrando token push:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+});
 
 module.exports = router;
