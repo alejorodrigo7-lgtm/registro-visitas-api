@@ -36,6 +36,7 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('❌ Error al buscar cliente:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
