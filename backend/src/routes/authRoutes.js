@@ -93,7 +93,7 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
 });
 
 // ============================================
-= OBTENER TODOS LOS USUARIOS
+// OBTENER TODOS LOS USUARIOS
 // ============================================
 router.get('/usuarios', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
@@ -109,7 +109,7 @@ router.get('/usuarios', protect, authorize('Admin', 'Jefe'), async (req, res) =>
 });
 
 // ============================================
-= OBTENER UN USUARIO
+// OBTENER UN USUARIO
 // ============================================
 router.get('/usuarios/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
@@ -124,7 +124,7 @@ router.get('/usuarios/:id', protect, authorize('Admin', 'Jefe'), async (req, res
 });
 
 // ============================================
-= ACTUALIZAR USUARIO - SOLO ADMIN
+// ACTUALIZAR USUARIO - SOLO ADMIN
 // ============================================
 router.put('/usuarios/:id', protect, authorize('Admin'), async (req, res) => {
   try {
@@ -157,7 +157,7 @@ router.put('/usuarios/:id', protect, authorize('Admin'), async (req, res) => {
 });
 
 // ============================================
-= ELIMINAR USUARIO - SOLO ADMIN
+// ELIMINAR USUARIO - SOLO ADMIN
 // ============================================
 router.delete('/usuarios/:id', protect, authorize('Admin'), async (req, res) => {
   try {
@@ -178,7 +178,7 @@ router.delete('/usuarios/:id', protect, authorize('Admin'), async (req, res) => 
 });
 
 // ============================================
-= ACTIVAR/DESACTIVAR USUARIO - SOLO ADMIN
+// ACTIVAR/DESACTIVAR USUARIO - SOLO ADMIN
 // ============================================
 router.put('/usuarios/:id/toggle', protect, authorize('Admin'), async (req, res) => {
   try {
@@ -207,7 +207,7 @@ router.put('/usuarios/:id/toggle', protect, authorize('Admin'), async (req, res)
 });
 
 // ============================================
-= CAMBIAR CONTRASEÑA
+// CAMBIAR CONTRASEÑA
 // ============================================
 router.put('/usuarios/:id/password', protect, async (req, res) => {
   try {
@@ -239,7 +239,7 @@ router.put('/usuarios/:id/password', protect, async (req, res) => {
 });
 
 // ============================================
-= REGISTRAR TOKEN PUSH
+// REGISTRAR TOKEN PUSH
 // ============================================
 router.post('/registrar-push-token', protect, async (req, res) => {
   try {
