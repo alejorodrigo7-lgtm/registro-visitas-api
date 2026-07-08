@@ -5,23 +5,10 @@ const connectDB = require('./config/database');
 
 const app = express();
 
-// Conectar a MongoDB
 connectDB();
 
-// Middleware
 app.use(cors());
-app.use(express.json());
-
-// ============================================
-// RUTAS DE PRUEBA
-// ============================================
-app.get('/', (req, res) => {
-  res.json({ message: 'API funcionando 🚀' });
-});
-
-app.get('/api/auth/login', (req, res) => {
-  res.json({ message: 'Ruta de login temporal' });
-});
+app.use(express.json({ limit: '50mb' }));
 
 // ============================================
 // 🔍 RUTA DE BÚSQUEDA DE CLIENTES
@@ -51,6 +38,20 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
+});
+
+// ============================================
+// RUTA DE PRUEBA
+// ============================================
+app.get('/api/clientes/test', (req, res) => {
+  res.json({ success: true, message: 'OK' });
+});
+
+// ============================================
+// RUTA DE LOGIN (temporal)
+// ============================================
+app.post('/api/auth/login', (req, res) => {
+  res.json({ success: true, message: 'Login temporal' });
 });
 
 const PORT = process.env.PORT || 5000;
