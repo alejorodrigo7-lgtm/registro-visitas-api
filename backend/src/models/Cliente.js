@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 
 const clienteSchema = new mongoose.Schema({
-  // Mapeo directo con tu CSV
   nombre: {
     type: String,
     required: [true, 'Nombre es obligatorio'],
@@ -24,7 +23,6 @@ const clienteSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Teléfono es obligatorio'],
   },
-  // Campos adicionales (opcionales)
   email: {
     type: String,
     default: '',
@@ -43,7 +41,6 @@ const clienteSchema = new mongoose.Schema({
   },
 });
 
-// Índice para búsquedas rápidas
 clienteSchema.index({ identificador: 1 });
 clienteSchema.index({ nombre: 1 });
 

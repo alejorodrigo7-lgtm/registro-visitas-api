@@ -30,7 +30,7 @@ const upload = multer({
       cb(new Error('Solo se permiten archivos CSV'), false);
     }
   },
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB máximo
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 // ============================================
@@ -40,16 +40,21 @@ router.get('/buscar/:identificador', protect, async (req, res) => {
   try {
     const { identificador } = req.params;
     
+    console.log(`🔍 Buscando cliente con identificador: ${identificador}`);
+    
     const cliente = await Cliente.findOne({ 
       identificador: identificador.trim() 
     });
     
     if (!cliente) {
+      console.log(`❌ Cliente con identificador ${identificador} no encontrado`);
       return res.status(404).json({
         success: false,
         message: `No se encontró cliente con identificador ${identificador}`
       });
     }
+    
+    console.log(`✅ Cliente encontrado: ${cliente.nombre}`);
     
     res.json({
       success: true,
@@ -63,6 +68,7 @@ router.get('/buscar/:identificador', protect, async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('❌ Error al buscar cliente:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -75,7 +81,7 @@ router.get('/buscar/:identificador', protect, async (req, res) => {
 // ============================================
 router.get('/todos', protect, async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, limit = 100 } = req.query;
     let query = {};
     
     if (search) {
@@ -92,12 +98,12 @@ router.get('/todos', protect, async (req, res) => {
     
     const clientes = await Cliente.find(query)
       .sort({ nombre: 1 })
-      .limit(100);
+      .limit(parseInt(limit));
     
     res.json({
       success: true,
       count: clientes.length,
-      data: clientes
+      data: clientes,
     });
   } catch (error) {
     res.status(500).json({
@@ -115,7 +121,7 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'No se subió ningún archivo. Selecciona un archivo CSV.'
+        message: 'No se subió ningún archivo'
       });
     }
 
@@ -123,14 +129,12 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
     const errores = [];
     let contador = 0;
 
-    // Leer el archivo CSV
     await new Promise((resolve, reject) => {
       fs.createReadStream(req.file.path)
         .pipe(csv())
         .on('data', (data) => {
           contador++;
           
-          // Mapear columnas de tu CSV
           const cliente = {
             nombre: data.nombre?.trim() || '',
             identificador: data.identificador?.trim() || '',
@@ -140,7 +144,6 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
             email: data.email?.trim() || '',
           };
 
-          // Validar campos obligatorios
           const camposFaltantes = [];
           if (!cliente.nombre) camposFaltantes.push('nombre');
           if (!cliente.identificador) camposFaltantes.push('identificador');
@@ -162,18 +165,15 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
         .on('error', reject);
     });
 
-    // Guardar en MongoDB
     let insertados = 0;
     let actualizados = 0;
     let duplicados = 0;
 
     for (const cliente of clientes) {
       try {
-        // Buscar si ya existe por identificador
         const existe = await Cliente.findOne({ identificador: cliente.identificador });
         
         if (existe) {
-          // Actualizar cliente existente
           await Cliente.updateOne(
             { identificador: cliente.identificador },
             {
@@ -189,7 +189,6 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
           );
           actualizados++;
         } else {
-          // Crear nuevo cliente
           await Cliente.create(cliente);
           insertados++;
         }
@@ -206,7 +205,6 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
       }
     }
 
-    // Eliminar archivo temporal
     try {
       fs.unlinkSync(req.file.path);
     } catch (error) {
@@ -227,6 +225,7 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
     });
 
   } catch (error) {
+    console.error('❌ Error al cargar CSV:', error);
     res.status(500).json({
       success: false,
       message: 'Error al procesar el archivo CSV',
@@ -236,21 +235,19 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
 });
 
 // ============================================
-// ➕ AGREGAR CLIENTE INDIVIDUAL (Admin)
+// ➕ AGREGAR CLIENTE INDIVIDUAL
 // ============================================
 router.post('/', protect, authorize('Admin'), async (req, res) => {
   try {
     const { nombre, identificador, barrio, direccion, telefono, email } = req.body;
 
-    // Validar campos obligatorios
     if (!nombre || !identificador || !barrio || !direccion || !telefono) {
       return res.status(400).json({
         success: false,
-        message: 'Todos los campos son obligatorios: nombre, identificador, barrio, direccion, telefono'
+        message: 'Todos los campos son obligatorios'
       });
     }
 
-    // Verificar si ya existe
     const existe = await Cliente.findOne({ identificador });
     if (existe) {
       return res.status(400).json({
@@ -272,91 +269,6 @@ router.post('/', protect, authorize('Admin'), async (req, res) => {
       success: true,
       message: 'Cliente agregado correctamente',
       data: cliente
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// ============================================
-// ✏️ ACTUALIZAR CLIENTE (Admin)
-// ============================================
-router.put('/:identificador', protect, authorize('Admin'), async (req, res) => {
-  try {
-    const { identificador } = req.params;
-    const { nombre, barrio, direccion, telefono, email } = req.body;
-
-    const cliente = await Cliente.findOne({ identificador });
-    if (!cliente) {
-      return res.status(404).json({
-        success: false,
-        message: `Cliente con identificador ${identificador} no encontrado`
-      });
-    }
-
-    cliente.nombre = nombre || cliente.nombre;
-    cliente.barrio = barrio || cliente.barrio;
-    cliente.direccion = direccion || cliente.direccion;
-    cliente.telefono = telefono || cliente.telefono;
-    cliente.email = email !== undefined ? email : cliente.email;
-    cliente.ultimaActualizacion = new Date();
-
-    await cliente.save();
-
-    res.json({
-      success: true,
-      message: 'Cliente actualizado correctamente',
-      data: cliente
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// ============================================
-// ❌ ELIMINAR CLIENTE (Admin)
-// ============================================
-router.delete('/:identificador', protect, authorize('Admin'), async (req, res) => {
-  try {
-    const { identificador } = req.params;
-    const cliente = await Cliente.findOne({ identificador });
-    
-    if (!cliente) {
-      return res.status(404).json({
-        success: false,
-        message: `Cliente con identificador ${identificador} no encontrado`
-      });
-    }
-
-    await cliente.deleteOne();
-
-    res.json({
-      success: true,
-      message: `Cliente ${identificador} eliminado correctamente`
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// ============================================
-// 📊 CONTAR CLIENTES (Admin)
-// ============================================
-router.get('/contar', protect, authorize('Admin'), async (req, res) => {
-  try {
-    const total = await Cliente.countDocuments();
-    res.json({
-      success: true,
-      total
     });
   } catch (error) {
     res.status(500).json({
