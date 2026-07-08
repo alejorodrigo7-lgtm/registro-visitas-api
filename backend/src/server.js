@@ -15,6 +15,12 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 // ============================================
+// RUTAS DE AUTENTICACIÓN
+// ============================================
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
+
+// ============================================
 // CONFIGURACIÓN DE MULTER PARA CSV
 // ============================================
 const storage = multer.diskStorage({
@@ -159,4 +165,5 @@ app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log(`🔍 /api/clientes/buscar/:identificador`);
   console.log(`📤 /api/clientes/cargar-csv`);
+  console.log(`🔐 /api/auth/login`);
 });
