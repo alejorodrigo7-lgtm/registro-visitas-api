@@ -35,7 +35,7 @@ app.get('/', (req, res) => {
 });
 
 // ============================================
-// RUTA DIRECTA PARA BUSCAR CLIENTES
+// 🔍 RUTA DIRECTA PARA BUSCAR CLIENTES
 // ============================================
 const { protect } = require('./middleware/auth');
 
@@ -78,6 +78,17 @@ app.get('/api/clientes/buscar/:identificador', protect, async (req, res) => {
   }
 });
 
+// ============================================
+// RUTA DE PRUEBA PARA CLIENTES
+// ============================================
+app.get('/api/clientes/test', async (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Ruta de clientes funcionando',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Rutas de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/visitas', visitaRoutes);
@@ -110,4 +121,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log(`📡 API disponible en http://localhost:${PORT}/api`);
+  console.log(`🔍 Ruta de búsqueda: /api/clientes/buscar/:identificador`);
+  console.log(`🧪 Ruta de prueba: /api/clientes/test`);
 });
