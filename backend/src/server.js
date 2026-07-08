@@ -39,7 +39,7 @@ app.get('/', (req, res) => {
 // ============================================
 const { protect } = require('./middleware/auth');
 
-app.get('/api/clientes/buscar/:identificador', protect, async (req, res) => {
+app.get('/api/clientes/buscar/:identificador', async (req, res) => {
   try {
     const { identificador } = req.params;
     console.log(`🔍 Buscando cliente con identificador: ${identificador}`);
