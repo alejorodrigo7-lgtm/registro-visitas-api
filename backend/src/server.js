@@ -3,6 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/database');
 
+// Importar rutas
+const authRoutes = require('./routes/authRoutes');
+const transferenciaRoutes = require('./routes/transferenciaRoutes');
+
 const app = express();
 
 connectDB();
@@ -42,21 +46,25 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
 });
 
 // ============================================
+// RUTAS DE AUTENTICACIÓN
+// ============================================
+app.use('/api/auth', authRoutes);
+
+// ============================================
+// RUTAS DE TRANSFERENCIAS
+// ============================================
+app.use('/api/transferencias', transferenciaRoutes);
+
+// ============================================
 // RUTA DE PRUEBA
 // ============================================
 app.get('/api/clientes/test', (req, res) => {
   res.json({ success: true, message: 'OK' });
 });
 
-// ============================================
-// RUTAS DE AUTENTICACIÓN
-// ============================================
-const authRoutes = require('./routes/authRoutes');
-app.use('/api/auth', authRoutes);
-
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log(`🔍 /api/clientes/buscar/:identificador`);
-  console.log(`🧪 /api/clientes/test`);
+  console.log(`📤 /api/transferencias`);
 });
