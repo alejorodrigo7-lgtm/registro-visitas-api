@@ -1,12 +1,18 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
+const csv = require('csv-parser');
+const fs = require('fs');
+const path = require('path');
 const connectDB = require('./config/database');
 
 const app = express();
 
+// Conectar a MongoDB
 connectDB();
 
+// Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
@@ -16,7 +22,7 @@ app.use(express.json({ limit: '50mb' }));
 app.get('/api/clientes/buscar/:identificador', async (req, res) => {
   try {
     const { identificador } = req.params;
-    console.log(`🔍 Buscando: ${identificador}`);
+    console.log(`🔍 Buscando cliente: ${identificador}`);
     
     const Cliente = require('./models/Cliente');
     const cliente = await Cliente.findOne({ identificador: identificador.trim() });
@@ -43,11 +49,6 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
 // ============================================
 // 📤 CARGAR CLIENTES DESDE CSV
 // ============================================
-const multer = require('multer');
-const csv = require('csv-parser');
-const fs = require('fs');
-const path = require('path');
-
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../uploads');
@@ -150,6 +151,12 @@ app.post('/api/clientes/cargar-csv', upload.single('archivo'), async (req, res) 
 app.get('/api/clientes/test', (req, res) => {
   res.json({ success: true, message: 'OK' });
 });
+
+// ============================================
+// RUTA DE LOGIN (para que funcione el login)
+// ============================================
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
