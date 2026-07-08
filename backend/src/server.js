@@ -34,6 +34,50 @@ app.get('/', (req, res) => {
   });
 });
 
+// ============================================
+// RUTA DIRECTA PARA BUSCAR CLIENTES
+// ============================================
+const { protect } = require('./middleware/auth');
+
+app.get('/api/clientes/buscar/:identificador', protect, async (req, res) => {
+  try {
+    const { identificador } = req.params;
+    console.log(`🔍 Buscando cliente con identificador: ${identificador}`);
+    
+    const Cliente = require('./models/Cliente');
+    const cliente = await Cliente.findOne({ 
+      identificador: identificador.trim() 
+    });
+    
+    if (!cliente) {
+      console.log(`❌ Cliente ${identificador} no encontrado`);
+      return res.status(404).json({
+        success: false,
+        message: `No se encontró cliente con identificador ${identificador}`
+      });
+    }
+    
+    console.log(`✅ Cliente encontrado: ${cliente.nombre}`);
+    res.json({
+      success: true,
+      data: {
+        nombre: cliente.nombre,
+        identificador: cliente.identificador,
+        barrio: cliente.barrio,
+        direccion: cliente.direccion,
+        telefono: cliente.telefono,
+        email: cliente.email || '',
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error al buscar cliente:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // Rutas de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/visitas', visitaRoutes);
