@@ -47,13 +47,6 @@ app.get('/api/clientes/test', (req, res) => {
   res.json({ success: true, message: 'OK' });
 });
 
-// ============================================
-// RUTA DE LOGIN (temporal)
-// ============================================
-app.post('/api/auth/login', (req, res) => {
-  res.json({ success: true, message: 'Login temporal' });
-});
-
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
