@@ -114,7 +114,7 @@ exports.confirmarTransferencia = async (req, res) => {
     if (!['CONFIRMADA', 'DENEGADA'].includes(estado)) {
       return res.status(400).json({
         success: false,
-        message: 'Estado inválido',
+        message: 'Estado inválido. Debe ser CONFIRMADA o DENEGADA',
       });
     }
 
@@ -123,6 +123,13 @@ exports.confirmarTransferencia = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Transferencia no encontrada',
+      });
+    }
+
+    if (transferencia.estado !== 'SUBIDA') {
+      return res.status(400).json({
+        success: false,
+        message: `La transferencia ya está en estado ${transferencia.estado}`,
       });
     }
 
@@ -148,7 +155,7 @@ exports.ingresarTransferencia = async (req, res) => {
     if (!['INGRESADA', 'EN_REVISION'].includes(estado)) {
       return res.status(400).json({
         success: false,
-        message: 'Estado inválido',
+        message: 'Estado inválido. Debe ser INGRESADA o EN_REVISION',
       });
     }
 
@@ -160,6 +167,13 @@ exports.ingresarTransferencia = async (req, res) => {
       });
     }
 
+    if (transferencia.estado !== 'CONFIRMADA') {
+      return res.status(400).json({
+        success: false,
+        message: `La transferencia debe estar CONFIRMADA. Estado actual: ${transferencia.estado}`,
+      });
+    }
+
     transferencia.estado = estado;
     transferencia.updatedAt = new Date();
     await transferencia.save();
@@ -168,6 +182,42 @@ exports.ingresarTransferencia = async (req, res) => {
       success: true,
       message: `Transferencia ${estado === 'INGRESADA' ? 'ingresada' : 'en revisión'} correctamente`,
       data: transferencia,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.buscarTransferenciasRevision = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    if (!search) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere un término de búsqueda',
+      });
+    }
+
+    const query = {
+      $or: [
+        { nombreUsuario: { $regex: search, $options: 'i' } },
+        { codigoIdentificador: { $regex: search, $options: 'i' } },
+      ],
+    };
+
+    if (['Tecnico', 'Coordinador'].includes(req.user.rol)) {
+      query.responsableId = req.user._id;
+    }
+
+    const transferencias = await Transferencia.find(query)
+      .populate('responsableId', 'nombre email rol')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: transferencias.length,
+      data: transferencias,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -198,39 +248,6 @@ exports.getTransferenciasByEstado = async (req, res) => {
     if (['Tecnico', 'Coordinador'].includes(req.user.rol)) {
       query.responsableId = req.user._id;
     }
-
-    const transferencias = await Transferencia.find(query)
-      .populate('responsableId', 'nombre email rol')
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      count: transferencias.length,
-      data: transferencias,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.buscarTransferenciasRevision = async (req, res) => {
-  try {
-    const { search } = req.query;
-
-    if (!search) {
-      return res.status(400).json({
-        success: false,
-        message: 'Se requiere un término de búsqueda',
-      });
-    }
-
-    const query = {
-      estado: 'EN_REVISION',
-      $or: [
-        { nombreUsuario: { $regex: search, $options: 'i' } },
-        { codigoIdentificador: { $regex: search, $options: 'i' } },
-      ],
-    };
 
     const transferencias = await Transferencia.find(query)
       .populate('responsableId', 'nombre email rol')

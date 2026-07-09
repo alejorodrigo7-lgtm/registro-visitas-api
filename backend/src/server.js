@@ -6,6 +6,7 @@ const connectDB = require('./config/database');
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const transferenciaRoutes = require('./routes/transferenciaRoutes');
+const servicioRoutes = require('./routes/servicioRoutes');
 
 const app = express();
 
@@ -13,6 +14,7 @@ connectDB();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
+app.use('/api/servicios', servicioRoutes);
 
 // ============================================
 // 🔍 RUTA DE BÚSQUEDA DE CLIENTES
