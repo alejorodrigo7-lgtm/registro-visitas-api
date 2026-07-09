@@ -61,19 +61,27 @@ exports.tomarServicio = async (req, res) => {
     const mensajePush = `📋 Se ha tomado un servicio "${nombreServicio}" para el cliente ${cliente}`;
 
     if (tecnico) {
-      await enviarNotificacionPush(tecnico._id, {
-        title: '📋 Nuevo Servicio',
-        body: mensajePush,
-        data: { servicioId: servicio._id.toString(), tipo: 'nuevo_servicio' },
-      });
+      try {
+        await enviarNotificacionPush(tecnico._id, {
+          title: '📋 Nuevo Servicio',
+          body: mensajePush,
+          data: { servicioId: servicio._id.toString(), tipo: 'nuevo_servicio' },
+        });
+      } catch (pushError) {
+        console.error('Error enviando push al técnico:', pushError);
+      }
     }
 
     if (jefe) {
-      await enviarNotificacionPush(jefe._id, {
-        title: '📋 Nuevo Servicio',
-        body: mensajePush,
-        data: { servicioId: servicio._id.toString(), tipo: 'nuevo_servicio' },
-      });
+      try {
+        await enviarNotificacionPush(jefe._id, {
+          title: '📋 Nuevo Servicio',
+          body: mensajePush,
+          data: { servicioId: servicio._id.toString(), tipo: 'nuevo_servicio' },
+        });
+      } catch (pushError) {
+        console.error('Error enviando push al jefe:', pushError);
+      }
     }
 
     res.status(201).json({
@@ -82,12 +90,13 @@ exports.tomarServicio = async (req, res) => {
       data: servicio,
     });
   } catch (error) {
+    console.error('Error en tomarServicio:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
 // ============================================
-= OBTENER SERVICIOS POR ESTADO
+// OBTENER SERVICIOS POR ESTADO
 // ============================================
 exports.getServiciosByEstado = async (req, res) => {
   try {
@@ -110,12 +119,9 @@ exports.getServiciosByEstado = async (req, res) => {
 
     let query = { estado };
     
-    // Técnicos solo ven servicios donde son asignados
     if (req.user.rol === 'Tecnico') {
       query.tecnicoAsignado = req.user._id;
-    }
-    // Jefes ven servicios donde son asignados como jefe
-    else if (req.user.rol === 'Jefe') {
+    } else if (req.user.rol === 'Jefe') {
       query.jefeAsignado = req.user._id;
     }
 
@@ -131,12 +137,13 @@ exports.getServiciosByEstado = async (req, res) => {
       data: servicios,
     });
   } catch (error) {
+    console.error('Error en getServiciosByEstado:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
 // ============================================
-= OBTENER TODOS LOS SERVICIOS
+// OBTENER TODOS LOS SERVICIOS
 // ============================================
 exports.getServicios = async (req, res) => {
   try {
@@ -160,12 +167,13 @@ exports.getServicios = async (req, res) => {
       data: servicios,
     });
   } catch (error) {
+    console.error('Error en getServicios:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
 // ============================================
-= OBTENER UN SERVICIO
+// OBTENER UN SERVICIO
 // ============================================
 exports.getServicio = async (req, res) => {
   try {
@@ -187,12 +195,13 @@ exports.getServicio = async (req, res) => {
       data: servicio,
     });
   } catch (error) {
+    console.error('Error en getServicio:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
 // ============================================
-= EJECUTAR SERVICIO (Admin/Jefe/Tecnico)
+// EJECUTAR SERVICIO
 // ============================================
 exports.ejecutarServicio = async (req, res) => {
   try {
@@ -230,12 +239,15 @@ exports.ejecutarServicio = async (req, res) => {
 
     await servicio.save();
 
-    // Notificación al responsable
-    await enviarNotificacionPush(servicio.responsableId, {
-      title: '✅ Servicio Ejecutado',
-      body: `El servicio "${servicio.nombreServicio}" del cliente ${servicio.cliente} fue ejecutado de manera exitosa`,
-      data: { servicioId: servicio._id.toString(), tipo: 'servicio_ejecutado' },
-    });
+    try {
+      await enviarNotificacionPush(servicio.responsableId, {
+        title: '✅ Servicio Ejecutado',
+        body: `El servicio "${servicio.nombreServicio}" del cliente ${servicio.cliente} fue ejecutado de manera exitosa`,
+        data: { servicioId: servicio._id.toString(), tipo: 'servicio_ejecutado' },
+      });
+    } catch (pushError) {
+      console.error('Error enviando push de ejecución:', pushError);
+    }
 
     res.json({
       success: true,
@@ -243,12 +255,13 @@ exports.ejecutarServicio = async (req, res) => {
       data: servicio,
     });
   } catch (error) {
+    console.error('Error en ejecutarServicio:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
 // ============================================
-= PENDIENTE SERVICIO (Admin/Jefe/Tecnico)
+// PENDIENTE SERVICIO
 // ============================================
 exports.pendienteServicio = async (req, res) => {
   try {
@@ -276,26 +289,33 @@ exports.pendienteServicio = async (req, res) => {
 
     await servicio.save();
 
-    // Notificaciones push
     const jefe = await User.findById(servicio.jefeAsignado);
     const responsable = await User.findById(servicio.responsableId);
 
     const mensajePush = `⚠️ ALERTA: El servicio "${servicio.nombreServicio}" de ${servicio.cliente} está en estado PENDIENTE`;
 
     if (jefe) {
-      await enviarNotificacionPush(jefe._id, {
-        title: '⚠️ Servicio Pendiente',
-        body: mensajePush,
-        data: { servicioId: servicio._id.toString(), tipo: 'servicio_pendiente' },
-      });
+      try {
+        await enviarNotificacionPush(jefe._id, {
+          title: '⚠️ Servicio Pendiente',
+          body: mensajePush,
+          data: { servicioId: servicio._id.toString(), tipo: 'servicio_pendiente' },
+        });
+      } catch (pushError) {
+        console.error('Error enviando push al jefe:', pushError);
+      }
     }
 
     if (responsable) {
-      await enviarNotificacionPush(responsable._id, {
-        title: '⚠️ Servicio Pendiente',
-        body: mensajePush,
-        data: { servicioId: servicio._id.toString(), tipo: 'servicio_pendiente' },
-      });
+      try {
+        await enviarNotificacionPush(responsable._id, {
+          title: '⚠️ Servicio Pendiente',
+          body: mensajePush,
+          data: { servicioId: servicio._id.toString(), tipo: 'servicio_pendiente' },
+        });
+      } catch (pushError) {
+        console.error('Error enviando push al responsable:', pushError);
+      }
     }
 
     res.json({
@@ -304,12 +324,13 @@ exports.pendienteServicio = async (req, res) => {
       data: servicio,
     });
   } catch (error) {
+    console.error('Error en pendienteServicio:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
 // ============================================
-= RETROALIMENTAR SERVICIO (Admin/Jefe/Tecnico)
+// RETROALIMENTAR SERVICIO
 // ============================================
 exports.retroalimentarServicio = async (req, res) => {
   try {
@@ -343,12 +364,15 @@ exports.retroalimentarServicio = async (req, res) => {
 
     await servicio.save();
 
-    // Notificación al responsable
-    await enviarNotificacionPush(servicio.responsableId, {
-      title: '✅ Servicio Retroalimentado',
-      body: `El servicio "${servicio.nombreServicio}" del cliente ${servicio.cliente} fue retroalimentado de manera exitosa`,
-      data: { servicioId: servicio._id.toString(), tipo: 'servicio_retroalimentado' },
-    });
+    try {
+      await enviarNotificacionPush(servicio.responsableId, {
+        title: '✅ Servicio Retroalimentado',
+        body: `El servicio "${servicio.nombreServicio}" del cliente ${servicio.cliente} fue retroalimentado de manera exitosa`,
+        data: { servicioId: servicio._id.toString(), tipo: 'servicio_retroalimentado' },
+      });
+    } catch (pushError) {
+      console.error('Error enviando push de retroalimentación:', pushError);
+    }
 
     res.json({
       success: true,
@@ -356,12 +380,13 @@ exports.retroalimentarServicio = async (req, res) => {
       data: servicio,
     });
   } catch (error) {
+    console.error('Error en retroalimentarServicio:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
 // ============================================
-= BUSCAR SERVICIOS (Revisión)
+// BUSCAR SERVICIOS
 // ============================================
 exports.buscarServicios = async (req, res) => {
   try {
@@ -393,6 +418,7 @@ exports.buscarServicios = async (req, res) => {
       data: servicios,
     });
   } catch (error) {
+    console.error('Error en buscarServicios:', error);
     res.status(500).json({ message: error.message });
   }
 };
