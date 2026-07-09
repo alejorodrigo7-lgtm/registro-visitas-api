@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/database');
+const { protect } = require('./middleware/auth');
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
