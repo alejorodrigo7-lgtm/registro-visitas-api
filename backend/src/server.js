@@ -6,7 +6,6 @@ const connectDB = require('./config/database');
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const transferenciaRoutes = require('./routes/transferenciaRoutes');
-const servicioRoutes = require('./routes/servicioRoutes');
 
 const app = express();
 
@@ -14,7 +13,6 @@ connectDB();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use('/api/servicios', servicioRoutes);
 
 // ============================================
 // 🔍 RUTA DE BÚSQUEDA DE CLIENTES
@@ -48,6 +46,46 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
 });
 
 // ============================================
+// 📋 OBTENER TODOS LOS CLIENTES (CON BÚSQUEDA)
+// ============================================
+app.get('/api/clientes/todos', protect, async (req, res) => {
+  try {
+    const { search, limit = 100 } = req.query;
+    let query = {};
+    
+    if (search && search.trim() !== '') {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query = {
+        $or: [
+          { nombre: { $regex: searchRegex } },
+          { identificador: { $regex: searchRegex } },
+          { barrio: { $regex: searchRegex } },
+          { direccion: { $regex: searchRegex } },
+          { telefono: { $regex: searchRegex } }
+        ]
+      };
+    }
+    
+    const Cliente = require('./models/Cliente');
+    const clientes = await Cliente.find(query)
+      .sort({ nombre: 1 })
+      .limit(parseInt(limit));
+    
+    res.json({
+      success: true,
+      count: clientes.length,
+      data: clientes,
+    });
+  } catch (error) {
+    console.error('❌ Error en /todos:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ============================================
 // RUTAS DE AUTENTICACIÓN
 // ============================================
 app.use('/api/auth', authRoutes);
@@ -68,5 +106,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log(`🔍 /api/clientes/buscar/:identificador`);
+  console.log(`📋 /api/clientes/todos`);
   console.log(`📤 /api/transferencias`);
 });
