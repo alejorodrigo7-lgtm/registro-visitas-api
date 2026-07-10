@@ -9,6 +9,7 @@ const authRoutes = require('./routes/authRoutes');
 const transferenciaRoutes = require('./routes/transferenciaRoutes');
 const servicioRoutes = require('./routes/servicioRoutes');
 const cajaRoutes = require('./routes/cajaRoutes');
+const reporteRoutes = require('./routes/reporteRoutes');
 
 const app = express();
 
@@ -105,13 +106,21 @@ app.use('/api/transferencias', transferenciaRoutes);
 app.use('/api/servicios', servicioRoutes);
 
 // ============================================
+// RUTAS DE CAJAS
+// ============================================
+app.use('/api/cajas', cajaRoutes);
+
+// ============================================
+// RUTAS DE REPORTES
+// ============================================
+app.use('/api/reportes', reporteRoutes);
+
+// ============================================
 // RUTA DE PRUEBA
 // ============================================
 app.get('/api/clientes/test', (req, res) => {
   res.json({ success: true, message: 'OK' });
 });
-
-app.use('/api/cajas', cajaRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
@@ -120,4 +129,6 @@ app.listen(PORT, () => {
   console.log(`📋 /api/clientes/todos`);
   console.log(`📤 /api/transferencias`);
   console.log(`🛠️ /api/servicios`);
+  console.log(`💰 /api/cajas`);
+  console.log(`📊 /api/reportes`);
 });
