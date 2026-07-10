@@ -8,6 +8,7 @@ const { protect } = require('./middleware/auth');
 const authRoutes = require('./routes/authRoutes');
 const transferenciaRoutes = require('./routes/transferenciaRoutes');
 const servicioRoutes = require('./routes/servicioRoutes');
+const cajaRoutes = require('./routes/cajaRoutes');
 
 const app = express();
 
@@ -109,6 +110,8 @@ app.use('/api/servicios', servicioRoutes);
 app.get('/api/clientes/test', (req, res) => {
   res.json({ success: true, message: 'OK' });
 });
+
+app.use('/api/cajas', cajaRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
