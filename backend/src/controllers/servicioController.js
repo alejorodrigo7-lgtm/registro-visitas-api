@@ -21,6 +21,8 @@ exports.tomarServicio = async (req, res) => {
       imagen,
     } = req.body;
 
+    console.log('📋 Datos recibidos:', req.body);
+
     if (!cliente || !codigoIdentificador || !barrio || !direccion || !telefono ||
         !nombreServicio || !telefonos || !observaciones || !tecnicoAsignado || !jefeAsignado) {
       return res.status(400).json({
@@ -62,11 +64,13 @@ exports.tomarServicio = async (req, res) => {
 
     if (tecnico) {
       try {
+        console.log(`📤 Enviando push al técnico ${tecnico.email}`);
         await enviarNotificacionPush(tecnico._id, {
           title: '📋 Nuevo Servicio',
           body: mensajePush,
           data: { servicioId: servicio._id.toString(), tipo: 'nuevo_servicio' },
         });
+        console.log(`✅ Push enviado al técnico ${tecnico.email}`);
       } catch (pushError) {
         console.error('Error enviando push al técnico:', pushError);
       }
@@ -74,11 +78,13 @@ exports.tomarServicio = async (req, res) => {
 
     if (jefe) {
       try {
+        console.log(`📤 Enviando push al jefe ${jefe.email}`);
         await enviarNotificacionPush(jefe._id, {
           title: '📋 Nuevo Servicio',
           body: mensajePush,
           data: { servicioId: servicio._id.toString(), tipo: 'nuevo_servicio' },
         });
+        console.log(`✅ Push enviado al jefe ${jefe.email}`);
       } catch (pushError) {
         console.error('Error enviando push al jefe:', pushError);
       }

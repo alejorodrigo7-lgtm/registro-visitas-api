@@ -7,6 +7,7 @@ const { protect } = require('./middleware/auth');
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const transferenciaRoutes = require('./routes/transferenciaRoutes');
+const servicioRoutes = require('./routes/servicioRoutes');
 
 const app = express();
 
@@ -14,10 +15,7 @@ connectDB();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-<<<<<<< HEAD
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-=======
->>>>>>> ccb821e2f928e86199a65e37a8032c20952ba476
 
 // ============================================
 // 🔍 RUTA DE BÚSQUEDA DE CLIENTES
