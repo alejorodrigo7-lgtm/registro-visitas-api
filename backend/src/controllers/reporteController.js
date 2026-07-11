@@ -31,7 +31,6 @@ exports.generarReporteVisitas = async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Visitas');
 
-    // Columnas
     worksheet.columns = [
       { header: 'Fecha', key: 'fecha', width: 20 },
       { header: 'Cliente', key: 'cliente', width: 30 },
@@ -67,7 +66,7 @@ exports.generarReporteVisitas = async (req, res) => {
 };
 
 // ============================================
-// GENERAR REPORTE DE TRANSFERENCIAS
+// GENERAR REPORTE DE TRANSFERENCIAS CON IMÁGENES
 // ============================================
 exports.generarReporteTransferencias = async (req, res) => {
   try {
@@ -91,6 +90,9 @@ exports.generarReporteTransferencias = async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Transferencias');
 
+    // ============================================
+    // 📋 COLUMNAS DEL REPORTE (incluye columna para imagen)
+    // ============================================
     worksheet.columns = [
       { header: 'Fecha', key: 'fecha', width: 20 },
       { header: 'Responsable', key: 'responsable', width: 25 },
@@ -102,10 +104,17 @@ exports.generarReporteTransferencias = async (req, res) => {
       { header: 'Barrio', key: 'barrio', width: 20 },
       { header: 'Banco/Cuenta', key: 'banco', width: 35 },
       { header: 'Estado', key: 'estado', width: 15 },
+      { header: 'Comprobante', key: 'imagen', width: 30 },
     ];
 
-    for (const t of transferencias) {
-      worksheet.addRow({
+    // ============================================
+    // 📸 AGREGAR FILAS CON IMÁGENES
+    // ============================================
+    for (let i = 0; i < transferencias.length; i++) {
+      const t = transferencias[i];
+      
+      // Agregar fila con datos
+      const row = worksheet.addRow({
         fecha: t.fechaTransferencia ? new Date(t.fechaTransferencia).toLocaleString('es-ES') : '',
         responsable: t.responsable || '',
         codigo: t.codigoIdentificador || '',
@@ -116,13 +125,58 @@ exports.generarReporteTransferencias = async (req, res) => {
         barrio: t.barrio || '',
         banco: t.bancoCuenta || '',
         estado: t.estado || '',
+        imagen: '',
       });
+
+      // ============================================
+      // 🖼️ INSERTAR IMAGEN EN LA CELDA
+      // ============================================
+      // Buscar imagen en imagenComprobante o soporte
+      let imagenData = null;
+      if (t.imagenComprobante && t.imagenComprobante.length > 100) {
+        imagenData = t.imagenComprobante;
+      } else if (t.soporte && t.soporte.length > 100) {
+        imagenData = t.soporte;
+      }
+
+      if (imagenData) {
+        try {
+          // Limpiar el prefijo si existe (data:image/jpeg;base64,)
+          let base64Data = imagenData;
+          if (imagenData.startsWith('data:image')) {
+            base64Data = imagenData.split(',')[1];
+          }
+
+          // Convertir base64 a buffer
+          const imageBuffer = Buffer.from(base64Data, 'base64');
+          
+          // Agregar imagen al workbook
+          const imageId = workbook.addImage({
+            buffer: imageBuffer,
+            extension: 'jpeg',
+          });
+
+          // Insertar imagen en la celda (columna K = índice 10, fila i+2 porque hay encabezado)
+          worksheet.addImage(imageId, {
+            tl: { col: 10, row: i + 1 },
+            ext: { width: 120, height: 120 },
+          });
+
+          // Ajustar altura de la fila para que se vea la imagen
+          row.height = 140;
+
+        } catch (error) {
+          console.error('❌ Error al insertar imagen en Excel:', error.message);
+          // Si falla la imagen, dejar la celda vacía
+        }
+      }
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=transferencias.xlsx');
+    res.setHeader('Content-Disposition', 'attachment; filename=transferencias_con_imagenes.xlsx');
     res.send(buffer);
+
   } catch (error) {
     console.error('Error en generarReporteTransferencias:', error);
     res.status(500).json({ message: error.message });
