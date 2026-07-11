@@ -10,6 +10,7 @@ const transferenciaRoutes = require('./routes/transferenciaRoutes');
 const servicioRoutes = require('./routes/servicioRoutes');
 const cajaRoutes = require('./routes/cajaRoutes');
 const reporteRoutes = require('./routes/reporteRoutes');
+const visitaRoutes = require('./routes/visitaRoutes'); // 👈 AGREGAR
 
 const app = express();
 
@@ -116,19 +117,26 @@ app.use('/api/cajas', cajaRoutes);
 app.use('/api/reportes', reporteRoutes);
 
 // ============================================
+// RUTAS DE VISITAS 👈 AGREGAR
+// ============================================
+app.use('/api/visitas', visitaRoutes);
+
+// ============================================
 // RUTA DE PRUEBA
 // ============================================
-app.get('/api/clientes/test', (req, res) => {
-  res.json({ success: true, message: 'OK' });
+app.get('/api/test', (req, res) => {
+  res.json({ success: true, message: 'Servidor funcionando correctamente' });
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`📡 Escuchando en todas las interfaces (0.0.0.0)`);
   console.log(`🔍 /api/clientes/buscar/:identificador`);
   console.log(`📋 /api/clientes/todos`);
   console.log(`📤 /api/transferencias`);
   console.log(`🛠️ /api/servicios`);
   console.log(`💰 /api/cajas`);
   console.log(`📊 /api/reportes`);
+  console.log(`📋 /api/visitas`);
 });

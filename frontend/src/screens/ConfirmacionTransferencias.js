@@ -46,6 +46,24 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     cargarTransferencias();
   };
 
+  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN (de cualquier campo)
+  const getImagen = (item) => {
+    // Primero revisar imagenComprobante
+    if (item.imagenComprobante && item.imagenComprobante.length > 100) {
+      return item.imagenComprobante;
+    }
+    // Luego revisar soporte
+    if (item.soporte && item.soporte.length > 100) {
+      return item.soporte;
+    }
+    return null;
+  };
+
+  // ✅ VERIFICAR SI TIENE IMAGEN
+  const tieneImagen = (item) => {
+    return getImagen(item) !== null;
+  };
+
   const confirmarTransferencia = async (id, estado) => {
     Alert.alert(
       'Confirmar Transferencia',
@@ -81,11 +99,12 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   };
 
   const formatFecha = (fecha) => {
+    if (!fecha) return 'Sin fecha';
     return new Date(fecha).toLocaleDateString('es-ES');
   };
 
   const formatValor = (valor) => {
-    return `$${valor.toFixed(2)}`;
+    return `$${valor?.toFixed(2) || '0.00'}`;
   };
 
   const renderTransferencia = (item) => {
@@ -112,6 +131,13 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
           <Text style={styles.transferenciaInfo}>👤 {item.responsable}</Text>
         </View>
+
+        {/* ✅ INDICADOR DE IMAGEN */}
+        {tieneImagen(item) && (
+          <View style={styles.imagenIndicator}>
+            <Text style={styles.imagenIndicatorText}>📷 Tiene comprobante</Text>
+          </View>
+        )}
 
         {isAdminOrJefe && (
           <View style={styles.accionesContainer}>
@@ -165,6 +191,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         <View style={styles.footerSpacer} />
       </ScrollView>
 
+      {/* ✅ MODAL DE DETALLE CON IMAGEN MEJORADA */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -172,8 +199,8 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Detalle de Transferencia</Text>
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalTitle}>📋 Detalle de Transferencia</Text>
 
             {transferenciaSeleccionada && (
               <View>
@@ -203,12 +230,33 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                   <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado}</Text>
                 </View>
 
-                {transferenciaSeleccionada.soporte && (
-                  <View>
-                    <Text style={styles.modalLabel}>Soporte:</Text>
-                    <Image source={{ uri: transferenciaSeleccionada.soporte }} style={styles.modalImagen} />
-                  </View>
-                )}
+                {/* ✅ IMAGEN DEL COMPROBANTE - VERIFICA AMBOS CAMPOS */}
+                {(() => {
+                  const imagenData = getImagen(transferenciaSeleccionada);
+                  if (imagenData) {
+                    return (
+                      <View style={styles.imagenContainer}>
+                        <Text style={styles.modalLabel}>📷 Comprobante:</Text>
+                        <Image
+                          source={{
+                            uri: imagenData.startsWith('data:image')
+                              ? imagenData
+                              : `data:image/jpeg;base64,${imagenData}`
+                          }}
+                          style={styles.modalImagen}
+                          resizeMode="contain"
+                          onError={(e) => console.log('❌ Error imagen:', e.nativeEvent.error)}
+                        />
+                      </View>
+                    );
+                  } else {
+                    return (
+                      <View style={styles.sinImagenContainer}>
+                        <Text style={styles.sinImagenText}>📭 Sin comprobante</Text>
+                      </View>
+                    );
+                  }
+                })()}
 
                 {isAdminOrJefe && transferenciaSeleccionada.estado === 'SUBIDA' && (
                   <View style={styles.modalBotones}>
@@ -235,7 +283,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
             >
               <Text style={styles.modalCerrarText}>Cerrar</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>
@@ -319,6 +367,19 @@ const styles = StyleSheet.create({
     color: '#636E72',
     marginTop: 2,
   },
+  imagenIndicator: {
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#E8F8F5',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  imagenIndicatorText: {
+    fontSize: 11,
+    color: '#00B894',
+    fontWeight: '500',
+  },
   accionesContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -393,12 +454,27 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     marginBottom: 4,
   },
+  imagenContainer: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
   modalImagen: {
     width: '100%',
-    height: 150,
+    height: 300,
     borderRadius: 10,
     marginTop: 5,
-    resizeMode: 'cover',
+    backgroundColor: '#F0F0F0',
+  },
+  sinImagenContainer: {
+    marginTop: 10,
+    padding: 20,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  sinImagenText: {
+    fontSize: 14,
+    color: '#636E72',
   },
   modalBotones: {
     flexDirection: 'row',

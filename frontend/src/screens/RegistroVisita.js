@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
+import * as Location from 'expo-location';
+import { useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,9 +19,29 @@ const RegistroVisita = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [buscando, setBuscando] = useState(false);
+  
+  // 🔍 Búsqueda por identificador
   const [identificador, setIdentificador] = useState('');
   const [clienteEncontrado, setClienteEncontrado] = useState(null);
   const [clienteNoEncontrado, setClienteNoEncontrado] = useState(false);
+  
+  // 🔍 Búsqueda por nombre
+  const [searchTerm, setSearchTerm] = useState('');
+  const [clientes, setClientes] = useState([]);
+  const [clientesFiltrados, setClientesFiltrados] = useState([]);
+  const [mostrarClientes, setMostrarClientes] = useState(false);
+  
+  // 📍 Ubicación
+  const [ubicacion, setUbicacion] = useState({
+    latitude: null,
+    longitude: null,
+    address: null,
+    loadingLocation: false,
+    error: null,
+  });
+  
+  const searchTimeout = useRef(null);
+
   const [formData, setFormData] = useState({
     nombre: '',
     identificador: '',
@@ -34,18 +55,24 @@ const RegistroVisita = ({ navigation }) => {
   });
   const [fotoBase64, setFotoBase64] = useState(null);
 
-  // Tipos de visita completos
   const tiposVisita = [
     'Visita',
     'Cobro',
     'Instalación',
-    'Servicio Técnico',
-    'Otro'
+    'Mantenimiento',
+    'Revisión',
+    'Otros',
+    'Servicio Técnico'
   ];
 
-  // Buscar cliente por identificador
+  // ============================================
+  // 🔍 BUSCAR CLIENTE POR IDENTIFICADOR
+  // ============================================
   const buscarCliente = async () => {
+    console.log('🔍 1. Iniciando búsqueda por identificador:', identificador);
+    
     if (!identificador || identificador.trim() === '') {
+      console.log('❌ 2. Identificador vacío');
       Alert.alert('Error', 'Por favor ingresa un identificador');
       return;
     }
@@ -55,10 +82,13 @@ const RegistroVisita = ({ navigation }) => {
     setClienteEncontrado(null);
     
     try {
+      console.log('📡 3. Buscando cliente en:', `/clientes/buscar/${identificador.trim()}`);
       const response = await api.get(`/clientes/buscar/${identificador.trim()}`);
+      console.log('✅ 4. Respuesta:', response.data);
       
       if (response.data.success) {
         const cliente = response.data.data;
+        console.log('✅ 5. Cliente encontrado:', cliente);
         setClienteEncontrado(cliente);
         setClienteNoEncontrado(false);
         setFormData({
@@ -69,10 +99,14 @@ const RegistroVisita = ({ navigation }) => {
           direccion: cliente.direccion || '',
           telefono: cliente.telefono || '',
         });
+        setSearchTerm(cliente.nombre);
+        setMostrarClientes(false);
         Alert.alert('Éxito', `Cliente encontrado: ${cliente.nombre}`);
       }
     } catch (error) {
+      console.log('❌ 6. Error en búsqueda:', error);
       if (error.response?.status === 404) {
+        console.log('❌ 7. Cliente no encontrado (404)');
         setClienteEncontrado(null);
         setClienteNoEncontrado(true);
         setFormData({
@@ -85,19 +119,166 @@ const RegistroVisita = ({ navigation }) => {
         });
         Alert.alert('Cliente no encontrado', `No se encontró cliente con identificador ${identificador}`);
       } else {
+        console.log('❌ 8. Error inesperado:', error.message);
         Alert.alert('Error', 'Error al buscar el cliente');
-        console.error(error);
       }
     } finally {
       setBuscando(false);
+      console.log('🏁 9. Búsqueda finalizada');
     }
   };
 
-  // Tomar foto con la cámara
+  // ============================================
+  // 🔍 BUSCAR CLIENTES POR NOMBRE
+  // ============================================
+  const buscarClientesPorNombre = async (text) => {
+    console.log('🔍 10. Buscando por nombre:', text);
+    setSearchTerm(text);
+    
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    if (!text || text.length < 2) {
+      console.log('❌ 11. Texto muy corto, limpiando resultados');
+      setClientesFiltrados([]);
+      setMostrarClientes(false);
+      return;
+    }
+
+    searchTimeout.current = setTimeout(async () => {
+      setBuscando(true);
+      try {
+        console.log('📡 12. Buscando en:', `/clientes/todos?search=${encodeURIComponent(text)}&limit=20`);
+        const response = await api.get(`/clientes/todos?search=${encodeURIComponent(text)}&limit=20`);
+        console.log('✅ 13. Respuesta:', response.data);
+        if (response.data.success) {
+          const resultados = response.data.data || [];
+          console.log('✅ 14. Resultados encontrados:', resultados.length);
+          setClientes(resultados);
+          setClientesFiltrados(resultados);
+          setMostrarClientes(resultados.length > 0);
+          
+          if (resultados.length === 1) {
+            console.log('✅ 15. Seleccionando único resultado');
+            seleccionarCliente(resultados[0]);
+          }
+        }
+      } catch (error) {
+        console.log('❌ 16. Error en búsqueda por nombre:', error);
+      } finally {
+        setBuscando(false);
+      }
+    }, 500);
+  };
+
+  // ============================================
+  // 📋 SELECCIONAR CLIENTE
+  // ============================================
+  const seleccionarCliente = (cliente) => {
+    console.log('✅ 17. Seleccionando cliente:', cliente);
+    setClienteEncontrado(cliente);
+    setClienteNoEncontrado(false);
+    setFormData({
+      ...formData,
+      nombre: cliente.nombre || '',
+      identificador: cliente.identificador || '',
+      barrio: cliente.barrio || '',
+      direccion: cliente.direccion || '',
+      telefono: cliente.telefono || '',
+    });
+    setSearchTerm(cliente.nombre);
+    setMostrarClientes(false);
+    setClientesFiltrados([]);
+    setIdentificador(cliente.identificador || '');
+  };
+
+  // ============================================
+  // 📍 OBTENER UBICACIÓN
+  // ============================================
+  const obtenerUbicacion = async () => {
+    console.log('📍 18. Solicitando ubicación...');
+    setUbicacion(prev => ({ ...prev, loadingLocation: true, error: null }));
+
+    try {
+      console.log('📍 19. Solicitando permisos...');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        console.log('❌ 20. Permiso denegado');
+        setUbicacion(prev => ({
+          ...prev,
+          loadingLocation: false,
+          error: 'Permiso de ubicación denegado',
+        }));
+        Alert.alert(
+          'Permiso denegado',
+          'Para registrar la ubicación, necesitas permitir el acceso a la ubicación.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      console.log('📍 21. Obteniendo posición...');
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = location.coords;
+      console.log('📍 22. Posición obtenida:', { latitude, longitude });
+
+      let address = null;
+      try {
+        console.log('📍 23. Geocodificando dirección...');
+        const reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude,
+          longitude,
+        });
+        if (reverseGeocode && reverseGeocode.length > 0) {
+          const addr = reverseGeocode[0];
+          address = `${addr.street || ''} ${addr.name || ''}, ${addr.district || ''}, ${addr.city || ''}`.trim();
+          console.log('📍 24. Dirección encontrada:', address);
+        }
+      } catch (geoError) {
+        console.log('⚠️ 25. Error en geocodificación:', geoError);
+      }
+
+      setUbicacion({
+        latitude,
+        longitude,
+        address,
+        loadingLocation: false,
+        error: null,
+      });
+
+      Alert.alert(
+        '📍 Ubicación registrada',
+        address 
+          ? `Dirección: ${address}\nLat: ${latitude.toFixed(6)}\nLng: ${longitude.toFixed(6)}`
+          : `Lat: ${latitude.toFixed(6)}\nLng: ${longitude.toFixed(6)}`,
+        [{ text: 'OK' }]
+      );
+
+    } catch (error) {
+      console.log('❌ 26. Error al obtener ubicación:', error);
+      setUbicacion(prev => ({
+        ...prev,
+        loadingLocation: false,
+        error: error.message || 'Error al obtener ubicación',
+      }));
+      Alert.alert('Error', 'No se pudo obtener la ubicación. Verifica tu conexión GPS.');
+    }
+  };
+
+  // ============================================
+  // 📸 FOTO
+  // ============================================
   const tomarFoto = async () => {
+    console.log('📸 27. Tomando foto...');
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
+        console.log('❌ 28. Permiso de cámara denegado');
         Alert.alert('Permiso denegado', 'Necesitamos acceso a la cámara para tomar fotos');
         return;
       }
@@ -111,20 +292,24 @@ const RegistroVisita = ({ navigation }) => {
 
       if (!result.canceled) {
         const asset = result.assets[0];
+        console.log('✅ 29. Foto tomada correctamente');
         setFormData({ ...formData, foto: asset.uri });
         setFotoBase64(asset.base64);
+      } else {
+        console.log('❌ 30. Foto cancelada');
       }
     } catch (error) {
+      console.log('❌ 31. Error al tomar foto:', error);
       Alert.alert('Error', 'No se pudo tomar la foto');
-      console.log(error);
     }
   };
 
-  // Seleccionar foto de la galería
   const seleccionarFoto = async () => {
+    console.log('🖼️ 32. Seleccionando foto de galería...');
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
+        console.log('❌ 33. Permiso de galería denegado');
         Alert.alert('Permiso denegado', 'Necesitamos acceso a la galería');
         return;
       }
@@ -138,70 +323,108 @@ const RegistroVisita = ({ navigation }) => {
 
       if (!result.canceled) {
         const asset = result.assets[0];
+        console.log('✅ 34. Foto seleccionada correctamente');
         setFormData({ ...formData, foto: asset.uri });
         setFotoBase64(asset.base64);
+      } else {
+        console.log('❌ 35. Selección cancelada');
       }
     } catch (error) {
+      console.log('❌ 36. Error al seleccionar foto:', error);
       Alert.alert('Error', 'No se pudo seleccionar la foto');
-      console.log(error);
     }
   };
 
-  // Validar campos obligatorios
+  // ============================================
+  // ✅ VALIDAR Y REGISTRAR
+  // ============================================
   const validarCampos = () => {
+    console.log('🔍 37. Iniciando validación de campos...');
+    console.log('📋 38. Estado actual:', {
+      clienteEncontrado: !!clienteEncontrado,
+      nombre: formData.nombre,
+      identificador: formData.identificador,
+      barrio: formData.barrio,
+      direccion: formData.direccion,
+      telefono: formData.telefono,
+      tipo: formData.tipo,
+      monto: formData.monto,
+      observaciones: formData.observaciones,
+      foto: !!formData.foto,
+    });
+
     if (!clienteEncontrado) {
+      console.log('❌ 39. Error: Cliente no encontrado');
       Alert.alert('Error', 'Debes buscar y encontrar un cliente válido');
       return false;
     }
     if (!formData.nombre || !formData.identificador) {
+      console.log('❌ 40. Error: Nombre o identificador vacío');
       Alert.alert('Error', 'Debes buscar un cliente válido');
       return false;
     }
     if (!formData.barrio) {
+      console.log('❌ 41. Error: Barrio vacío');
       Alert.alert('Error', 'El barrio es obligatorio');
       return false;
     }
     if (!formData.direccion) {
+      console.log('❌ 42. Error: Dirección vacía');
       Alert.alert('Error', 'La dirección es obligatoria');
       return false;
     }
     if (!formData.telefono) {
+      console.log('❌ 43. Error: Teléfono vacío');
       Alert.alert('Error', 'El teléfono es obligatorio');
       return false;
     }
     if (!formData.tipo) {
+      console.log('❌ 44. Error: Tipo vacío');
       Alert.alert('Error', 'Debes seleccionar un tipo de visita');
       return false;
     }
     if (formData.tipo === 'Cobro' && !formData.monto) {
+      console.log('❌ 45. Error: Monto vacío para Cobro');
       Alert.alert('Error', 'El monto es obligatorio para cobros');
       return false;
     }
     if (formData.tipo === 'Cobro' && isNaN(parseFloat(formData.monto))) {
+      console.log('❌ 46. Error: Monto inválido');
       Alert.alert('Error', 'El monto debe ser un número válido');
       return false;
     }
     if (formData.tipo === 'Cobro' && parseFloat(formData.monto) <= 0) {
+      console.log('❌ 47. Error: Monto menor o igual a 0');
       Alert.alert('Error', 'El monto debe ser mayor a 0');
       return false;
     }
     if (!formData.observaciones || formData.observaciones.trim() === '') {
+      console.log('❌ 48. Error: Observaciones vacías');
       Alert.alert('Error', 'Las observaciones son obligatorias');
       return false;
     }
     if (!formData.foto) {
+      console.log('❌ 49. Error: Foto vacía');
       Alert.alert('Error', 'Debes tomar o seleccionar una foto');
       return false;
     }
+
+    console.log('✅ 50. Validación exitosa!');
     return true;
   };
 
-  // Registrar visita
   const handleSubmit = async () => {
-    if (!validarCampos()) return;
+    console.log('🚀 51. Iniciando handleSubmit');
+    
+    if (!validarCampos()) {
+      console.log('❌ 52. Validación fallida, abortando');
+      return;
+    }
 
     setLoading(true);
     try {
+      console.log('📤 53. Preparando datos para enviar...');
+      
       const dataToSend = {
         cliente: formData.nombre,
         identificador: formData.identificador,
@@ -212,10 +435,23 @@ const RegistroVisita = ({ navigation }) => {
         monto: formData.tipo === 'Cobro' ? parseFloat(formData.monto) : 0,
         observaciones: formData.observaciones,
         foto: fotoBase64,
-        tecnico: user?.id,
+        tecnico: user?.id || user?._id,
+        ubicacion: ubicacion.latitude && ubicacion.longitude ? {
+          latitude: ubicacion.latitude,
+          longitude: ubicacion.longitude,
+          address: ubicacion.address,
+        } : null,
       };
 
+      console.log('📦 54. Data a enviar:', JSON.stringify({
+        ...dataToSend,
+        foto: dataToSend.foto ? 'BASE64_DATA (omitiendo para log)' : null,
+      }, null, 2));
+
+      console.log('📡 55. Enviando petición a /visitas...');
       const response = await api.post('/visitas', dataToSend);
+      
+      console.log('✅ 56. Respuesta recibida:', response.data);
 
       Alert.alert(
         'Éxito',
@@ -236,29 +472,51 @@ const RegistroVisita = ({ navigation }) => {
                 foto: null,
               });
               setIdentificador('');
+              setSearchTerm('');
               setClienteEncontrado(null);
               setClienteNoEncontrado(false);
               setFotoBase64(null);
+              setClientesFiltrados([]);
+              setMostrarClientes(false);
+              setUbicacion({
+                latitude: null,
+                longitude: null,
+                address: null,
+                loadingLocation: false,
+                error: null,
+              });
               navigation.goBack();
             },
           },
         ]
       );
+      
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Error al registrar la visita');
+      console.log('❌ 57. ERROR en la petición:');
+      console.log('❌ 58. Error completo:', error);
+      console.log('❌ 59. Response:', error.response);
+      console.log('❌ 60. Response data:', error.response?.data);
+      console.log('❌ 61. Status:', error.response?.status);
+      
+      Alert.alert(
+        'Error al registrar',
+        error.response?.data?.message || error.message || 'Error al registrar la visita'
+      );
     } finally {
       setLoading(false);
+      console.log('🏁 62. Finalizado');
     }
   };
 
-  // Función para obtener el icono según el tipo
   const getIconForTipo = (tipo) => {
     const icons = {
       'Visita': '📋',
       'Cobro': '💰',
       'Instalación': '🔧',
-      'Servicio Técnico': '🛠️',
-      'Otro': '📌'
+      'Mantenimiento': '🔩',
+      'Revisión': '🔍',
+      'Otros': '📌',
+      'Servicio Técnico': '🛠️'
     };
     return icons[tipo] || '📌';
   };
@@ -266,8 +524,41 @@ const RegistroVisita = ({ navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.form}>
-        {/* Identificador con botón de búsqueda */}
-        <Text style={styles.label}>Identificador *</Text>
+        
+        {/* ============================================ */}
+        {/* 🔍 BÚSQUEDA POR NOMBRE */}
+        {/* ============================================ */}
+        <Text style={styles.label}>Buscar por Nombre</Text>
+        <TextInput
+          style={styles.input}
+          value={searchTerm}
+          onChangeText={buscarClientesPorNombre}
+          placeholder="Escribe el nombre del cliente..."
+        />
+        {buscando && <ActivityIndicator style={styles.buscandoIndicator} />}
+
+        {mostrarClientes && clientesFiltrados.length > 0 && (
+          <View style={styles.clientesLista}>
+            {clientesFiltrados.map((cliente) => (
+              <TouchableOpacity
+                key={cliente._id}
+                style={styles.clienteItem}
+                onPress={() => seleccionarCliente(cliente)}
+              >
+                <Text style={styles.clienteNombre}>{cliente.nombre}</Text>
+                <Text style={styles.clienteInfo}>
+                  {cliente.identificador && `Cód: ${cliente.identificador} • `}
+                  {cliente.barrio && `Barrio: ${cliente.barrio}`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* ============================================ */}
+        {/* 🔍 BÚSQUEDA POR IDENTIFICADOR */}
+        {/* ============================================ */}
+        <Text style={styles.label}>O buscar por Identificador *</Text>
         <View style={styles.buscarContainer}>
           <TextInput
             style={[styles.input, styles.inputBuscar]}
@@ -290,7 +581,6 @@ const RegistroVisita = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Mensaje de cliente no encontrado */}
         {clienteNoEncontrado && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>❌ Cliente no encontrado</Text>
@@ -298,7 +588,6 @@ const RegistroVisita = ({ navigation }) => {
           </View>
         )}
 
-        {/* Cliente encontrado - información */}
         {clienteEncontrado && (
           <View style={styles.clienteInfo}>
             <Text style={styles.clienteInfoTitle}>✅ Cliente encontrado</Text>
@@ -307,7 +596,46 @@ const RegistroVisita = ({ navigation }) => {
           </View>
         )}
 
-        {/* Campos de cliente (autocompletados) */}
+        {/* ============================================ */}
+        {/* 📍 UBICACIÓN */}
+        {/* ============================================ */}
+        <Text style={styles.label}>📍 Ubicación</Text>
+        <View style={styles.ubicacionContainer}>
+          <TouchableOpacity
+            style={styles.ubicacionButton}
+            onPress={obtenerUbicacion}
+            disabled={ubicacion.loadingLocation}
+          >
+            {ubicacion.loadingLocation ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.ubicacionButtonText}>
+                {ubicacion.latitude ? '📍 Actualizar ubicación' : '📍 Obtener ubicación'}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {ubicacion.latitude && (
+            <View style={styles.ubicacionInfo}>
+              <Text style={styles.ubicacionCoords}>
+                Lat: {ubicacion.latitude.toFixed(6)} • Lng: {ubicacion.longitude.toFixed(6)}
+              </Text>
+              {ubicacion.address && (
+                <Text style={styles.ubicacionAddress} numberOfLines={2}>
+                  📌 {ubicacion.address}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {ubicacion.error && (
+            <Text style={styles.ubicacionError}>⚠️ {ubicacion.error}</Text>
+          )}
+        </View>
+
+        {/* ============================================ */}
+        {/* 📝 DATOS DEL CLIENTE */}
+        {/* ============================================ */}
         <Text style={styles.label}>Nombre *</Text>
         <TextInput
           style={[styles.input, styles.inputDisabled]}
@@ -340,7 +668,9 @@ const RegistroVisita = ({ navigation }) => {
           placeholder="Buscar cliente primero"
         />
 
-        {/* Tipo de Visita - Todos los tipos */}
+        {/* ============================================ */}
+        {/* 📋 TIPO DE VISITA */}
+        {/* ============================================ */}
         <Text style={styles.label}>Tipo de Visita *</Text>
         <View style={styles.tipoContainer}>
           {tiposVisita.map((tipo) => (
@@ -372,7 +702,6 @@ const RegistroVisita = ({ navigation }) => {
               style={styles.inputMonto}
               value={formData.monto}
               onChangeText={(text) => {
-                // Solo permitir números y punto decimal
                 const cleaned = text.replace(/[^0-9.]/g, '');
                 setFormData({ ...formData, monto: cleaned });
               }}
@@ -476,6 +805,9 @@ const styles = StyleSheet.create({
     height: 120,
     textAlignVertical: 'top',
   },
+  buscandoIndicator: {
+    marginBottom: 10,
+  },
   buscarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -530,6 +862,29 @@ const styles = StyleSheet.create({
   clienteInfoText: {
     color: '#2E7D32',
     fontSize: 14,
+    marginTop: 2,
+  },
+  clientesLista: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    marginBottom: 15,
+    maxHeight: 200,
+  },
+  clienteItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  clienteNombre: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#2D3436',
+  },
+  clienteInfo: {
+    fontSize: 13,
+    color: '#636E72',
     marginTop: 2,
   },
   tipoContainer: {
@@ -616,6 +971,43 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',
+  },
+  ubicacionContainer: {
+    marginBottom: 15,
+  },
+  ubicacionButton: {
+    backgroundColor: '#0984E3',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  ubicacionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  ubicacionInfo: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+  },
+  ubicacionCoords: {
+    fontSize: 13,
+    color: '#2D3436',
+    fontWeight: '500',
+  },
+  ubicacionAddress: {
+    fontSize: 13,
+    color: '#636E72',
+    marginTop: 4,
+  },
+  ubicacionError: {
+    color: '#FF6B6B',
+    fontSize: 13,
+    marginTop: 5,
   },
   submitButton: {
     backgroundColor: '#6C5CE7',

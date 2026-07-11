@@ -1,9 +1,6 @@
 const mongoose = require('mongoose');
 
 const visitaSchema = new mongoose.Schema({
-  // ============================================
-  // DATOS DEL CLIENTE
-  // ============================================
   cliente: {
     type: String,
     required: [true, 'Cliente es obligatorio'],
@@ -27,10 +24,6 @@ const visitaSchema = new mongoose.Schema({
   codigoCliente: {
     type: String,
   },
-  
-  // ============================================
-  // TIPO DE VISITA
-  // ============================================
   tipo: {
     type: String,
     enum: ['Visita', 'Cobro', 'Instalación', 'Mantenimiento', 'Revisión', 'Otros', 'Servicio Técnico'],
@@ -40,10 +33,6 @@ const visitaSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  
-  // ============================================
-  // OBSERVACIONES, FOTO Y ESTADO
-  // ============================================
   observaciones: {
     type: String,
     required: [true, 'Observaciones son obligatorias'],
@@ -56,29 +45,17 @@ const visitaSchema = new mongoose.Schema({
     enum: ['Completada', 'Pendiente', 'Cancelada'],
     default: 'Pendiente',
   },
-  
-  // ============================================
-  // TÉCNICO
-  // ============================================
   tecnico: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
-  
-  // ============================================
-  // 📍 UBICACIÓN (NUEVO)
-  // ============================================
   ubicacion: {
     latitude: { type: Number },
     longitude: { type: Number },
     address: { type: String },
     registradaEn: { type: Date, default: Date.now }
   },
-  
-  // ============================================
-  // FECHAS
-  // ============================================
   fecha: {
     type: Date,
     default: Date.now,
@@ -93,9 +70,6 @@ const visitaSchema = new mongoose.Schema({
   },
 });
 
-// ============================================
-// MIDDLEWARE PARA ACTUALIZAR updatedAt
-// ============================================
 visitaSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
