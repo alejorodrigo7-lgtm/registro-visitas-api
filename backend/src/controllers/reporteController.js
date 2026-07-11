@@ -7,11 +7,11 @@ const Deposito = require('../models/Deposito');
 const User = require('../models/User');
 
 // ============================================
-// GENERAR REPORTE DE VISITAS
+// GENERAR REPORTE DE VISITAS (ACTUALIZADO)
 // ============================================
 exports.generarReporteVisitas = async (req, res) => {
   try {
-    const { fechaInicio, fechaFin, tecnico, estado } = req.query;
+    const { fechaInicio, fechaFin, tecnico, estado, tipo } = req.query;
 
     let query = {};
     if (fechaInicio && fechaFin) {
@@ -23,6 +23,7 @@ exports.generarReporteVisitas = async (req, res) => {
     }
     if (tecnico) query.tecnico = tecnico;
     if (estado) query.estado = estado;
+    if (tipo) query.tipo = tipo;
 
     const visitas = await Visita.find(query)
       .populate('tecnico', 'nombre email')
@@ -34,24 +35,41 @@ exports.generarReporteVisitas = async (req, res) => {
     worksheet.columns = [
       { header: 'Fecha', key: 'fecha', width: 20 },
       { header: 'Cliente', key: 'cliente', width: 30 },
+      { header: 'Identificador', key: 'identificador', width: 20 },
+      { header: 'Barrio', key: 'barrio', width: 20 },
       { header: 'Dirección', key: 'direccion', width: 35 },
       { header: 'Teléfono', key: 'telefono', width: 20 },
-      { header: 'Tipo', key: 'tipo', width: 15 },
+      { header: 'Tipo', key: 'tipo', width: 18 },
+      { header: 'Monto', key: 'monto', width: 15 },
       { header: 'Técnico', key: 'tecnico', width: 25 },
       { header: 'Estado', key: 'estado', width: 15 },
       { header: 'Observaciones', key: 'observaciones', width: 40 },
+      { header: 'Ubicación', key: 'ubicacion', width: 45 },
     ];
 
     for (const visita of visitas) {
+      let ubicacionStr = '';
+      if (visita.ubicacion) {
+        if (visita.ubicacion.address) {
+          ubicacionStr = visita.ubicacion.address;
+        } else if (visita.ubicacion.latitude && visita.ubicacion.longitude) {
+          ubicacionStr = `Lat: ${visita.ubicacion.latitude.toFixed(6)}, Lng: ${visita.ubicacion.longitude.toFixed(6)}`;
+        }
+      }
+
       worksheet.addRow({
         fecha: visita.fecha ? new Date(visita.fecha).toLocaleString('es-ES') : '',
         cliente: visita.cliente || '',
+        identificador: visita.identificador || '',
+        barrio: visita.barrio || '',
         direccion: visita.direccion || '',
         telefono: visita.telefono || '',
         tipo: visita.tipo || '',
+        monto: visita.monto || 0,
         tecnico: visita.tecnico?.nombre || '',
         estado: visita.estado || '',
         observaciones: visita.observaciones || '',
+        ubicacion: ubicacionStr,
       });
     }
 
@@ -90,9 +108,6 @@ exports.generarReporteTransferencias = async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Transferencias');
 
-    // ============================================
-    // 📋 COLUMNAS DEL REPORTE (incluye columna para imagen)
-    // ============================================
     worksheet.columns = [
       { header: 'Fecha', key: 'fecha', width: 20 },
       { header: 'Responsable', key: 'responsable', width: 25 },
@@ -107,13 +122,9 @@ exports.generarReporteTransferencias = async (req, res) => {
       { header: 'Comprobante', key: 'imagen', width: 30 },
     ];
 
-    // ============================================
-    // 📸 AGREGAR FILAS CON IMÁGENES
-    // ============================================
     for (let i = 0; i < transferencias.length; i++) {
       const t = transferencias[i];
       
-      // Agregar fila con datos
       const row = worksheet.addRow({
         fecha: t.fechaTransferencia ? new Date(t.fechaTransferencia).toLocaleString('es-ES') : '',
         responsable: t.responsable || '',
@@ -128,10 +139,6 @@ exports.generarReporteTransferencias = async (req, res) => {
         imagen: '',
       });
 
-      // ============================================
-      // 🖼️ INSERTAR IMAGEN EN LA CELDA
-      // ============================================
-      // Buscar imagen en imagenComprobante o soporte
       let imagenData = null;
       if (t.imagenComprobante && t.imagenComprobante.length > 100) {
         imagenData = t.imagenComprobante;
@@ -141,33 +148,25 @@ exports.generarReporteTransferencias = async (req, res) => {
 
       if (imagenData) {
         try {
-          // Limpiar el prefijo si existe (data:image/jpeg;base64,)
           let base64Data = imagenData;
           if (imagenData.startsWith('data:image')) {
             base64Data = imagenData.split(',')[1];
           }
 
-          // Convertir base64 a buffer
           const imageBuffer = Buffer.from(base64Data, 'base64');
-          
-          // Agregar imagen al workbook
           const imageId = workbook.addImage({
             buffer: imageBuffer,
             extension: 'jpeg',
           });
 
-          // Insertar imagen en la celda (columna K = índice 10, fila i+2 porque hay encabezado)
           worksheet.addImage(imageId, {
             tl: { col: 10, row: i + 1 },
             ext: { width: 120, height: 120 },
           });
 
-          // Ajustar altura de la fila para que se vea la imagen
           row.height = 140;
-
         } catch (error) {
           console.error('❌ Error al insertar imagen en Excel:', error.message);
-          // Si falla la imagen, dejar la celda vacía
         }
       }
     }
@@ -176,7 +175,6 @@ exports.generarReporteTransferencias = async (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=transferencias_con_imagenes.xlsx');
     res.send(buffer);
-
   } catch (error) {
     console.error('Error en generarReporteTransferencias:', error);
     res.status(500).json({ message: error.message });
