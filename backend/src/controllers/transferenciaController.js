@@ -13,6 +13,7 @@ exports.subirTransferencia = async (req, res) => {
       barrio,
       bancoCuenta,
       soporte,
+      imagenComprobante,  // 👈 NUEVO CAMPO
     } = req.body;
 
     if (!fechaTransferencia || !codigoIdentificador || !nombreUsuario || 
@@ -44,6 +45,7 @@ exports.subirTransferencia = async (req, res) => {
       barrio,
       bancoCuenta,
       soporte,
+      imagenComprobante: imagenComprobante || null,
       estado: 'SUBIDA',
     });
 
