@@ -1,11 +1,19 @@
 const Bodega = require('../models/Bodega');
 const User = require('../models/User');
 
+// ============================================
+// 📋 CREAR BODEGA (SOLO ADMIN)
+// ============================================
 exports.crearBodega = async (req, res) => {
+  console.log('🏗️ 1. CrearBodega - Inicio');
+  console.log('🏗️ 2. Body recibido:', req.body);
+  console.log('🏗️ 3. Usuario:', req.user?.email || req.user?.nombre);
+
   try {
     const { nombre, usuarioId } = req.body;
 
     if (!nombre) {
+      console.log('❌ 4. Error: nombre faltante');
       return res.status(400).json({
         success: false,
         message: 'El nombre de la bodega es obligatorio'
@@ -13,36 +21,45 @@ exports.crearBodega = async (req, res) => {
     }
 
     if (!usuarioId) {
+      console.log('❌ 5. Error: usuarioId faltante');
       return res.status(400).json({
         success: false,
         message: 'Debes seleccionar un usuario'
       });
     }
 
+    console.log('🔍 6. Verificando si la bodega existe:', nombre);
     const bodegaExistente = await Bodega.findOne({ nombre });
     if (bodegaExistente) {
+      console.log('❌ 7. Bodega ya existe');
       return res.status(400).json({
         success: false,
         message: `Ya existe una bodega con el nombre "${nombre}"`
       });
     }
 
+    console.log('👤 8. Verificando usuario:', usuarioId);
     const usuario = await User.findById(usuarioId);
     if (!usuario) {
+      console.log('❌ 9. Usuario no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Usuario no encontrado'
       });
     }
+    console.log('✅ 10. Usuario encontrado:', usuario.nombre, usuario.email);
 
+    console.log('🔍 11. Verificando si usuario ya tiene bodega');
     const bodegaUsuario = await Bodega.findOne({ usuario: usuarioId });
     if (bodegaUsuario) {
+      console.log('❌ 12. Usuario ya tiene bodega:', bodegaUsuario.nombre);
       return res.status(400).json({
         success: false,
         message: `El usuario ${usuario.nombre} ya tiene una bodega asignada: "${bodegaUsuario.nombre}"`
       });
     }
 
+    console.log('🏗️ 13. Creando bodega...');
     const bodega = new Bodega({
       nombre: nombre.trim(),
       usuario: usuarioId,
@@ -53,6 +70,7 @@ exports.crearBodega = async (req, res) => {
     });
 
     await bodega.save();
+    console.log('✅ 14. Bodega creada con ID:', bodega._id);
 
     res.status(201).json({
       success: true,
@@ -61,7 +79,24 @@ exports.crearBodega = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en crearBodega:', error);
+    console.log('❌ 15. Error en crearBodega:', error);
+    console.log('❌ 16. Stack:', error.stack);
+    
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(', ')
+      });
+    }
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ya existe una bodega con ese nombre'
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: error.message || 'Error interno del servidor',
@@ -69,7 +104,12 @@ exports.crearBodega = async (req, res) => {
   }
 };
 
+// ============================================
+// 📋 OBTENER TODAS LAS BODEGAS
+// ============================================
 exports.obtenerBodegas = async (req, res) => {
+  console.log('📋 1. obtenerBodegas - Inicio');
+  
   try {
     const { estado, usuario } = req.query;
     let query = {};
@@ -81,10 +121,14 @@ exports.obtenerBodegas = async (req, res) => {
       query.usuario = req.user._id;
     }
 
+    console.log('📋 2. Query:', query);
+
     const bodegas = await Bodega.find(query)
       .populate('usuario', 'nombre email rol')
       .populate('creadoPor', 'nombre')
       .sort({ nombre: 1 });
+
+    console.log('✅ 3. Bodegas encontradas:', bodegas.length);
 
     res.json({
       success: true,
@@ -93,7 +137,7 @@ exports.obtenerBodegas = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en obtenerBodegas:', error);
+    console.log('❌ Error en obtenerBodegas:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -101,6 +145,9 @@ exports.obtenerBodegas = async (req, res) => {
   }
 };
 
+// ============================================
+// 📋 OBTENER UNA BODEGA POR ID
+// ============================================
 exports.obtenerBodega = async (req, res) => {
   try {
     const bodega = await Bodega.findById(req.params.id)
@@ -135,7 +182,14 @@ exports.obtenerBodega = async (req, res) => {
   }
 };
 
+// ============================================
+// 📋 ASIGNAR MATERIAL A BODEGA (SIN UNIDAD)
+// ============================================
 exports.asignarMaterial = async (req, res) => {
+  console.log('📦 1. asignarMaterial - Inicio');
+  console.log('📦 2. ID Bodega:', req.params.id);
+  console.log('📦 3. Materiales:', req.body);
+
   try {
     const { id } = req.params;
     const { materiales } = req.body;
@@ -166,6 +220,7 @@ exports.asignarMaterial = async (req, res) => {
       const { nombre, cantidad, minimo } = material;
 
       if (!nombre || cantidad === undefined) {
+        console.log('⚠️ Material inválido:', material);
         continue;
       }
 
@@ -179,6 +234,7 @@ exports.asignarMaterial = async (req, res) => {
         if (minimo !== undefined) {
           materialExistente.minimo = minimo;
         }
+        console.log(`✅ Material actualizado: ${nombre} -> ${materialExistente.cantidad}`);
       } else {
         bodega.materiales.push({
           nombre,
@@ -187,10 +243,12 @@ exports.asignarMaterial = async (req, res) => {
           fechaAsignacion: new Date(),
           fechaActualizacion: new Date(),
         });
+        console.log(`✅ Material agregado: ${nombre} -> ${cantidad}`);
       }
     }
 
     await bodega.save();
+    console.log('✅ Materiales guardados correctamente');
 
     res.json({
       success: true,
@@ -199,7 +257,7 @@ exports.asignarMaterial = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en asignarMaterial:', error);
+    console.error('❌ Error en asignarMaterial:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -207,7 +265,14 @@ exports.asignarMaterial = async (req, res) => {
   }
 };
 
+// ============================================
+// 📋 RESTAR MATERIAL DE BODEGA (CON ALERTAS PUSH)
+// ============================================
 exports.restarMaterial = async (req, res) => {
+  console.log('📉 1. restarMaterial - Inicio');
+  console.log('📉 2. ID Bodega:', req.params.id);
+  console.log('📉 3. Materiales a restar:', req.body);
+
   try {
     const { id } = req.params;
     const { materiales } = req.body;
@@ -241,7 +306,7 @@ exports.restarMaterial = async (req, res) => {
       const { nombre, cantidad } = material;
 
       if (!nombre || !cantidad || cantidad <= 0) {
-        errores.push(`Material ${nombre} invalido`);
+        errores.push(`Material ${nombre} inválido`);
         continue;
       }
 
@@ -259,15 +324,18 @@ exports.restarMaterial = async (req, res) => {
         continue;
       }
 
+      // ✅ RESTAR CANTIDAD
       materialExistente.cantidad -= cantidad;
       materialExistente.fechaActualizacion = new Date();
 
+      // ✅ VERIFICAR SI LLEGÓ AL MÍNIMO O ESTÁ POR DEBAJO
       if (materialExistente.minimo > 0 && materialExistente.cantidad <= materialExistente.minimo) {
         materialesAlertas.push({
           nombre: materialExistente.nombre,
           cantidad: materialExistente.cantidad,
           minimo: materialExistente.minimo,
         });
+        console.log(`⚠️ ALERTA: ${materialExistente.nombre} está en ${materialExistente.cantidad} (mínimo: ${materialExistente.minimo})`);
       }
     }
 
@@ -280,8 +348,13 @@ exports.restarMaterial = async (req, res) => {
     }
 
     await bodega.save();
+    console.log('✅ Materiales restados correctamente');
 
-    // Enviar alertas push a Admin y Jefe
+    // ============================================
+    // 📲 ENVIAR ALERTAS PUSH A ADMIN Y JEFE
+    // ============================================
+    console.log(`📊 Materiales en alerta: ${materialesAlertas.length}`);
+
     if (materialesAlertas.length > 0) {
       try {
         const { Expo } = require('expo-server-sdk');
@@ -292,13 +365,15 @@ exports.restarMaterial = async (req, res) => {
           expoPushToken: { $ne: null, $exists: true }
         });
 
+        console.log(`📲 Admin/Jefe a notificar: ${usuariosNotificar.length}`);
+
         if (usuariosNotificar.length > 0) {
           const messages = usuariosNotificar.map(user => ({
             to: user.expoPushToken,
             sound: 'default',
-            title: `Alerta de Stock Bajo - ${bodega.nombre}`,
-            body: `Materiales en nivel minimo: ${materialesAlertas.map(m => m.nombre).join(', ')}`,
-            data: {
+            title: `⚠️ Alerta de Stock Bajo - ${bodega.nombre}`,
+            body: `Materiales en nivel mínimo: ${materialesAlertas.map(m => m.nombre).join(', ')}`,
+            data: { 
               type: 'stock_bajo',
               bodega: bodega.nombre,
               materiales: materialesAlertas,
@@ -310,10 +385,13 @@ exports.restarMaterial = async (req, res) => {
           for (const chunk of chunks) {
             await expo.sendPushNotificationsAsync(chunk);
           }
+          console.log(`📲 Alertas push enviadas a ${usuariosNotificar.length} administradores/jefes`);
+        } else {
+          console.log('⚠️ No hay Admin o Jefe con token push registrado');
         }
 
       } catch (pushError) {
-        console.error('Error enviando alertas push:', pushError);
+        console.error('❌ Error enviando alertas push:', pushError);
       }
     }
 
@@ -328,7 +406,7 @@ exports.restarMaterial = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en restarMaterial:', error);
+    console.error('❌ Error en restarMaterial:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -336,6 +414,9 @@ exports.restarMaterial = async (req, res) => {
   }
 };
 
+// ============================================
+// 📋 ELIMINAR BODEGA (SOLO ADMIN)
+// ============================================
 exports.eliminarBodega = async (req, res) => {
   try {
     const { id } = req.params;
@@ -364,6 +445,9 @@ exports.eliminarBodega = async (req, res) => {
   }
 };
 
+// ============================================
+// 📋 CAMBIAR ESTADO DE BODEGA (SOLO ADMIN)
+// ============================================
 exports.cambiarEstadoBodega = async (req, res) => {
   try {
     const { id } = req.params;
@@ -372,7 +456,7 @@ exports.cambiarEstadoBodega = async (req, res) => {
     if (!['ACTIVA', 'INACTIVA'].includes(estado)) {
       return res.status(400).json({
         success: false,
-        message: 'Estado invalido. Debe ser ACTIVA o INACTIVA'
+        message: 'Estado inválido. Debe ser ACTIVA o INACTIVA'
       });
     }
 
@@ -402,6 +486,9 @@ exports.cambiarEstadoBodega = async (req, res) => {
   }
 };
 
+// ============================================
+// 📋 EXPORTAR TODAS LAS FUNCIONES
+// ============================================
 module.exports = {
   crearBodega,
   obtenerBodegas,
