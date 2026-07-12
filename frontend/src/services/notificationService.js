@@ -1,8 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import api from './api';
+
+// ============================================
+// 📱 CONFIGURACIÓN DE NOTIFICACIONES
+// ============================================
 
 // Configurar el comportamiento de las notificaciones
 Notifications.setNotificationHandler({
@@ -13,9 +17,14 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Registrar dispositivo para notificaciones push
+// ============================================
+// 📱 REGISTRAR DISPOSITIVO PARA NOTIFICACIONES PUSH
+// ============================================
+
 export async function registerForPushNotificationsAsync() {
   let token;
+
+  console.log('📱 1. Iniciando registro de notificaciones...');
 
   // Verificar que es un dispositivo físico (no emulador)
   if (!Device.isDevice) {
@@ -38,12 +47,14 @@ export async function registerForPushNotificationsAsync() {
     return;
   }
 
+  console.log('✅ 2. Permiso de notificaciones concedido');
+
   // Obtener el token de Expo
   try {
     token = await Notifications.getExpoPushTokenAsync({
       projectId: 'c738e27f-e3ba-489f-8357-1a980a5d45d1',
     });
-    console.log('✅ Token push obtenido:', token.data);
+    console.log('✅ 3. Token push obtenido:', token.data);
   } catch (error) {
     console.error('❌ Error al obtener token push:', error);
     return;
@@ -55,17 +66,14 @@ export async function registerForPushNotificationsAsync() {
       const user = await AsyncStorage.getItem('@user');
       if (user) {
         const userData = JSON.parse(user);
-        console.log('📡 Registrando token para usuario:', userData.id);
-        
-        // Verificar que el token existe en el header
-        console.log('🔑 Token JWT:', api.defaults.headers.common['Authorization'] ? '✅ Disponible' : '❌ No disponible');
+        console.log('📡 4. Registrando token para usuario:', userData.id);
         
         const response = await api.post('/auth/registrar-push-token', {
           userId: userData.id,
           token: token.data,
         });
         
-        console.log('✅ Token push registrado en el backend para:', userData.email);
+        console.log('✅ 5. Token push registrado en el backend para:', userData.email);
         return response.data;
       } else {
         console.log('⚠️ No hay usuario logueado para registrar token');
@@ -82,20 +90,45 @@ export async function registerForPushNotificationsAsync() {
   return token;
 }
 
-// Recibir notificaciones en foreground
+// ============================================
+// 📱 ESCUCHAR NOTIFICACIONES
+// ============================================
+
 export function setupNotificationListeners() {
+  console.log('📱 Configurando listeners de notificaciones...');
+
+  // ✅ NOTIFICACIÓN RECIBIDA EN PRIMER PLANO - MOSTRAR ALERT
   const subscription = Notifications.addNotificationReceivedListener(notification => {
     console.log('📱 Notificación recibida en foreground:', notification);
+    
+    const title = notification.request.content.title || 'Nueva notificación';
+    const body = notification.request.content.body || '';
+    
+    // ✅ Mostrar alerta cuando llega la notificación
+    Alert.alert(title, body);
   });
 
+  // ✅ USUARIO TOCÓ LA NOTIFICACIÓN
   const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
     console.log('📱 Usuario tocó la notificación:', response);
+    
+    const data = response.notification.request.content.data;
+    const title = response.notification.request.content.title || 'Notificación';
+    const body = response.notification.request.content.body || '';
+    
+    // ✅ Mostrar alerta cuando el usuario toca la notificación
+    Alert.alert(`📱 ${title}`, body);
   });
+
+  console.log('✅ Listeners de notificaciones configurados');
 
   return { subscription, responseSubscription };
 }
 
-// Enviar notificación push (desde el frontend)
+// ============================================
+// 📤 ENVIAR NOTIFICACIÓN PUSH (DESDE EL FRONTEND)
+// ============================================
+
 export async function sendPushNotification(expoPushToken, title, body, data = {}) {
   const message = {
     to: expoPushToken,
@@ -121,6 +154,124 @@ export async function sendPushNotification(expoPushToken, title, body, data = {}
     return result;
   } catch (error) {
     console.error('❌ Error al enviar push:', error);
+    return null;
+  }
+}
+
+// ============================================
+// 📱 REGISTRAR TOKEN AL INICIAR SESIÓN
+// ============================================
+
+export async function registerTokenAfterLogin(userId) {
+  try {
+    // Verificar permisos
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('❌ Permiso de notificaciones denegado');
+        return false;
+      }
+    }
+
+    // Obtener token
+    const token = await Notifications.getExpoPushTokenAsync({
+      projectId: 'c738e27f-e3ba-489f-8357-1a980a5d45d1',
+    });
+
+    if (!token) {
+      console.log('❌ No se pudo obtener token push');
+      return false;
+    }
+
+    console.log('📱 Token push obtenido:', token.data);
+
+    // Registrar en backend
+    const response = await api.post('/auth/registrar-push-token', {
+      userId: userId,
+      token: token.data,
+    });
+
+    console.log('✅ Token push registrado en backend');
+    return true;
+
+  } catch (error) {
+    console.error('❌ Error registrando token después de login:', error);
+    return false;
+  }
+}
+
+// ============================================
+// 📱 MOSTRAR NOTIFICACIÓN LOCAL (PARA PRUEBAS)
+// ============================================
+
+export async function showLocalNotification(title, body, data = {}) {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: title || 'Notificación',
+        body: body || 'Mensaje de prueba',
+        data: data,
+        sound: true,
+      },
+      trigger: null, // Inmediato
+    });
+    console.log('✅ Notificación local enviada');
+    return true;
+  } catch (error) {
+    console.error('❌ Error al mostrar notificación local:', error);
+    return false;
+  }
+}
+
+// ============================================
+// 📱 CONFIGURAR NOTIFICACIONES PARA ANDROID
+// ============================================
+
+export async function configureAndroidNotifications() {
+  if (Platform.OS === 'android') {
+    try {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#6C5CE7',
+        sound: true,
+        enableVibrate: true,
+        bypassDnd: false,
+        lockScreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        showBadge: true,
+      });
+      console.log('✅ Canal de notificaciones Android configurado');
+    } catch (error) {
+      console.error('❌ Error configurando canal Android:', error);
+    }
+  }
+}
+
+// ============================================
+// 📱 LIMPIAR NOTIFICACIONES
+// ============================================
+
+export async function clearAllNotifications() {
+  try {
+    await Notifications.dismissAllNotificationsAsync();
+    console.log('✅ Notificaciones limpiadas');
+  } catch (error) {
+    console.error('❌ Error limpiando notificaciones:', error);
+  }
+}
+
+// ============================================
+// 📱 OBTENER TOKEN GUARDADO
+// ============================================
+
+export async function getStoredPushToken() {
+  try {
+    const token = await AsyncStorage.getItem('expoPushToken');
+    return token;
+  } catch (error) {
+    console.error('❌ Error obteniendo token guardado:', error);
     return null;
   }
 }
