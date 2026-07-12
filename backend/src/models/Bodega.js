@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 const materialSchema = new mongoose.Schema({
   nombre: { type: String, required: true },
-  unidad: { type: String, required: true },
   cantidad: { type: Number, required: true, default: 0 },
   minimo: { type: Number, default: 0 },
   fechaAsignacion: { type: Date, default: Date.now },

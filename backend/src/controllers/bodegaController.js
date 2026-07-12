@@ -183,7 +183,7 @@ exports.obtenerBodega = async (req, res) => {
 };
 
 // ============================================
-// 📋 ASIGNAR MATERIAL A BODEGA
+// 📋 ASIGNAR MATERIAL A BODEGA (CORREGIDO - SIN UNIDAD)
 // ============================================
 exports.asignarMaterial = async (req, res) => {
   console.log('📦 1. asignarMaterial - Inicio');
@@ -216,36 +216,42 @@ exports.asignarMaterial = async (req, res) => {
       });
     }
 
+    // 👈 PROCESAR MATERIALES SIN UNIDAD
     for (const material of materiales) {
-      const { nombre, unidad, cantidad, minimo } = material;
+      const { nombre, cantidad, minimo } = material;
 
-      if (!nombre || !unidad || cantidad === undefined) {
+      if (!nombre || cantidad === undefined) {
+        console.log('⚠️ Material inválido:', material);
         continue;
       }
 
       const materialExistente = bodega.materiales.find(
-        m => m.nombre.toLowerCase() === nombre.toLowerCase() && m.unidad === unidad
+        m => m.nombre.toLowerCase() === nombre.toLowerCase()
       );
 
       if (materialExistente) {
+        // Actualizar cantidad sumando
         materialExistente.cantidad += cantidad;
         materialExistente.fechaActualizacion = new Date();
         if (minimo !== undefined) {
           materialExistente.minimo = minimo;
         }
+        console.log(`✅ Material actualizado: ${nombre} -> ${materialExistente.cantidad}`);
       } else {
+        // Agregar nuevo material
         bodega.materiales.push({
           nombre,
-          unidad,
           cantidad,
           minimo: minimo || 0,
           fechaAsignacion: new Date(),
           fechaActualizacion: new Date(),
         });
+        console.log(`✅ Material agregado: ${nombre} -> ${cantidad}`);
       }
     }
 
     await bodega.save();
+    console.log('✅ Materiales guardados correctamente');
 
     res.json({
       success: true,
@@ -254,7 +260,7 @@ exports.asignarMaterial = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en asignarMaterial:', error);
+    console.error('❌ Error en asignarMaterial:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -263,7 +269,7 @@ exports.asignarMaterial = async (req, res) => {
 };
 
 // ============================================
-// 📋 RESTAR MATERIAL DE BODEGA
+// 📋 RESTAR MATERIAL DE BODEGA (CON ALERTAS PUSH)
 // ============================================
 exports.restarMaterial = async (req, res) => {
   console.log('📉 1. restarMaterial - Inicio');
@@ -281,7 +287,7 @@ exports.restarMaterial = async (req, res) => {
       });
     }
 
-    const bodega = await Bodega.findById(id);
+    const bodega = await Bodega.findById(id).populate('usuario', 'nombre email expoPushToken');
     if (!bodega) {
       return res.status(404).json({
         success: false,
@@ -289,7 +295,7 @@ exports.restarMaterial = async (req, res) => {
       });
     }
 
-    if (req.user.rol === 'Tecnico' && bodega.usuario.toString() !== req.user._id.toString()) {
+    if (req.user.rol === 'Tecnico' && bodega.usuario._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'No tienes permiso para modificar esta bodega'
@@ -297,31 +303,41 @@ exports.restarMaterial = async (req, res) => {
     }
 
     const errores = [];
+    const materialesAlertas = [];
 
     for (const material of materiales) {
-      const { nombre, unidad, cantidad } = material;
+      const { nombre, cantidad } = material;
 
-      if (!nombre || !unidad || !cantidad || cantidad <= 0) {
+      if (!nombre || !cantidad || cantidad <= 0) {
         errores.push(`Material ${nombre} inválido`);
         continue;
       }
 
       const materialExistente = bodega.materiales.find(
-        m => m.nombre.toLowerCase() === nombre.toLowerCase() && m.unidad === unidad
+        m => m.nombre.toLowerCase() === nombre.toLowerCase()
       );
 
       if (!materialExistente) {
-        errores.push(`Material ${nombre} (${unidad}) no encontrado en la bodega`);
+        errores.push(`Material ${nombre} no encontrado en la bodega`);
         continue;
       }
 
       if (materialExistente.cantidad < cantidad) {
-        errores.push(`Stock insuficiente para ${nombre} (${unidad}). Disponible: ${materialExistente.cantidad}`);
+        errores.push(`Stock insuficiente para ${nombre}. Disponible: ${materialExistente.cantidad}`);
         continue;
       }
 
       materialExistente.cantidad -= cantidad;
       materialExistente.fechaActualizacion = new Date();
+
+      // Verificar si llegó al mínimo
+      if (materialExistente.minimo > 0 && materialExistente.cantidad <= materialExistente.minimo) {
+        materialesAlertas.push({
+          nombre: materialExistente.nombre,
+          cantidad: materialExistente.cantidad,
+          minimo: materialExistente.minimo,
+        });
+      }
     }
 
     if (errores.length > 0) {
@@ -334,14 +350,49 @@ exports.restarMaterial = async (req, res) => {
 
     await bodega.save();
 
+    // ============================================
+    // 📲 ENVIAR ALERTAS PUSH
+    // ============================================
+    if (materialesAlertas.length > 0 && bodega.usuario.expoPushToken) {
+      try {
+        const { Expo } = require('expo-server-sdk');
+        const expo = new Expo();
+
+        const messages = [{
+          to: bodega.usuario.expoPushToken,
+          sound: 'default',
+          title: '⚠️ Alerta de Stock Bajo',
+          body: `Materiales en nivel mínimo: ${materialesAlertas.map(m => m.nombre).join(', ')}`,
+          data: { 
+            type: 'stock_bajo',
+            bodega: bodega.nombre,
+            materiales: materialesAlertas,
+          },
+        }];
+
+        const chunks = expo.chunkPushNotifications(messages);
+        for (const chunk of chunks) {
+          await expo.sendPushNotificationsAsync(chunk);
+        }
+        console.log('📲 Alertas push enviadas:', materialesAlertas.length);
+
+      } catch (pushError) {
+        console.error('❌ Error enviando alertas push:', pushError);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Materiales restados correctamente',
       data: bodega,
+      alertas: materialesAlertas.length > 0 ? {
+        enviadas: true,
+        materiales: materialesAlertas,
+      } : null,
     });
 
   } catch (error) {
-    console.error('Error en restarMaterial:', error);
+    console.error('❌ Error en restarMaterial:', error);
     res.status(500).json({
       success: false,
       message: error.message,
