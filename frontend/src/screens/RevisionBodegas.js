@@ -15,6 +15,25 @@ import {
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
+// 📋 LISTA DE MATERIALES PREDEFINIDOS (se muestran todos siempre)
+const MATERIALES_PREDEFINIDOS = [
+  'FIBRA EN METROS',
+  'CABLE EN METROS',
+  'EQUIPO ONU',
+  'REPETIDOR',
+  'RECEPTOR',
+  'F56',
+  'DIV2',
+  'DIV3',
+  'CONECTOR VERDE',
+  'CONECTOR AZUL',
+  'ROSETTA',
+  'TERMO',
+  'CABLE LAN EN METROS',
+  'GRAPAS',
+  'AMARRAS',
+];
+
 const RevisionBodegas = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -53,7 +72,6 @@ const RevisionBodegas = ({ navigation }) => {
     cargarBodegas();
   };
 
-  // 🔍 Buscar bodegas por nombre o usuario
   const buscarBodegas = (text) => {
     setSearchTerm(text);
     if (!text || text.trim() === '') {
@@ -127,6 +145,20 @@ const RevisionBodegas = ({ navigation }) => {
     return num?.toFixed(2) || '0';
   };
 
+  // 🔍 Obtener cantidad de un material en la bodega
+  const getCantidadMaterial = (bodega, nombreMaterial) => {
+    if (!bodega || !bodega.materiales) return 0;
+    const material = bodega.materiales.find(m => m.nombre === nombreMaterial);
+    return material ? material.cantidad : 0;
+  };
+
+  // 🔍 Obtener el mínimo de un material en la bodega
+  const getMinimoMaterial = (bodega, nombreMaterial) => {
+    if (!bodega || !bodega.materiales) return 0;
+    const material = bodega.materiales.find(m => m.nombre === nombreMaterial);
+    return material ? material.minimo : 0;
+  };
+
   const abrirDetalle = (bodega) => {
     setBodegaSeleccionada(bodega);
     setModalVisible(true);
@@ -148,7 +180,6 @@ const RevisionBodegas = ({ navigation }) => {
         <Text style={styles.subtitle}>Inventario y gestión de bodegas</Text>
       </View>
 
-      {/* 🔍 Buscador */}
       <View style={styles.buscadorContainer}>
         <TextInput
           style={styles.buscadorInput}
@@ -176,7 +207,6 @@ const RevisionBodegas = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Contador de resultados */}
         <Text style={styles.resultadosCount}>
           {bodegasFiltradas.length} bodega{bodegasFiltradas.length !== 1 ? 's' : ''} encontrada{bodegasFiltradas.length !== 1 ? 's' : ''}
         </Text>
@@ -256,7 +286,7 @@ const RevisionBodegas = ({ navigation }) => {
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* 📋 Modal de Detalle con lista completa de materiales */}
+      {/* 📋 MODAL DE DETALLE - CON TODOS LOS MATERIALES PREDEFINIDOS */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -269,7 +299,6 @@ const RevisionBodegas = ({ navigation }) => {
 
             {bodegaSeleccionada && (
               <View>
-                {/* Información general */}
                 <View style={styles.modalInfoSection}>
                   <Text style={styles.modalInfoLabel}>Nombre:</Text>
                   <Text style={styles.modalInfoValue}>{bodegaSeleccionada.nombre}</Text>
@@ -291,41 +320,67 @@ const RevisionBodegas = ({ navigation }) => {
                   </Text>
                 </View>
 
-                {/* 📦 Lista completa de materiales */}
+                {/* 📦 LISTA COMPLETA DE TODOS LOS MATERIALES PREDEFINIDOS */}
                 <View style={styles.modalMaterialesSection}>
                   <Text style={styles.modalMaterialesTitle}>
-                    📦 Materiales ({bodegaSeleccionada.materiales?.length || 0})
+                    📦 Inventario de Materiales
                   </Text>
 
-                  {bodegaSeleccionada.materiales?.length === 0 ? (
-                    <Text style={styles.modalSinMateriales}>No hay materiales asignados</Text>
-                  ) : (
-                    <View style={styles.modalMaterialesLista}>
-                      {bodegaSeleccionada.materiales?.map((m, index) => (
+                  <View style={styles.modalMaterialesLista}>
+                    {MATERIALES_PREDEFINIDOS.map((nombreMaterial, index) => {
+                      const cantidad = getCantidadMaterial(bodegaSeleccionada, nombreMaterial);
+                      const minimo = getMinimoMaterial(bodegaSeleccionada, nombreMaterial);
+                      const tieneStock = cantidad > 0;
+                      const esCritico = minimo > 0 && cantidad <= minimo && cantidad > 0;
+
+                      return (
                         <View key={index} style={[
                           styles.modalMaterialItem,
-                          m.minimo > 0 && m.cantidad <= m.minimo && styles.modalMaterialItemCritico,
+                          esCritico && styles.modalMaterialItemCritico,
+                          !tieneStock && styles.modalMaterialItemVacio,
                         ]}>
                           <View style={styles.modalMaterialInfo}>
-                            <Text style={styles.modalMaterialNombre}>{m.nombre}</Text>
-                            <Text style={styles.modalMaterialCantidad}>
-                              Cantidad: {formatNumber(m.cantidad)}
+                            <Text style={[
+                              styles.modalMaterialNombre,
+                              !tieneStock && styles.modalMaterialNombreVacio,
+                            ]}>
+                              {nombreMaterial}
+                            </Text>
+                            <Text style={[
+                              styles.modalMaterialCantidad,
+                              esCritico && styles.modalMaterialCantidadCritico,
+                              !tieneStock && styles.modalMaterialCantidadVacio,
+                            ]}>
+                              {tieneStock ? `${formatNumber(cantidad)} unidades` : 'Sin stock'}
                             </Text>
                           </View>
                           <View style={styles.modalMaterialEstado}>
-                            {m.minimo > 0 && (
-                              <Text style={[
-                                styles.modalMaterialMinimo,
-                                m.cantidad <= m.minimo && styles.modalMaterialAlerta,
-                              ]}>
-                                {m.cantidad <= m.minimo ? '⚠️ CRÍTICO' : `Mín: ${formatNumber(m.minimo)}`}
+                            {esCritico && (
+                              <Text style={styles.modalMaterialAlerta}>⚠️ CRÍTICO</Text>
+                            )}
+                            {minimo > 0 && tieneStock && !esCritico && (
+                              <Text style={styles.modalMaterialMinimoNormal}>
+                                Mín: {formatNumber(minimo)}
                               </Text>
+                            )}
+                            {!tieneStock && (
+                              <Text style={styles.modalMaterialSinStock}>📭</Text>
                             )}
                           </View>
                         </View>
-                      ))}
-                    </View>
-                  )}
+                      );
+                    })}
+                  </View>
+
+                  <View style={styles.modalResumen}>
+                    <Text style={styles.modalResumenText}>
+                      📊 Total con stock: {
+                        MATERIALES_PREDEFINIDOS.filter(nombre => 
+                          getCantidadMaterial(bodegaSeleccionada, nombre) > 0
+                        ).length
+                      } de {MATERIALES_PREDEFINIDOS.length}
+                    </Text>
+                  </View>
                 </View>
               </View>
             )}
@@ -575,13 +630,6 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     marginBottom: 10,
   },
-  modalSinMateriales: {
-    fontSize: 14,
-    color: '#636E72',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    padding: 20,
-  },
   modalMaterialesLista: {
     marginTop: 5,
   },
@@ -600,6 +648,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5F5',
     borderColor: '#FF6B6B',
   },
+  modalMaterialItemVacio: {
+    backgroundColor: '#F5F5F5',
+    borderColor: '#EAEAEA',
+    opacity: 0.7,
+  },
   modalMaterialInfo: {
     flex: 1,
   },
@@ -608,21 +661,49 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#2D3436',
   },
+  modalMaterialNombreVacio: {
+    color: '#999',
+  },
   modalMaterialCantidad: {
     fontSize: 13,
     color: '#636E72',
     marginTop: 2,
   },
+  modalMaterialCantidadCritico: {
+    color: '#FF6B6B',
+    fontWeight: 'bold',
+  },
+  modalMaterialCantidadVacio: {
+    color: '#999',
+    fontStyle: 'italic',
+  },
   modalMaterialEstado: {
     alignItems: 'flex-end',
-  },
-  modalMaterialMinimo: {
-    fontSize: 12,
-    color: '#636E72',
+    minWidth: 80,
   },
   modalMaterialAlerta: {
     color: '#FF6B6B',
     fontWeight: 'bold',
+    fontSize: 12,
+  },
+  modalMaterialMinimoNormal: {
+    color: '#636E72',
+    fontSize: 11,
+  },
+  modalMaterialSinStock: {
+    fontSize: 18,
+    color: '#CCC',
+  },
+  modalResumen: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#E8F0FE',
+    borderRadius: 8,
+  },
+  modalResumenText: {
+    fontSize: 13,
+    color: '#0984E3',
+    textAlign: 'center',
   },
   modalCerrar: {
     marginTop: 15,
