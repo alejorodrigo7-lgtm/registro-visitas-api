@@ -10,7 +10,8 @@ const transferenciaRoutes = require('./routes/transferenciaRoutes');
 const servicioRoutes = require('./routes/servicioRoutes');
 const cajaRoutes = require('./routes/cajaRoutes');
 const reporteRoutes = require('./routes/reporteRoutes');
-const visitaRoutes = require('./routes/visitaRoutes'); // 👈 AGREGAR
+const visitaRoutes = require('./routes/visitaRoutes');
+const bodegaRoutes = require('./routes/bodegaRoutes');
 
 const app = express();
 
@@ -92,34 +93,15 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
 });
 
 // ============================================
-// RUTAS DE AUTENTICACIÓN
+// RUTAS
 // ============================================
 app.use('/api/auth', authRoutes);
-
-// ============================================
-// RUTAS DE TRANSFERENCIAS
-// ============================================
 app.use('/api/transferencias', transferenciaRoutes);
-
-// ============================================
-// RUTAS DE SERVICIOS
-// ============================================
 app.use('/api/servicios', servicioRoutes);
-
-// ============================================
-// RUTAS DE CAJAS
-// ============================================
 app.use('/api/cajas', cajaRoutes);
-
-// ============================================
-// RUTAS DE REPORTES
-// ============================================
 app.use('/api/reportes', reporteRoutes);
-
-// ============================================
-// RUTAS DE VISITAS 👈 AGREGAR
-// ============================================
 app.use('/api/visitas', visitaRoutes);
+app.use('/api/bodegas', bodegaRoutes);
 
 // ============================================
 // RUTA DE PRUEBA
@@ -139,4 +121,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`💰 /api/cajas`);
   console.log(`📊 /api/reportes`);
   console.log(`📋 /api/visitas`);
+  console.log(`🏪 /api/bodegas`);
 });

@@ -1,12 +1,12 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
+  View,
   Text,
   TouchableOpacity,
-  View,
+  StyleSheet,
+  SafeAreaView,
+  Alert,
+  ScrollView,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { registerForPushNotificationsAsync } from '../services/notificationService';
@@ -143,6 +143,18 @@ const MenuPrincipal = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
+        {/* Bodegas - Solo Admin y Jefe */}
+        {isAdminOrJefe && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.bodegaMenuItem]}
+            onPress={() => navigation.navigate('BodegaMenu')}
+          >
+            <Text style={[styles.menuItemText, styles.bodegaMenuItemText]}>
+              🏪 Bodegas
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Cerrar Sesión - Siempre al final */}
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutButton]}
@@ -251,6 +263,15 @@ const styles = StyleSheet.create({
   },
   reporteMenuItemText: {
     color: '#9C27B0',
+    fontWeight: '500',
+  },
+  bodegaMenuItem: {
+    backgroundColor: '#E8F0FE',
+    borderWidth: 1,
+    borderColor: '#0984E3',
+  },
+  bodegaMenuItemText: {
+    color: '#0984E3',
     fontWeight: '500',
   },
   logoutButton: {

@@ -41,6 +41,12 @@ import RevisarDepositos from './src/screens/RevisarDepositos';
 // Reportes
 import Reportes from './src/screens/Reportes';
 
+// Bodegas
+import BodegaMenu from './src/screens/BodegaMenu';
+import CrearBodega from './src/screens/CrearBodega';
+import AsignarMaterial from './src/screens/AsignarMaterial';
+import RevisionBodegas from './src/screens/RevisionBodegas';
+
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -64,6 +70,7 @@ export default function App() {
             headerTitleStyle: { fontWeight: 'bold' },
           }}
         >
+          {/* Pantallas principales */}
           <Stack.Screen name="RoleSelection" component={RoleSelection} options={{ headerShown: false }} />
           <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
           <Stack.Screen name="MenuPrincipal" component={MenuPrincipal} options={{ title: 'Menú Principal', headerLeft: null }} />
@@ -71,19 +78,22 @@ export default function App() {
           <Stack.Screen name="GestionUsuarios" component={GestionUsuarios} options={{ title: 'Gestión de Usuarios' }} />
           <Stack.Screen name="GestionHorarios" component={GestionHorarios} options={{ title: 'Horarios' }} />
           <Stack.Screen name="Alertas" component={Alertas} options={{ title: 'Alertas' }} />
-          
+
+          {/* Transferencias */}
           <Stack.Screen name="TransferenciasMenu" component={TransferenciasMenu} options={{ title: 'Transferencias' }} />
           <Stack.Screen name="SubirTransferencia" component={SubirTransferencia} options={{ title: 'Subir Transferencia' }} />
           <Stack.Screen name="ConfirmacionTransferencias" component={ConfirmacionTransferencias} options={{ title: 'Confirmación' }} />
           <Stack.Screen name="IngresoTransferencias" component={IngresoTransferencias} options={{ title: 'Ingreso Transferencias' }} />
           <Stack.Screen name="RevisionTransferencias" component={RevisionTransferencias} options={{ title: 'Revisar Transferencias' }} />
-          
+
+          {/* Servicios */}
           <Stack.Screen name="ServiciosMenu" component={ServiciosMenu} options={{ title: 'Servicios' }} />
           <Stack.Screen name="TomarServicio" component={TomarServicio} options={{ title: 'Tomar Servicio' }} />
           <Stack.Screen name="EjecucionServicio" component={EjecucionServicio} options={{ title: 'Ejecución' }} />
           <Stack.Screen name="RetroalimentacionServicio" component={RetroalimentacionServicio} options={{ title: 'Retroalimentación' }} />
           <Stack.Screen name="RevisionServicios" component={RevisionServicios} options={{ title: 'Revisar Servicios' }} />
-          
+
+          {/* Cajas */}
           <Stack.Screen name="CajasMenu" component={CajasMenu} options={{ title: 'Cajas' }} />
           <Stack.Screen name="IngresoCaja" component={IngresoCaja} options={{ title: 'Ingreso de Caja' }} />
           <Stack.Screen name="SaldosDisponibles" component={SaldosDisponibles} options={{ title: 'Saldos' }} />
@@ -92,8 +102,15 @@ export default function App() {
           <Stack.Screen name="DepositosMenu" component={DepositosMenu} options={{ title: 'Depósitos' }} />
           <Stack.Screen name="SubirDeposito" component={SubirDeposito} options={{ title: 'Subir Depósito' }} />
           <Stack.Screen name="RevisarDepositos" component={RevisarDepositos} options={{ title: 'Revisar Depósitos' }} />
-          
+
+          {/* Reportes */}
           <Stack.Screen name="Reportes" component={Reportes} options={{ title: 'Reportes' }} />
+
+          {/* Bodegas */}
+          <Stack.Screen name="BodegaMenu" component={BodegaMenu} options={{ title: 'Bodegas' }} />
+          <Stack.Screen name="CrearBodega" component={CrearBodega} options={{ title: 'Crear Bodega' }} />
+          <Stack.Screen name="AsignarMaterial" component={AsignarMaterial} options={{ title: 'Asignar Material' }} />
+          <Stack.Screen name="RevisionBodegas" component={RevisionBodegas} options={{ title: 'Revisar Bodegas' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </AuthProvider>
