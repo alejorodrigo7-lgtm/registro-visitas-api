@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  TextInput,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -19,6 +20,8 @@ const RevisionBodegas = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [bodegas, setBodegas] = useState([]);
+  const [bodegasFiltradas, setBodegasFiltradas] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [bodegaSeleccionada, setBodegaSeleccionada] = useState(null);
 
@@ -32,7 +35,9 @@ const RevisionBodegas = ({ navigation }) => {
     try {
       const response = await api.get('/bodegas');
       if (response.data.success) {
-        setBodegas(response.data.data || []);
+        const data = response.data.data || [];
+        setBodegas(data);
+        setBodegasFiltradas(data);
       }
     } catch (error) {
       console.error('Error al cargar bodegas:', error);
@@ -46,6 +51,22 @@ const RevisionBodegas = ({ navigation }) => {
   const onRefresh = () => {
     setRefreshing(true);
     cargarBodegas();
+  };
+
+  // 🔍 Buscar bodegas por nombre o usuario
+  const buscarBodegas = (text) => {
+    setSearchTerm(text);
+    if (!text || text.trim() === '') {
+      setBodegasFiltradas(bodegas);
+      return;
+    }
+
+    const term = text.toLowerCase().trim();
+    const filtradas = bodegas.filter(b => 
+      b.nombre.toLowerCase().includes(term) ||
+      b.usuarioNombre.toLowerCase().includes(term)
+    );
+    setBodegasFiltradas(filtradas);
   };
 
   const cambiarEstado = async (id, estadoActual) => {
@@ -106,6 +127,11 @@ const RevisionBodegas = ({ navigation }) => {
     return num?.toFixed(2) || '0';
   };
 
+  const abrirDetalle = (bodega) => {
+    setBodegaSeleccionada(bodega);
+    setModalVisible(true);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -122,30 +148,58 @@ const RevisionBodegas = ({ navigation }) => {
         <Text style={styles.subtitle}>Inventario y gestión de bodegas</Text>
       </View>
 
+      {/* 🔍 Buscador */}
+      <View style={styles.buscadorContainer}>
+        <TextInput
+          style={styles.buscadorInput}
+          value={searchTerm}
+          onChangeText={buscarBodegas}
+          placeholder="Buscar bodega por nombre o usuario..."
+          placeholderTextColor="#999"
+        />
+        {searchTerm.length > 0 && (
+          <TouchableOpacity
+            style={styles.limpiarButton}
+            onPress={() => {
+              setSearchTerm('');
+              setBodegasFiltradas(bodegas);
+            }}
+          >
+            <Text style={styles.limpiarButtonText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <ScrollView
         style={styles.listaContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {bodegas.length === 0 ? (
+        {/* Contador de resultados */}
+        <Text style={styles.resultadosCount}>
+          {bodegasFiltradas.length} bodega{bodegasFiltradas.length !== 1 ? 's' : ''} encontrada{bodegasFiltradas.length !== 1 ? 's' : ''}
+        </Text>
+
+        {bodegasFiltradas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📭</Text>
-            <Text style={styles.emptyText}>No hay bodegas</Text>
-            <Text style={styles.emptySubText}>Crea una bodega para comenzar</Text>
+            <Text style={styles.emptyText}>
+              {searchTerm ? 'No se encontraron bodegas' : 'No hay bodegas creadas'}
+            </Text>
+            <Text style={styles.emptySubText}>
+              {searchTerm ? 'Prueba con otro término de búsqueda' : 'Crea una bodega para comenzar'}
+            </Text>
           </View>
         ) : (
-          bodegas.map((bodega) => (
+          bodegasFiltradas.map((bodega) => (
             <TouchableOpacity
               key={bodega._id}
               style={[
                 styles.bodegaCard,
                 bodega.estado === 'INACTIVA' && styles.bodegaCardInactiva,
               ]}
-              onPress={() => {
-                setBodegaSeleccionada(bodega);
-                setModalVisible(true);
-              }}
+              onPress={() => abrirDetalle(bodega)}
             >
               <View style={styles.bodegaHeader}>
                 <Text style={styles.bodegaNombre}>{bodega.nombre}</Text>
@@ -162,12 +216,18 @@ const RevisionBodegas = ({ navigation }) => {
                 </Text>
                 {bodega.materiales?.slice(0, 3).map((m, index) => (
                   <Text key={index} style={styles.bodegaMaterialItem}>
-                    • {m.nombre}: {formatNumber(m.cantidad)} {m.unidad}
+                    • {m.nombre}: {formatNumber(m.cantidad)}
+                    {m.minimo > 0 && m.cantidad <= m.minimo && ' ⚠️'}
                   </Text>
                 ))}
                 {bodega.materiales?.length > 3 && (
                   <Text style={styles.bodegaMaterialMore}>
-                    +{bodega.materiales.length - 3} más...
+                    +{bodega.materiales.length - 3} más... (toca para ver todos)
+                  </Text>
+                )}
+                {bodega.materiales?.length === 0 && (
+                  <Text style={styles.bodegaMaterialEmpty}>
+                    Sin materiales asignados
                   </Text>
                 )}
               </View>
@@ -196,7 +256,7 @@ const RevisionBodegas = ({ navigation }) => {
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* Modal de Detalle */}
+      {/* 📋 Modal de Detalle con lista completa de materiales */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -209,43 +269,64 @@ const RevisionBodegas = ({ navigation }) => {
 
             {bodegaSeleccionada && (
               <View>
-                <Text style={styles.modalLabel}>Nombre:</Text>
-                <Text style={styles.modalValue}>{bodegaSeleccionada.nombre}</Text>
+                {/* Información general */}
+                <View style={styles.modalInfoSection}>
+                  <Text style={styles.modalInfoLabel}>Nombre:</Text>
+                  <Text style={styles.modalInfoValue}>{bodegaSeleccionada.nombre}</Text>
 
-                <Text style={styles.modalLabel}>Usuario:</Text>
-                <Text style={styles.modalValue}>{bodegaSeleccionada.usuarioNombre}</Text>
+                  <Text style={styles.modalInfoLabel}>Usuario:</Text>
+                  <Text style={styles.modalInfoValue}>{bodegaSeleccionada.usuarioNombre}</Text>
 
-                <Text style={styles.modalLabel}>Estado:</Text>
-                <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(bodegaSeleccionada.estado), alignSelf: 'flex-start' }]}>
-                  <Text style={styles.estadoBadgeText}>{getEstadoLabel(bodegaSeleccionada.estado)}</Text>
+                  <Text style={styles.modalInfoLabel}>Estado:</Text>
+                  <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(bodegaSeleccionada.estado), alignSelf: 'flex-start' }]}>
+                    <Text style={styles.estadoBadgeText}>{getEstadoLabel(bodegaSeleccionada.estado)}</Text>
+                  </View>
+
+                  <Text style={styles.modalInfoLabel}>Creado por:</Text>
+                  <Text style={styles.modalInfoValue}>{bodegaSeleccionada.creadoPor?.nombre || 'Desconocido'}</Text>
+
+                  <Text style={styles.modalInfoLabel}>Fecha creación:</Text>
+                  <Text style={styles.modalInfoValue}>
+                    {new Date(bodegaSeleccionada.createdAt).toLocaleDateString('es-ES')}
+                  </Text>
                 </View>
 
-                <Text style={styles.modalLabel}>📦 Materiales:</Text>
-                {bodegaSeleccionada.materiales?.length === 0 ? (
-                  <Text style={styles.modalSinMateriales}>No hay materiales asignados</Text>
-                ) : (
-                  bodegaSeleccionada.materiales?.map((m, index) => (
-                    <View key={index} style={styles.modalMaterialItem}>
-                      <Text style={styles.modalMaterialNombre}>{m.nombre}</Text>
-                      <Text style={styles.modalMaterialCantidad}>
-                        {formatNumber(m.cantidad)} {m.unidad}
-                      </Text>
-                      {m.minimo > 0 && (
-                        <Text style={styles.modalMaterialMinimo}>
-                          Mínimo: {formatNumber(m.minimo)} {m.unidad}
-                        </Text>
-                      )}
+                {/* 📦 Lista completa de materiales */}
+                <View style={styles.modalMaterialesSection}>
+                  <Text style={styles.modalMaterialesTitle}>
+                    📦 Materiales ({bodegaSeleccionada.materiales?.length || 0})
+                  </Text>
+
+                  {bodegaSeleccionada.materiales?.length === 0 ? (
+                    <Text style={styles.modalSinMateriales}>No hay materiales asignados</Text>
+                  ) : (
+                    <View style={styles.modalMaterialesLista}>
+                      {bodegaSeleccionada.materiales?.map((m, index) => (
+                        <View key={index} style={[
+                          styles.modalMaterialItem,
+                          m.minimo > 0 && m.cantidad <= m.minimo && styles.modalMaterialItemCritico,
+                        ]}>
+                          <View style={styles.modalMaterialInfo}>
+                            <Text style={styles.modalMaterialNombre}>{m.nombre}</Text>
+                            <Text style={styles.modalMaterialCantidad}>
+                              Cantidad: {formatNumber(m.cantidad)}
+                            </Text>
+                          </View>
+                          <View style={styles.modalMaterialEstado}>
+                            {m.minimo > 0 && (
+                              <Text style={[
+                                styles.modalMaterialMinimo,
+                                m.cantidad <= m.minimo && styles.modalMaterialAlerta,
+                              ]}>
+                                {m.cantidad <= m.minimo ? '⚠️ CRÍTICO' : `Mín: ${formatNumber(m.minimo)}`}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      ))}
                     </View>
-                  ))
-                )}
-
-                <Text style={styles.modalLabel}>Creado por:</Text>
-                <Text style={styles.modalValue}>{bodegaSeleccionada.creadoPor?.nombre || 'Desconocido'}</Text>
-
-                <Text style={styles.modalLabel}>Fecha creación:</Text>
-                <Text style={styles.modalValue}>
-                  {new Date(bodegaSeleccionada.createdAt).toLocaleDateString('es-ES')}
-                </Text>
+                  )}
+                </View>
               </View>
             )}
 
@@ -293,9 +374,45 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#636E72',
   },
+  buscadorContainer: {
+    flexDirection: 'row',
+    padding: 15,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  buscadorInput: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    padding: 12,
+    borderRadius: 10,
+    fontSize: 16,
+  },
+  limpiarButton: {
+    backgroundColor: '#FF6B6B',
+    padding: 12,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+    width: 44,
+    height: 44,
+  },
+  limpiarButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   listaContainer: {
     flex: 1,
     padding: 15,
+  },
+  resultadosCount: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 10,
+    paddingHorizontal: 5,
   },
   bodegaCard: {
     backgroundColor: '#FFFFFF',
@@ -358,6 +475,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0984E3',
     marginTop: 2,
+  },
+  bodegaMaterialEmpty: {
+    fontSize: 13,
+    color: '#636E72',
+    fontStyle: 'italic',
   },
   accionesContainer: {
     flexDirection: 'row',
@@ -427,42 +549,80 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 15,
   },
-  modalLabel: {
+  modalInfoSection: {
+    marginBottom: 15,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalInfoLabel: {
     fontSize: 14,
     fontWeight: '500',
     color: '#636E72',
     marginTop: 8,
   },
-  modalValue: {
+  modalInfoValue: {
     fontSize: 16,
     color: '#2D3436',
     marginBottom: 4,
+  },
+  modalMaterialesSection: {
+    marginTop: 5,
+  },
+  modalMaterialesTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 10,
   },
   modalSinMateriales: {
     fontSize: 14,
     color: '#636E72',
     fontStyle: 'italic',
-    marginVertical: 5,
+    textAlign: 'center',
+    padding: 20,
+  },
+  modalMaterialesLista: {
+    marginTop: 5,
   },
   modalMaterialItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#F8F9FA',
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
-    marginBottom: 5,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+  },
+  modalMaterialItemCritico: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FF6B6B',
+  },
+  modalMaterialInfo: {
+    flex: 1,
   },
   modalMaterialNombre: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
     color: '#2D3436',
   },
   modalMaterialCantidad: {
     fontSize: 13,
     color: '#636E72',
+    marginTop: 2,
+  },
+  modalMaterialEstado: {
+    alignItems: 'flex-end',
   },
   modalMaterialMinimo: {
     fontSize: 12,
+    color: '#636E72',
+  },
+  modalMaterialAlerta: {
     color: '#FF6B6B',
-    marginTop: 2,
+    fontWeight: 'bold',
   },
   modalCerrar: {
     marginTop: 15,
