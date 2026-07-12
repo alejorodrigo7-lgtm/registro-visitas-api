@@ -1,11 +1,6 @@
-t
-// FIX: Version corregida - Julio 2026 - bodegaController
 const Bodega = require('../models/Bodega');
 const User = require('../models/User');
 
-// ============================================
-// 📋 CREAR BODEGA (SOLO ADMIN)
-// ============================================
 exports.crearBodega = async (req, res) => {
   try {
     const { nombre, usuarioId } = req.body;
@@ -74,9 +69,6 @@ exports.crearBodega = async (req, res) => {
   }
 };
 
-// ============================================
-// 📋 OBTENER TODAS LAS BODEGAS
-// ============================================
 exports.obtenerBodegas = async (req, res) => {
   try {
     const { estado, usuario } = req.query;
@@ -109,9 +101,6 @@ exports.obtenerBodegas = async (req, res) => {
   }
 };
 
-// ============================================
-// 📋 OBTENER UNA BODEGA POR ID
-// ============================================
 exports.obtenerBodega = async (req, res) => {
   try {
     const bodega = await Bodega.findById(req.params.id)
@@ -146,9 +135,6 @@ exports.obtenerBodega = async (req, res) => {
   }
 };
 
-// ============================================
-// 📋 ASIGNAR MATERIAL A BODEGA
-// ============================================
 exports.asignarMaterial = async (req, res) => {
   try {
     const { id } = req.params;
@@ -221,9 +207,6 @@ exports.asignarMaterial = async (req, res) => {
   }
 };
 
-// ============================================
-// 📋 RESTAR MATERIAL DE BODEGA (CON ALERTAS PUSH)
-// ============================================
 exports.restarMaterial = async (req, res) => {
   try {
     const { id } = req.params;
@@ -298,7 +281,6 @@ exports.restarMaterial = async (req, res) => {
 
     await bodega.save();
 
-    // 📲 ENVIAR ALERTAS PUSH A ADMIN Y JEFE
     if (materialesAlertas.length > 0) {
       try {
         const { Expo } = require('expo-server-sdk');
@@ -353,9 +335,6 @@ exports.restarMaterial = async (req, res) => {
   }
 };
 
-// ============================================
-// 📋 ELIMINAR BODEGA (SOLO ADMIN)
-// ============================================
 exports.eliminarBodega = async (req, res) => {
   try {
     const { id } = req.params;
@@ -384,9 +363,6 @@ exports.eliminarBodega = async (req, res) => {
   }
 };
 
-// ============================================
-// 📋 CAMBIAR ESTADO DE BODEGA (SOLO ADMIN)
-// ============================================
 exports.cambiarEstadoBodega = async (req, res) => {
   try {
     const { id } = req.params;
@@ -425,9 +401,6 @@ exports.cambiarEstadoBodega = async (req, res) => {
   }
 };
 
-// ============================================
-// 📋 EXPORTAR TODAS LAS FUNCIONES
-// ============================================
 module.exports = {
   crearBodega,
   obtenerBodegas,
@@ -437,4 +410,3 @@ module.exports = {
   eliminarBodega,
   cambiarEstadoBodega,
 };
-// FIX: Version corregida - forzada
