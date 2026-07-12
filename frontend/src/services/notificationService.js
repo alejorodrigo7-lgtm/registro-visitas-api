@@ -8,7 +8,6 @@ import api from './api';
 // 📱 CONFIGURACIÓN DE NOTIFICACIONES
 // ============================================
 
-// Configurar el comportamiento de las notificaciones
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -26,13 +25,11 @@ export async function registerForPushNotificationsAsync() {
 
   console.log('📱 1. Iniciando registro de notificaciones...');
 
-  // Verificar que es un dispositivo físico (no emulador)
   if (!Device.isDevice) {
     console.log('❌ Debes usar un dispositivo físico para notificaciones push');
     return;
   }
 
-  // Solicitar permisos
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -49,7 +46,6 @@ export async function registerForPushNotificationsAsync() {
 
   console.log('✅ 2. Permiso de notificaciones concedido');
 
-  // Obtener el token de Expo
   try {
     token = await Notifications.getExpoPushTokenAsync({
       projectId: 'c738e27f-e3ba-489f-8357-1a980a5d45d1',
@@ -60,20 +56,28 @@ export async function registerForPushNotificationsAsync() {
     return;
   }
 
-  // Guardar el token en el backend
   if (token) {
     try {
-      const user = await AsyncStorage.getItem('@user');
-      if (user) {
-        const userData = JSON.parse(user);
-        console.log('📡 4. Registrando token para usuario:', userData.id);
+      const userJson = await AsyncStorage.getItem('@user');
+      console.log('📱 userJson:', userJson ? '✅ Existe' : '❌ No existe');
+      
+      if (userJson) {
+        const userData = JSON.parse(userJson);
+        const userId = userData.id || userData._id;
+        
+        if (!userId) {
+          console.error('❌ No se encontró ID de usuario');
+          return;
+        }
+        
+        console.log(`📡 4. Registrando token para usuario: ${userData.email} (${userData.rol})`);
         
         const response = await api.post('/auth/registrar-push-token', {
-          userId: userData.id,
+          userId: userId,
           token: token.data,
         });
         
-        console.log('✅ 5. Token push registrado en el backend para:', userData.email);
+        console.log(`✅ 5. Token push registrado para ${userData.rol}: ${userData.email}`);
         return response.data;
       } else {
         console.log('⚠️ No hay usuario logueado para registrar token');
@@ -97,18 +101,15 @@ export async function registerForPushNotificationsAsync() {
 export function setupNotificationListeners() {
   console.log('📱 Configurando listeners de notificaciones...');
 
-  // ✅ NOTIFICACIÓN RECIBIDA EN PRIMER PLANO - MOSTRAR ALERT
   const subscription = Notifications.addNotificationReceivedListener(notification => {
     console.log('📱 Notificación recibida en foreground:', notification);
     
     const title = notification.request.content.title || 'Nueva notificación';
     const body = notification.request.content.body || '';
     
-    // ✅ Mostrar alerta cuando llega la notificación
     Alert.alert(title, body);
   });
 
-  // ✅ USUARIO TOCÓ LA NOTIFICACIÓN
   const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
     console.log('📱 Usuario tocó la notificación:', response);
     
@@ -116,7 +117,6 @@ export function setupNotificationListeners() {
     const title = response.notification.request.content.title || 'Notificación';
     const body = response.notification.request.content.body || '';
     
-    // ✅ Mostrar alerta cuando el usuario toca la notificación
     Alert.alert(`📱 ${title}`, body);
   });
 
@@ -164,7 +164,6 @@ export async function sendPushNotification(expoPushToken, title, body, data = {}
 
 export async function registerTokenAfterLogin(userId) {
   try {
-    // Verificar permisos
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     if (existingStatus !== 'granted') {
       const { status } = await Notifications.requestPermissionsAsync();
@@ -174,7 +173,6 @@ export async function registerTokenAfterLogin(userId) {
       }
     }
 
-    // Obtener token
     const token = await Notifications.getExpoPushTokenAsync({
       projectId: 'c738e27f-e3ba-489f-8357-1a980a5d45d1',
     });
@@ -186,7 +184,6 @@ export async function registerTokenAfterLogin(userId) {
 
     console.log('📱 Token push obtenido:', token.data);
 
-    // Registrar en backend
     const response = await api.post('/auth/registrar-push-token', {
       userId: userId,
       token: token.data,
@@ -214,7 +211,7 @@ export async function showLocalNotification(title, body, data = {}) {
         data: data,
         sound: true,
       },
-      trigger: null, // Inmediato
+      trigger: null,
     });
     console.log('✅ Notificación local enviada');
     return true;

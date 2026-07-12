@@ -222,7 +222,7 @@ module.exports = {
   },
 
   // ============================================
-  // 📋 RESTAR MATERIAL DE BODEGA (CON ALERTAS PUSH)
+  // 📋 RESTAR MATERIAL DE BODEGA (CON ALERTAS PUSH A TODOS)
   // ============================================
   restarMaterial: async (req, res) => {
     try {
@@ -298,15 +298,20 @@ module.exports = {
 
       await bodega.save();
 
+      // ============================================
+      // 📲 ENVIAR ALERTAS PUSH A TODOS LOS USUARIOS CON TOKEN
+      // ============================================
       if (materialesAlertas.length > 0) {
         try {
           const { Expo } = require('expo-server-sdk');
           const expo = new Expo();
 
+          // ✅ OBTENER TODOS LOS USUARIOS CON TOKEN REGISTRADO
           const usuariosNotificar = await User.find({
-            rol: { $in: ['Admin', 'Jefe'] },
             expoPushToken: { $ne: null, $exists: true }
           });
+
+          console.log(`📲 Usuarios a notificar: ${usuariosNotificar.length}`);
 
           if (usuariosNotificar.length > 0) {
             const messages = usuariosNotificar.map(user => ({
@@ -326,10 +331,13 @@ module.exports = {
             for (const chunk of chunks) {
               await expo.sendPushNotificationsAsync(chunk);
             }
+            console.log(`📲 Alertas push enviadas a ${usuariosNotificar.length} usuarios`);
+          } else {
+            console.log('⚠️ No hay usuarios con token push registrado');
           }
 
         } catch (pushError) {
-          console.error('Error enviando alertas push:', pushError);
+          console.error('❌ Error enviando alertas push:', pushError);
         }
       }
 
@@ -344,7 +352,7 @@ module.exports = {
       });
 
     } catch (error) {
-      console.error('Error en restarMaterial:', error);
+      console.error('❌ Error en restarMaterial:', error);
       res.status(500).json({
         success: false,
         message: error.message,
