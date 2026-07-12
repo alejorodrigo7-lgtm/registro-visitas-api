@@ -1,3 +1,5 @@
+t
+// FIX: Version corregida - Julio 2026 - bodegaController
 const Bodega = require('../models/Bodega');
 const User = require('../models/User');
 
@@ -435,3 +437,4 @@ module.exports = {
   eliminarBodega,
   cambiarEstadoBodega,
 };
+// FIX: Version corregida - forzada
