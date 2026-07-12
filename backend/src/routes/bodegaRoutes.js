@@ -15,15 +15,15 @@ const {
 router.use(protect);
 
 // ============================================
+// CREAR BODEGA - SOLO ADMIN
+// ============================================
+router.post('/crear', authorize('Admin'), crearBodega);
+
+// ============================================
 // RUTAS PRINCIPALES
 // ============================================
 router.route('/')
   .get(obtenerBodegas);
-
-// ============================================
-// CREAR BODEGA - SOLO ADMIN
-// ============================================
-router.post('/crear', authorize('Admin'), crearBodega);
 
 // ============================================
 // ASIGNAR MATERIAL - ADMIN Y JEFE
