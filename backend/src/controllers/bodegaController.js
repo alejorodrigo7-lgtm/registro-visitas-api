@@ -491,4 +491,5 @@ module.exports = {
   restarMaterial,
   eliminarBodega,
   cambiarEstadoBodega,
-};
+};   
+ 
