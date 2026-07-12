@@ -1,3 +1,4 @@
+// FIX: Version corregida - Julio 2026
 const Bodega = require('../models/Bodega');
 const User = require('../models/User');
 
