@@ -37,6 +37,10 @@ const EjecucionServicio = ({ navigation }) => {
   const [modalPendienteVisible, setModalPendienteVisible] = useState(false);
   const [observacionPendiente, setObservacionPendiente] = useState('');
 
+  // 📦 Estado de la bodega
+  const [bodega, setBodega] = useState(null);
+  const [cargandoBodega, setCargandoBodega] = useState(false);
+
   const isAdminOrJefeOrTecnico = ['Admin', 'Jefe', 'Tecnico'].includes(user?.rol);
 
   const opcionesMateriales = [
@@ -76,13 +80,57 @@ const EjecucionServicio = ({ navigation }) => {
     }
   };
 
+  // 📦 Cargar bodega del usuario
+  const cargarBodega = async () => {
+    setCargandoBodega(true);
+    try {
+      const response = await api.get(`/bodegas?usuario=${user._id}`);
+      if (response.data.success && response.data.data.length > 0) {
+        setBodega(response.data.data[0]);
+      }
+    } catch (error) {
+      console.error('Error al cargar bodega:', error);
+    } finally {
+      setCargandoBodega(false);
+    }
+  };
+
   useEffect(() => {
     cargarServicios();
+    cargarBodega();
   }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
     cargarServicios();
+    cargarBodega();
+  };
+
+  // 🔍 Verificar stock disponible en bodega
+  const verificarStock = (nombreMaterial, cantidad) => {
+    if (!bodega) {
+      Alert.alert('Sin bodega', 'No tienes una bodega asignada. Contacta a un administrador.');
+      return false;
+    }
+
+    const materialEnBodega = bodega.materiales?.find(
+      m => m.nombre === nombreMaterial
+    );
+
+    if (!materialEnBodega) {
+      Alert.alert('Material no encontrado', `El material "${nombreMaterial}" no existe en tu bodega.`);
+      return false;
+    }
+
+    if (materialEnBodega.cantidad < cantidad) {
+      Alert.alert(
+        'Stock insuficiente',
+        `Stock disponible de ${nombreMaterial}: ${materialEnBodega.cantidad}`
+      );
+      return false;
+    }
+
+    return true;
   };
 
   const agregarMaterial = () => {
@@ -93,6 +141,11 @@ const EjecucionServicio = ({ navigation }) => {
     const cantidad = parseInt(cantidadMaterial);
     if (isNaN(cantidad) || cantidad < 1) {
       Alert.alert('Error', 'La cantidad debe ser un número válido');
+      return;
+    }
+
+    // Verificar stock en bodega
+    if (!verificarStock(materialSeleccionado, cantidad)) {
       return;
     }
 
@@ -117,16 +170,64 @@ const EjecucionServicio = ({ navigation }) => {
       return;
     }
 
+    if (ejecucionData.materiales.length === 0) {
+      Alert.alert('Error', 'Debes agregar al menos un material usado');
+      return;
+    }
+
+    // Verificar stock nuevamente antes de ejecutar
+    for (const material of ejecucionData.materiales) {
+      if (!verificarStock(material.nombre, material.cantidad)) {
+        return;
+      }
+    }
+
     Alert.alert(
       'Confirmar Ejecución',
-      '¿Estás seguro de ejecutar este servicio?',
+      `¿Estás seguro de ejecutar este servicio con ${ejecucionData.materiales.length} materiales?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Ejecutar',
           onPress: async () => {
             try {
+              // 1. Restar materiales de la bodega
+              let alertasStock = null;
+              if (bodega) {
+                try {
+                  const restarResponse = await api.post(`/bodegas/${bodega._id}/restar-material`, {
+                    materiales: ejecucionData.materiales,
+                  });
+                  
+                  if (restarResponse.data.alertas) {
+                    alertasStock = restarResponse.data.alertas.materiales;
+                  }
+                  
+                  // Actualizar bodega local
+                  await cargarBodega();
+                } catch (bodegaError) {
+                  console.error('Error al restar materiales:', bodegaError);
+                  Alert.alert(
+                    'Error en bodega',
+                    'No se pudieron restar los materiales de la bodega. El servicio no se ejecutará.'
+                  );
+                  return;
+                }
+              }
+
+              // 2. Ejecutar el servicio
               await api.put(`/servicios/${servicioSeleccionado._id}/ejecutar`, ejecucionData);
+
+              // 3. Mostrar alertas de stock bajo si existen
+              if (alertasStock && alertasStock.length > 0) {
+                Alert.alert(
+                  '⚠️ Alerta de Stock Bajo',
+                  `Los siguientes materiales están en su nivel mínimo:\n\n${alertasStock.map(m => 
+                    `• ${m.nombre}: ${m.cantidad} (mínimo: ${m.minimo})`
+                  ).join('\n')}\n\nRevisa tu bodega para reabastecer.`
+                );
+              }
+
               Alert.alert('Éxito', `Servicio ejecutado para ${servicioSeleccionado.cliente}`);
               setModalVisible(false);
               setEjecucionData({
@@ -256,6 +357,12 @@ const EjecucionServicio = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>🛠️ Ejecución de Servicios</Text>
+        {bodega && (
+          <Text style={styles.bodegaInfo}>📍 Bodega: {bodega.nombre}</Text>
+        )}
+        {cargandoBodega && (
+          <Text style={styles.bodegaInfo}>⏳ Cargando bodega...</Text>
+        )}
       </View>
 
       <ScrollView
@@ -287,7 +394,7 @@ const EjecucionServicio = ({ navigation }) => {
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* Modal de Detalle del Servicio con imagen */}
+      {/* Modal de Detalle del Servicio */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -345,7 +452,6 @@ const EjecucionServicio = ({ navigation }) => {
                 <Text style={styles.modalLabel}>Fecha creación:</Text>
                 <Text style={styles.modalValue}>{new Date(servicioSeleccionado.createdAt).toLocaleDateString('es-ES')}</Text>
 
-                {/* IMAGEN CORREGIDA */}
                 {servicioSeleccionado.imagen && (
                   <View>
                     <Text style={styles.modalLabel}>📷 Imagen del servicio:</Text>
@@ -384,6 +490,18 @@ const EjecucionServicio = ({ navigation }) => {
           <ScrollView style={styles.modalContent}>
             <Text style={styles.modalTitle}>✅ Ejecutar Servicio</Text>
 
+            {/* Mostrar bodega actual */}
+            {bodega && (
+              <View style={styles.bodegaInfoModal}>
+                <Text style={styles.bodegaInfoModalText}>
+                  📍 Bodega: {bodega.nombre}
+                </Text>
+                <Text style={styles.bodegaInfoModalSub}>
+                  Materiales disponibles: {bodega.materiales?.length || 0}
+                </Text>
+              </View>
+            )}
+
             <Text style={styles.modalLabel}>Observaciones *</Text>
             <TextInput
               style={[styles.modalInput, styles.modalTextArea]}
@@ -394,7 +512,7 @@ const EjecucionServicio = ({ navigation }) => {
               numberOfLines={3}
             />
 
-            <Text style={styles.modalLabel}>Materiales</Text>
+            <Text style={styles.modalLabel}>Materiales Usados</Text>
             <View style={styles.materialContainer}>
               <View style={styles.pickerContainer}>
                 <Picker
@@ -412,13 +530,23 @@ const EjecucionServicio = ({ navigation }) => {
                 style={styles.cantidadInput}
                 value={cantidadMaterial}
                 onChangeText={setCantidadMaterial}
-                placeholder="Cantidad"
+                placeholder="Cant"
                 keyboardType="numeric"
               />
               <TouchableOpacity style={styles.agregarMaterialButton} onPress={agregarMaterial}>
                 <Text style={styles.agregarMaterialText}>➕</Text>
               </TouchableOpacity>
             </View>
+
+            {materialSeleccionado && bodega && (
+              <View style={styles.stockInfo}>
+                <Text style={styles.stockInfoText}>
+                  📦 Stock disponible: {
+                    bodega.materiales?.find(m => m.nombre === materialSeleccionado)?.cantidad || 0
+                  }
+                </Text>
+              </View>
+            )}
 
             <View style={styles.materialesLista}>
               {ejecucionData.materiales.map((mat, index) => (
@@ -456,6 +584,10 @@ const EjecucionServicio = ({ navigation }) => {
             />
 
             <Text style={styles.modalResponsable}>👤 Responsable: {user?.nombre || ''}</Text>
+
+            <Text style={styles.materialesCount}>
+              📋 Materiales a restar: {ejecucionData.materiales.length}
+            </Text>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -532,6 +664,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  bodegaInfo: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    marginTop: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -803,6 +941,40 @@ const styles = StyleSheet.create({
     color: '#FF6B6B',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  bodegaInfoModal: {
+    backgroundColor: '#E8F0FE',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#0984E3',
+  },
+  bodegaInfoModalText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0984E3',
+  },
+  bodegaInfoModalSub: {
+    fontSize: 13,
+    color: '#636E72',
+    marginTop: 2,
+  },
+  stockInfo: {
+    backgroundColor: '#F8F9FA',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  stockInfoText: {
+    fontSize: 13,
+    color: '#2D3436',
+  },
+  materialesCount: {
+    fontSize: 14,
+    color: '#636E72',
+    marginTop: 10,
+    textAlign: 'center',
   },
 });
 

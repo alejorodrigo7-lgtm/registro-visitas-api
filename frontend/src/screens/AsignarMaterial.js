@@ -14,6 +14,25 @@ import { Picker } from '@react-native-picker/picker';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
+// 📋 LISTA DE MATERIALES PREDEFINIDOS
+const MATERIALES_PREDEFINIDOS = [
+  'FIBRA EN METROS',
+  'CABLE EN METROS',
+  'EQUIPO ONU',
+  'REPETIDOR',
+  'RECEPTOR',
+  'F56',
+  'DIV2',
+  'DIV3',
+  'CONECTOR VERDE',
+  'CONECTOR AZUL',
+  'ROSETTA',
+  'TERMO',
+  'CABLE LAN EN METROS',
+  'GRAPAS',
+  'AMARRAS',
+];
+
 const AsignarMaterial = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -23,12 +42,9 @@ const AsignarMaterial = ({ navigation }) => {
   const [materiales, setMateriales] = useState([]);
   const [nuevoMaterial, setNuevoMaterial] = useState({
     nombre: '',
-    unidad: 'Metros',
     cantidad: '',
     minimo: '',
   });
-
-  const unidades = ['Metros', 'Unidades', 'Kilogramos', 'Litros', 'Piezas', 'Rollos', 'Cajas'];
 
   useEffect(() => {
     cargarBodegas();
@@ -54,8 +70,8 @@ const AsignarMaterial = ({ navigation }) => {
   };
 
   const agregarMaterial = () => {
-    if (!nuevoMaterial.nombre.trim()) {
-      Alert.alert('Error', 'El nombre del material es obligatorio');
+    if (!nuevoMaterial.nombre) {
+      Alert.alert('Error', 'Debes seleccionar un material');
       return;
     }
     if (!nuevoMaterial.cantidad || parseFloat(nuevoMaterial.cantidad) <= 0) {
@@ -63,22 +79,19 @@ const AsignarMaterial = ({ navigation }) => {
       return;
     }
 
-    // Verificar si el material ya existe en la lista
     const existe = materiales.some(
-      m => m.nombre.toLowerCase() === nuevoMaterial.nombre.toLowerCase() &&
-           m.unidad === nuevoMaterial.unidad
+      m => m.nombre === nuevoMaterial.nombre
     );
 
     if (existe) {
-      Alert.alert('Error', 'Este material ya está en la lista. Edita la cantidad existente.');
+      Alert.alert('Error', 'Este material ya está en la lista.');
       return;
     }
 
     setMateriales([
       ...materiales,
       {
-        nombre: nuevoMaterial.nombre.trim(),
-        unidad: nuevoMaterial.unidad,
+        nombre: nuevoMaterial.nombre,
         cantidad: parseFloat(nuevoMaterial.cantidad),
         minimo: nuevoMaterial.minimo ? parseFloat(nuevoMaterial.minimo) : 0,
       },
@@ -86,7 +99,6 @@ const AsignarMaterial = ({ navigation }) => {
 
     setNuevoMaterial({
       nombre: '',
-      unidad: 'Metros',
       cantidad: '',
       minimo: '',
     });
@@ -110,7 +122,7 @@ const AsignarMaterial = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const response = await api.post(`/bodegas/${bodegaSeleccionada}/asignar-material`, {
+      await api.post(`/bodegas/${bodegaSeleccionada}/asignar-material`, {
         materiales,
       });
 
@@ -200,26 +212,27 @@ const AsignarMaterial = ({ navigation }) => {
             <Text style={styles.dividerText}>Agregar Material</Text>
           </View>
 
-          <Text style={styles.label}>Nombre del Material *</Text>
-          <TextInput
-            style={styles.input}
-            value={nuevoMaterial.nombre}
-            onChangeText={(text) => setNuevoMaterial(prev => ({ ...prev, nombre: text }))}
-            placeholder="Ej: Fibra Óptica"
-          />
-
-          <Text style={styles.label}>Unidad de Medida *</Text>
+          <Text style={styles.label}>Seleccionar Material *</Text>
           <View style={styles.pickerContainer}>
             <Picker
-              selectedValue={nuevoMaterial.unidad}
-              onValueChange={(value) => setNuevoMaterial(prev => ({ ...prev, unidad: value }))}
+              selectedValue={nuevoMaterial.nombre}
+              onValueChange={(value) => setNuevoMaterial(prev => ({ ...prev, nombre: value }))}
               style={styles.picker}
             >
-              {unidades.map((u) => (
-                <Picker.Item key={u} label={u} value={u} />
+              <Picker.Item label="-- Selecciona un material --" value="" />
+              {MATERIALES_PREDEFINIDOS.map((material) => (
+                <Picker.Item key={material} label={material} value={material} />
               ))}
             </Picker>
           </View>
+
+          {nuevoMaterial.nombre && (
+            <View style={styles.materialSeleccionado}>
+              <Text style={styles.materialSeleccionadoText}>
+                📌 Material seleccionado: {nuevoMaterial.nombre}
+              </Text>
+            </View>
+          )}
 
           <Text style={styles.label}>Cantidad *</Text>
           <TextInput
@@ -230,7 +243,7 @@ const AsignarMaterial = ({ navigation }) => {
             keyboardType="decimal-pad"
           />
 
-          <Text style={styles.label}>Cantidad Mínima (Alerta)</Text>
+          <Text style={styles.label}>Cantidad Mínima (Alerta Push)</Text>
           <TextInput
             style={styles.input}
             value={nuevoMaterial.minimo}
@@ -238,12 +251,14 @@ const AsignarMaterial = ({ navigation }) => {
             placeholder="Ej: 100"
             keyboardType="decimal-pad"
           />
+          <Text style={styles.minimoHint}>
+            ⚠️ Cuando el stock llegue a esta cantidad, se enviará una alerta push
+          </Text>
 
           <TouchableOpacity style={styles.addButton} onPress={agregarMaterial}>
             <Text style={styles.addButtonText}>➕ Agregar Material</Text>
           </TouchableOpacity>
 
-          {/* Lista de materiales agregados */}
           {materiales.length > 0 && (
             <View style={styles.materialesLista}>
               <Text style={styles.materialesListaTitle}>
@@ -254,8 +269,8 @@ const AsignarMaterial = ({ navigation }) => {
                   <View style={styles.materialItemInfo}>
                     <Text style={styles.materialItemNombre}>{m.nombre}</Text>
                     <Text style={styles.materialItemDetalle}>
-                      {m.cantidad} {m.unidad}
-                      {m.minimo > 0 && ` | Mín: ${m.minimo}`}
+                      Cantidad: {m.cantidad}
+                      {m.minimo > 0 && ` | Mínimo: ${m.minimo} ⚠️`}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -360,6 +375,19 @@ const styles = StyleSheet.create({
     color: '#636E72',
     marginTop: 2,
   },
+  materialSeleccionado: {
+    backgroundColor: '#DFF6DD',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#00B894',
+  },
+  materialSeleccionadoText: {
+    color: '#00B894',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   divider: {
     borderBottomWidth: 1,
     borderBottomColor: '#DFE6E9',
@@ -427,6 +455,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  minimoHint: {
+    fontSize: 12,
+    color: '#636E72',
+    fontStyle: 'italic',
+    marginTop: -10,
+    marginBottom: 15,
+    paddingHorizontal: 5,
   },
   submitButton: {
     backgroundColor: '#6C5CE7',
