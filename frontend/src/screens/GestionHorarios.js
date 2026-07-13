@@ -24,7 +24,7 @@ const GestionHorarios = ({ navigation }) => {
   const [horarios, setHorarios] = useState([]);
   const [miHorario, setMiHorario] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
-  const [jefes, setJefes] = useState([]); // 👈 LISTA DE JEFES PARA SOLICITUDES
+  const [jefes, setJefes] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalSolicitudVisible, setModalSolicitudVisible] = useState(false);
   const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
@@ -35,7 +35,6 @@ const GestionHorarios = ({ navigation }) => {
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
   const isTecnicoOrCoordinador = ['Tecnico', 'Coordinador'].includes(user?.rol);
 
-  // Estado del formulario de horario
   const [formData, setFormData] = useState({
     asignadoA: '',
     fechaInicio: new Date(),
@@ -47,7 +46,6 @@ const GestionHorarios = ({ navigation }) => {
     intervaloAlerta: '30',
   });
 
-  // Estado del formulario de solicitud
   const [solicitudData, setSolicitudData] = useState({
     tipo: 'PERMISO',
     fecha: new Date(),
@@ -57,7 +55,6 @@ const GestionHorarios = ({ navigation }) => {
     jefeId: '',
   });
 
-  // Estados para DateTimePicker
   const [showFechaInicio, setShowFechaInicio] = useState(false);
   const [showFechaFin, setShowFechaFin] = useState(false);
   const [showSolicitudFecha, setShowSolicitudFecha] = useState(false);
@@ -66,15 +63,19 @@ const GestionHorarios = ({ navigation }) => {
   // CARGAR DATOS
   // ============================================
   const cargarDatos = async () => {
+    console.log('📋 1. Iniciando carga de datos...');
+    
     try {
       // Cargar horarios
       const responseHorarios = await api.get('/horarios');
       setHorarios(responseHorarios.data.data || []);
+      console.log('📋 2. Horarios cargados:', responseHorarios.data.data?.length || 0);
 
       // Cargar mi horario (si es Técnico/Coordinador)
       if (isTecnicoOrCoordinador) {
         const responseMiHorario = await api.get('/horarios/mi-horario');
         setMiHorario(responseMiHorario.data.data);
+        console.log('📋 3. Mi horario:', responseMiHorario.data.data ? 'SI' : 'NO');
       }
 
       // Cargar usuarios para asignar horarios (Técnicos y Coordinadores)
@@ -84,21 +85,28 @@ const GestionHorarios = ({ navigation }) => {
           u => u.rol === 'Tecnico' || u.rol === 'Coordinador'
         );
         setUsuarios(usuariosFiltrados);
+        console.log('📋 4. Usuarios filtrados:', usuariosFiltrados.length);
       }
 
-      // 👈 CARGAR JEFES PARA EL SELECTOR DE SOLICITUDES
+      // CARGAR JEFES PARA EL SELECTOR DE SOLICITUDES
+      console.log('📋 5. Cargando jefes...');
       const responseJefes = await api.get('/auth/usuarios');
+      console.log('📋 6. Respuesta jefes:', responseJefes.data);
+      
       const jefesFiltrados = responseJefes.data.data.filter(
         u => u.rol === 'Admin' || u.rol === 'Jefe'
       );
+      console.log('📋 7. Jefes filtrados:', jefesFiltrados.length);
+      console.log('📋 8. Jefes:', JSON.stringify(jefesFiltrados, null, 2));
       setJefes(jefesFiltrados);
 
       // Cargar solicitudes
       const responseSolicitudes = await api.get('/horarios/solicitudes');
       setSolicitudes(responseSolicitudes.data.data || []);
+      console.log('📋 9. Solicitudes cargadas:', responseSolicitudes.data.data?.length || 0);
 
     } catch (error) {
-      console.error('Error al cargar datos:', error);
+      console.error('❌ Error al cargar datos:', error);
       Alert.alert('Error', 'No se pudieron cargar los datos');
     } finally {
       setLoading(false);
@@ -171,6 +179,9 @@ const GestionHorarios = ({ navigation }) => {
   // SOLICITUD DE PERMISO/RESESO
   // ============================================
   const handleCrearSolicitud = async () => {
+    console.log('📝 1. handleCrearSolicitud - Inicio');
+    console.log('📝 2. solicitudData:', solicitudData);
+
     if (!solicitudData.jefeId) {
       Alert.alert('Error', 'Selecciona un jefe');
       return;
@@ -191,12 +202,16 @@ const GestionHorarios = ({ navigation }) => {
         jefeId: solicitudData.jefeId,
       };
 
-      await api.post('/horarios/solicitudes', dataToSend);
+      console.log('📝 3. Enviando solicitud:', dataToSend);
+      const response = await api.post('/horarios/solicitudes', dataToSend);
+      console.log('✅ 4. Solicitud creada:', response.data);
+
       Alert.alert('✅ Éxito', 'Solicitud enviada correctamente');
       setModalSolicitudVisible(false);
       cargarDatos();
       resetFormSolicitud();
     } catch (error) {
+      console.error('❌ Error al enviar solicitud:', error);
       Alert.alert('Error', error.response?.data?.message || 'Error al enviar solicitud');
     } finally {
       setLoading(false);
@@ -325,6 +340,8 @@ const GestionHorarios = ({ navigation }) => {
     );
   }
 
+  console.log('📋 Renderizando. Jefes disponibles:', jefes.length);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -340,9 +357,7 @@ const GestionHorarios = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* ============================================ */}
         {/* MI HORARIO - Técnico/Coordinador */}
-        {/* ============================================ */}
         {isTecnicoOrCoordinador && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📋 Mi Horario</Text>
@@ -372,16 +387,17 @@ const GestionHorarios = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.solicitarButton}
-              onPress={() => setModalSolicitudVisible(true)}
+              onPress={() => {
+                console.log('📝 Abriendo modal de solicitud. Jefes:', jefes.length);
+                setModalSolicitudVisible(true);
+              }}
             >
               <Text style={styles.solicitarButtonText}>📝 Pedir Permiso/Reseso</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* ============================================ */}
         {/* LISTA DE HORARIOS - Solo Admin/Jefe */}
-        {/* ============================================ */}
         {isAdminOrJefe && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -431,9 +447,7 @@ const GestionHorarios = ({ navigation }) => {
           </View>
         )}
 
-        {/* ============================================ */}
         {/* SOLICITUDES PENDIENTES - Solo Admin/Jefe */}
-        {/* ============================================ */}
         {isAdminOrJefe && solicitudes.filter(s => s.estado === 'PENDIENTE').length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📋 Solicitudes Pendientes</Text>
@@ -476,9 +490,7 @@ const GestionHorarios = ({ navigation }) => {
         )}
       </ScrollView>
 
-      {/* ============================================ */}
       {/* MODAL CREAR HORARIO */}
-      {/* ============================================ */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -605,9 +617,7 @@ const GestionHorarios = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================ */}
-      {/* MODAL SOLICITUD PERMISO/RESESO - CON LISTA DE JEFES */}
-      {/* ============================================ */}
+      {/* MODAL SOLICITUD PERMISO/RESESO - CON LOGS */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -682,15 +692,25 @@ const GestionHorarios = ({ navigation }) => {
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={solicitudData.jefeId}
-                onValueChange={(value) => setSolicitudData(prev => ({ ...prev, jefeId: value }))}
+                onValueChange={(value) => {
+                  console.log('📋 Jefe seleccionado:', value);
+                  setSolicitudData(prev => ({ ...prev, jefeId: value }));
+                }}
                 style={styles.picker}
               >
                 <Picker.Item label="Selecciona un jefe" value="" />
-                {jefes.map((j) => (
-                  <Picker.Item key={j._id} label={`${j.nombre} (${j.rol})`} value={j._id} />
-                ))}
+                {jefes.length === 0 ? (
+                  <Picker.Item label="Cargando jefes..." value="" />
+                ) : (
+                  jefes.map((j) => (
+                    <Picker.Item key={j._id} label={`${j.nombre} (${j.rol})`} value={j._id} />
+                  ))
+                )}
               </Picker>
             </View>
+            {jefes.length === 0 && (
+              <Text style={styles.errorText}>⚠️ No hay jefes disponibles. Contacta a un administrador.</Text>
+            )}
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -702,7 +722,7 @@ const GestionHorarios = ({ navigation }) => {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonSave]}
                 onPress={handleCrearSolicitud}
-                disabled={loading}
+                disabled={loading || jefes.length === 0}
               >
                 <Text style={styles.modalButtonText}>📤 Enviar Solicitud</Text>
               </TouchableOpacity>
@@ -711,9 +731,7 @@ const GestionHorarios = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================ */}
       {/* MODAL DETALLE HORARIO */}
-      {/* ============================================ */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -762,7 +780,6 @@ const GestionHorarios = ({ navigation }) => {
                   </Text>
                 </View>
 
-                {/* 🗑️ Botones de acción - Solo Admin/Jefe */}
                 {isAdminOrJefe && (
                   <View style={styles.detalleAcciones}>
                     <TouchableOpacity
@@ -1073,6 +1090,13 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 14,
     color: '#2D3436',
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 5,
+    marginBottom: 10,
   },
   modalButtons: {
     flexDirection: 'row',
