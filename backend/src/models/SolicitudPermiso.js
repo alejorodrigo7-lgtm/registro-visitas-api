@@ -1,37 +1,38 @@
 const mongoose = require('mongoose');
 
-const horarioSchema = new mongoose.Schema({
-  // Datos del horario
-  creadoPor: {
+const solicitudPermisoSchema = new mongoose.Schema({
+  // Usuario que solicita
+  usuario: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
-  creadoPorNombre: {
+  usuarioNombre: {
     type: String,
     required: true,
   },
-  asignadoA: {
+  
+  // Jefe al que se solicita
+  jefe: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
-  asignadoNombre: {
+  jefeNombre: {
     type: String,
     required: true,
   },
   
-  // 📅 Fechas laborales
-  fechaInicio: {
+  // Detalles de la solicitud
+  tipo: {
+    type: String,
+    enum: ['PERMISO', 'RESESO', 'HORARIO_ESPECIAL'],
+    required: true,
+  },
+  fecha: {
     type: Date,
     required: true,
   },
-  fechaFin: {
-    type: Date,
-    required: true,
-  },
-  
-  // 🕐 Horario de trabajo
   horaInicio: {
     type: String,
     required: true,
@@ -40,28 +41,22 @@ const horarioSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  
-  // 🍽️ Horario de almuerzo
-  horaAlmuerzoInicio: {
+  observacion: {
     type: String,
-    default: '12:00',
-  },
-  horaAlmuerzoFin: {
-    type: String,
-    default: '13:00',
-  },
-  
-  // ⏰ Intervalo de alerta
-  intervaloAlerta: {
-    type: Number,
     required: true,
-    default: 30,
   },
   
-  // Estado
-  activo: {
-    type: Boolean,
-    default: true,
+  // Estado de la solicitud
+  estado: {
+    type: String,
+    enum: ['PENDIENTE', 'APROBADO', 'DESAPROBADO'],
+    default: 'PENDIENTE',
+  },
+  
+  // Comentario del jefe
+  comentarioJefe: {
+    type: String,
+    default: '',
   },
   
   // Fechas
@@ -75,9 +70,9 @@ const horarioSchema = new mongoose.Schema({
   },
 });
 
-horarioSchema.pre('save', function(next) {
+solicitudPermisoSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
 
-module.exports = mongoose.model('Horario', horarioSchema);
+module.exports = mongoose.model('SolicitudPermiso', solicitudPermisoSchema);

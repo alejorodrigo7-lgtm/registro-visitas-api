@@ -5,7 +5,7 @@ const Visita = require('../models/Visita');
 const pushService = require('../services/pushService');
 
 // ============================================
-// 📋 CREAR HORARIO
+// 📋 CREAR HORARIO (CON FECHAS Y ALMUERZO)
 // ============================================
 exports.crearHorario = async (req, res) => {
   console.log('📋 1. crearHorario - Inicio');
@@ -13,9 +13,18 @@ exports.crearHorario = async (req, res) => {
   console.log('📋 3. Usuario:', req.user?.email);
 
   try {
-    const { asignadoA, diasLaborales, horaInicio, horaFin, intervaloAlerta } = req.body;
+    const {
+      asignadoA,
+      fechaInicio,
+      fechaFin,
+      horaInicio,
+      horaFin,
+      horaAlmuerzoInicio,
+      horaAlmuerzoFin,
+      intervaloAlerta,
+    } = req.body;
 
-    // Validar campos
+    // Validar campos obligatorios
     if (!asignadoA) {
       console.log('❌ 4. Error: asignadoA faltante');
       return res.status(400).json({
@@ -24,16 +33,24 @@ exports.crearHorario = async (req, res) => {
       });
     }
 
-    if (!diasLaborales || !Array.isArray(diasLaborales) || diasLaborales.length === 0) {
-      console.log('❌ 5. Error: diasLaborales inválido');
+    if (!fechaInicio) {
+      console.log('❌ 5. Error: fechaInicio faltante');
       return res.status(400).json({
         success: false,
-        message: 'Debes seleccionar al menos un día laboral'
+        message: 'La fecha de inicio es obligatoria'
+      });
+    }
+
+    if (!fechaFin) {
+      console.log('❌ 6. Error: fechaFin faltante');
+      return res.status(400).json({
+        success: false,
+        message: 'La fecha de fin es obligatoria'
       });
     }
 
     if (!horaInicio) {
-      console.log('❌ 6. Error: horaInicio faltante');
+      console.log('❌ 7. Error: horaInicio faltante');
       return res.status(400).json({
         success: false,
         message: 'La hora de inicio es obligatoria'
@@ -41,108 +58,115 @@ exports.crearHorario = async (req, res) => {
     }
 
     if (!horaFin) {
-      console.log('❌ 7. Error: horaFin faltante');
+      console.log('❌ 8. Error: horaFin faltante');
       return res.status(400).json({
         success: false,
         message: 'La hora de fin es obligatoria'
       });
     }
 
-    if (!intervaloAlerta) {
-      console.log('❌ 8. Error: intervaloAlerta faltante');
-      return res.status(400).json({
-        success: false,
-        message: 'El intervalo de alerta es obligatorio'
-      });
-    }
-
-    // Verificar usuario asignado
-    console.log('👤 9. Verificando usuario asignado:', asignadoA);
-    const usuarioAsignado = await User.findById(asignadoA);
-    if (!usuarioAsignado) {
-      console.log('❌ 10. Usuario asignado no encontrado');
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario asignado no encontrado'
-      });
-    }
-    console.log('✅ 11. Usuario asignado:', usuarioAsignado.nombre);
-
-    // Validar que no sea Admin o Jefe
-    if (['Admin', 'Jefe'].includes(usuarioAsignado.rol)) {
-      console.log('❌ 12. No se puede asignar horario a Admin o Jefe');
-      return res.status(400).json({
-        success: false,
-        message: 'No se puede asignar horario a un Administrador o Jefe'
-      });
-    }
-
-    // Validar hora
     if (horaInicio >= horaFin) {
-      console.log('❌ 13. Hora inválida:', horaInicio, '>=', horaFin);
+      console.log('❌ 9. Error: horaInicio >= horaFin');
       return res.status(400).json({
         success: false,
         message: 'La hora de inicio debe ser menor a la hora de fin'
       });
     }
 
+    // Verificar usuario asignado
+    console.log('👤 10. Verificando usuario asignado:', asignadoA);
+    const usuarioAsignado = await User.findById(asignadoA);
+    if (!usuarioAsignado) {
+      console.log('❌ 11. Usuario asignado no encontrado');
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario asignado no encontrado'
+      });
+    }
+    console.log('✅ 12. Usuario asignado:', usuarioAsignado.nombre);
+
+    // Validar que no sea Admin o Jefe
+    if (['Admin', 'Jefe'].includes(usuarioAsignado.rol)) {
+      console.log('❌ 13. No se puede asignar horario a Admin o Jefe');
+      return res.status(400).json({
+        success: false,
+        message: 'No se puede asignar horario a un Administrador o Jefe'
+      });
+    }
+
+    // Validar fechas
+    const fechaInicioDate = new Date(fechaInicio);
+    const fechaFinDate = new Date(fechaFin);
+    if (fechaInicioDate > fechaFinDate) {
+      console.log('❌ 14. Error: fechaInicio > fechaFin');
+      return res.status(400).json({
+        success: false,
+        message: 'La fecha de inicio debe ser menor a la fecha de fin'
+      });
+    }
+
     // Crear horario
-    console.log('📋 14. Creando horario...');
-    const horario = await Horario.create({
+    console.log('📋 15. Creando horario...');
+    const horario = new Horario({
       creadoPor: req.user._id,
       creadoPorNombre: req.user.nombre,
       asignadoA,
       asignadoNombre: usuarioAsignado.nombre,
-      diasLaborales,
+      fechaInicio: fechaInicioDate,
+      fechaFin: fechaFinDate,
       horaInicio,
       horaFin,
-      intervaloAlerta: parseInt(intervaloAlerta),
+      horaAlmuerzoInicio: horaAlmuerzoInicio || '12:00',
+      horaAlmuerzoFin: horaAlmuerzoFin || '13:00',
+      intervaloAlerta: parseInt(intervaloAlerta) || 30,
       activo: true,
     });
-    console.log('✅ 15. Horario creado con ID:', horario._id);
+
+    await horario.save();
+    console.log('✅ 16. Horario creado con ID:', horario._id);
 
     // ✅ Notificación para el asignado
-    console.log('📝 16. Guardando notificación para el asignado...');
+    console.log('📝 17. Guardando notificación para el asignado...');
     await Notificacion.create({
       titulo: '📋 Nuevo Horario Asignado',
-      mensaje: `Se te ha asignado un nuevo horario de trabajo.`,
+      mensaje: `Se te ha asignado un horario del ${fechaInicioDate.toLocaleDateString('es-ES')} al ${fechaFinDate.toLocaleDateString('es-ES')}`,
       tipo: 'sistema',
       usuario: asignadoA,
       datos: { horarioId: horario._id },
     });
 
-    // ✅ Enviar notificación push al asignado
-    console.log('📲 17. Enviando push al asignado...');
+    // ✅ Enviar push al asignado
+    console.log('📲 18. Enviando push al asignado...');
     try {
-      await pushService.enviarNotificacionPush(usuarioAsignado._id, {
+      await pushService.enviarNotificacionPush(asignadoA, {
         title: '📋 Nuevo Horario',
-        body: `Se te ha asignado un nuevo horario de trabajo.`,
+        body: `Horario asignado del ${fechaInicioDate.toLocaleDateString('es-ES')} al ${fechaFinDate.toLocaleDateString('es-ES')}`,
         data: { horarioId: horario._id.toString() },
       });
-      console.log('✅ 18. Push enviado al asignado');
+      console.log('✅ 19. Push enviado al asignado');
     } catch (pushError) {
       console.error('❌ Error al enviar push al asignado:', pushError);
     }
 
-    // ✅ Notificación para el creador (Admin/Jefe)
-    console.log('📝 19. Guardando notificación para el creador...');
+    // ✅ Notificación para el creador
+    console.log('📝 20. Guardando notificación para el creador...');
     await Notificacion.create({
       titulo: '✅ Horario Creado',
-      mensaje: `Has creado un horario para ${usuarioAsignado.nombre}`,
+      mensaje: `Has creado un horario para ${usuarioAsignado.nombre} del ${fechaInicioDate.toLocaleDateString('es-ES')} al ${fechaFinDate.toLocaleDateString('es-ES')}`,
       tipo: 'sistema',
       usuario: req.user._id,
       datos: { horarioId: horario._id },
     });
 
     // ✅ Enviar push al creador
-    console.log('📲 20. Enviando push al creador...');
+    console.log('📲 21. Enviando push al creador...');
     try {
       await pushService.enviarNotificacionPush(req.user._id, {
         title: '✅ Horario Creado',
         body: `Has creado un horario para ${usuarioAsignado.nombre}`,
         data: { horarioId: horario._id.toString() },
       });
-      console.log('✅ 21. Push enviado al creador');
+      console.log('✅ 22. Push enviado al creador');
     } catch (pushError) {
       console.error('❌ Error al enviar push al creador:', pushError);
     }
@@ -154,7 +178,7 @@ exports.crearHorario = async (req, res) => {
     });
 
   } catch (error) {
-    console.log('❌ 22. Error en crearHorario:', error);
+    console.log('❌ 23. Error en crearHorario:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Error interno del servidor',
@@ -174,7 +198,12 @@ exports.getHorarios = async (req, res) => {
     if (['Tecnico', 'Coordinador'].includes(req.user.rol)) {
       query.asignadoA = req.user._id;
     } else if (['Jefe', 'Admin'].includes(req.user.rol)) {
-      query.creadoPor = req.user._id;
+      // Admin y Jefe ven todos los horarios que crearon o todos (Admin ve todos)
+      if (req.user.rol === 'Admin') {
+        // Admin ve todos
+      } else {
+        query.creadoPor = req.user._id;
+      }
     }
 
     console.log('📋 2. Query:', JSON.stringify(query));
@@ -182,7 +211,7 @@ exports.getHorarios = async (req, res) => {
     const horarios = await Horario.find(query)
       .populate('creadoPor', 'nombre email rol')
       .populate('asignadoA', 'nombre email rol')
-      .sort({ createdAt: -1 });
+      .sort({ fechaInicio: -1 });
 
     console.log('✅ 3. Horarios encontrados:', horarios.length);
 
@@ -202,7 +231,49 @@ exports.getHorarios = async (req, res) => {
 };
 
 // ============================================
-// 📋 OBTENER UN HORARIO
+// 📋 OBTENER MI HORARIO (para Técnico/Coordinador)
+// ============================================
+exports.getMiHorario = async (req, res) => {
+  console.log('📋 1. getMiHorario - Inicio');
+  console.log('📋 2. Usuario:', req.user?.email);
+
+  try {
+    const ahora = new Date();
+    
+    const horario = await Horario.findOne({
+      asignadoA: req.user._id,
+      activo: true,
+      fechaInicio: { $lte: ahora },
+      fechaFin: { $gte: ahora },
+    }).populate('creadoPor', 'nombre email');
+
+    if (!horario) {
+      console.log('⚠️ 3. No hay horario activo para el usuario');
+      return res.json({
+        success: true,
+        data: null,
+        message: 'No tienes un horario activo',
+      });
+    }
+
+    console.log('✅ 4. Horario encontrado:', horario._id);
+
+    res.json({
+      success: true,
+      data: horario,
+    });
+
+  } catch (error) {
+    console.log('❌ Error en getMiHorario:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ============================================
+// 📋 OBTENER UN HORARIO POR ID
 // ============================================
 exports.getHorario = async (req, res) => {
   try {
@@ -249,7 +320,16 @@ exports.getHorario = async (req, res) => {
 exports.updateHorario = async (req, res) => {
   try {
     const { id } = req.params;
-    const { diasLaborales, horaInicio, horaFin, intervaloAlerta, activo } = req.body;
+    const {
+      fechaInicio,
+      fechaFin,
+      horaInicio,
+      horaFin,
+      horaAlmuerzoInicio,
+      horaAlmuerzoFin,
+      intervaloAlerta,
+      activo,
+    } = req.body;
 
     const horario = await Horario.findById(id);
     if (!horario) {
@@ -269,9 +349,12 @@ exports.updateHorario = async (req, res) => {
       });
     }
 
-    if (diasLaborales) horario.diasLaborales = diasLaborales;
+    if (fechaInicio) horario.fechaInicio = new Date(fechaInicio);
+    if (fechaFin) horario.fechaFin = new Date(fechaFin);
     if (horaInicio) horario.horaInicio = horaInicio;
     if (horaFin) horario.horaFin = horaFin;
+    if (horaAlmuerzoInicio) horario.horaAlmuerzoInicio = horaAlmuerzoInicio;
+    if (horaAlmuerzoFin) horario.horaAlmuerzoFin = horaAlmuerzoFin;
     if (intervaloAlerta) horario.intervaloAlerta = parseInt(intervaloAlerta);
     if (activo !== undefined) horario.activo = activo;
     horario.updatedAt = new Date();
@@ -356,7 +439,7 @@ exports.deleteHorario = async (req, res) => {
 };
 
 // ============================================
-// ⏰ VERIFICAR ALERTAS DE HORARIO
+// ⏰ VERIFICAR ALERTAS DE HORARIO (CRON)
 // ============================================
 const verificarAlertasHorario = async () => {
   try {
@@ -369,9 +452,11 @@ const verificarAlertasHorario = async () => {
     console.log(`🔄 Verificando alertas de horarios...`);
     console.log(`📅 Hoy es día ${diaActual}, hora: ${tiempoActual}`);
 
+    // Buscar horarios activos para hoy
     const horarios = await Horario.find({
       activo: true,
-      diasLaborales: diaActual,
+      fechaInicio: { $lte: now },
+      fechaFin: { $gte: now },
     }).populate('asignadoA', 'nombre email expoPushToken');
 
     console.log(`📋 Horarios encontrados: ${horarios.length}`);
@@ -381,6 +466,12 @@ const verificarAlertasHorario = async () => {
       
       if (tiempoActual < horario.horaInicio || tiempoActual > horario.horaFin) {
         console.log(`⏰ Fuera de horario laboral`);
+        continue;
+      }
+
+      // Verificar si está en horario de almuerzo
+      if (tiempoActual >= horario.horaAlmuerzoInicio && tiempoActual <= horario.horaAlmuerzoFin) {
+        console.log(`🍽️ En horario de almuerzo`);
         continue;
       }
 
@@ -407,8 +498,6 @@ const verificarAlertasHorario = async () => {
         const mensajeTecnico = `⚠️ Usted no ha registrado una visita hace ${tiempoStr}`;
         const mensajeJefe = `⚠️ El técnico ${horario.asignadoA.nombre} no ha registrado visitas hace ${tiempoStr}`;
 
-        console.log(`📝 Guardando notificación para el técnico: ${mensajeTecnico}`);
-        
         // Notificación para el técnico
         await Notificacion.create({
           titulo: '⏰ Alerta de Visita',
@@ -418,19 +507,15 @@ const verificarAlertasHorario = async () => {
           datos: { horarioId: horario._id, tiempoSinVisita },
         });
 
-        // Push al técnico
         try {
           await pushService.enviarNotificacionPush(horario.asignadoA._id, {
             title: '⏰ Alerta de Visita',
             body: mensajeTecnico,
             data: { horarioId: horario._id.toString(), tipo: 'alerta_tecnico' },
           });
-          console.log(`📲 Push enviado al técnico ${horario.asignadoA.email}`);
         } catch (pushError) {
           console.error('Error al enviar push al técnico:', pushError);
         }
-
-        console.log(`📝 Guardando notificación para el jefe: ${mensajeJefe}`);
 
         // Notificación para el jefe
         await Notificacion.create({
@@ -441,14 +526,12 @@ const verificarAlertasHorario = async () => {
           datos: { horarioId: horario._id, tiempoSinVisita },
         });
 
-        // Push al jefe
         try {
           await pushService.enviarNotificacionPush(horario.creadoPor, {
             title: '⏰ Alerta de Visita',
             body: mensajeJefe,
             data: { horarioId: horario._id.toString(), tipo: 'alerta_jefe' },
           });
-          console.log(`📲 Push enviado al jefe`);
         } catch (pushError) {
           console.error('Error al enviar push al jefe:', pushError);
         }
@@ -463,7 +546,4 @@ const verificarAlertasHorario = async () => {
   }
 };
 
-// ============================================
-// EXPORTAR VERIFICACIÓN PARA RUTA
-// ============================================
 exports.verificarAlertasHorario = verificarAlertasHorario;
