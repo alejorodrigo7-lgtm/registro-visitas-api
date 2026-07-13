@@ -16,6 +16,7 @@ const reporteRoutes = require('./routes/reporteRoutes');
 const visitaRoutes = require('./routes/visitaRoutes');
 const bodegaRoutes = require('./routes/bodegaRoutes');
 const horarioRoutes = require('./routes/horarioRoutes');
+const mapaRoutes = require('./routes/mapaRoutes');
 
 const app = express();
 
@@ -24,6 +25,7 @@ connectDB();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use('/api/mapas', mapaRoutes);
 
 // ============================================
 // 🔍 RUTA DE BÚSQUEDA DE CLIENTES
