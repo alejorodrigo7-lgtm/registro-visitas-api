@@ -20,7 +20,7 @@ const {
 router.use(protect);
 
 // ============================================
-// 📋 HORARIOS
+// 📋 HORARIOS - RUTAS PRINCIPALES
 // ============================================
 
 // Crear horario - Solo Admin y Jefe
@@ -29,14 +29,12 @@ router.post('/', authorize('Admin', 'Jefe'), crearHorario);
 // Obtener todos los horarios
 router.get('/', getHorarios);
 
+// ============================================
+// 📋 RUTAS ESPECÍFICAS (DEBEN IR ANTES DE /:id)
+// ============================================
+
 // Obtener mi horario (para Técnico/Coordinador)
 router.get('/mi-horario', getMiHorario);
-
-// Obtener, actualizar o eliminar un horario específico
-router.route('/:id')
-  .get(getHorario)
-  .put(authorize('Admin', 'Jefe'), updateHorario)
-  .delete(authorize('Admin', 'Jefe'), deleteHorario);
 
 // Verificar alertas manualmente
 router.post('/verificar', authorize('Admin', 'Jefe'), async (req, res) => {
@@ -67,5 +65,13 @@ router.get('/solicitudes', getSolicitudes);
 
 // Aprobar/Desaprobar solicitud - Solo Admin y Jefe
 router.put('/solicitudes/:id', authorize('Admin', 'Jefe'), actualizarSolicitud);
+
+// ============================================
+// ⚠️ RUTA CON PARÁMETRO DINÁMICO - DEBE IR AL FINAL
+// ============================================
+router.route('/:id')
+  .get(getHorario)
+  .put(authorize('Admin', 'Jefe'), updateHorario)
+  .delete(authorize('Admin', 'Jefe'), deleteHorario);
 
 module.exports = router;
