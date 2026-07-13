@@ -12,6 +12,7 @@ const cajaRoutes = require('./routes/cajaRoutes');
 const reporteRoutes = require('./routes/reporteRoutes');
 const visitaRoutes = require('./routes/visitaRoutes');
 const bodegaRoutes = require('./routes/bodegaRoutes');
+const horarioRoutes = require('./routes/horarioRoutes'); // 👈 AGREGAR
 
 const app = express();
 
@@ -102,6 +103,7 @@ app.use('/api/cajas', cajaRoutes);
 app.use('/api/reportes', reporteRoutes);
 app.use('/api/visitas', visitaRoutes);
 app.use('/api/bodegas', bodegaRoutes);
+app.use('/api/horarios', horarioRoutes); // 👈 AGREGAR
 
 // ============================================
 // RUTA DE PRUEBA
@@ -122,4 +124,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 /api/reportes`);
   console.log(`📋 /api/visitas`);
   console.log(`🏪 /api/bodegas`);
+  console.log(`📋 /api/horarios`); // 👈 AGREGAR
 });
