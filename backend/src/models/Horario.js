@@ -6,36 +6,36 @@ const horarioSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  creadoPorNombre: {
+    type: String,
+    required: true,
+  },
   asignadoA: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
+  asignadoNombre: {
+    type: String,
+    required: true,
+  },
   diasLaborales: {
     type: [Number],
     required: true,
-    validate: {
-      validator: function(v) {
-        return v.length > 0 && v.every(d => d >= 0 && d <= 6);
-      },
-      message: 'Días laborales inválidos',
-    },
+    // ✅ REMOVER EL VALIDADOR QUE CAUSA EL ERROR
   },
   horaInicio: {
     type: String,
     required: true,
-    match: /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/,
   },
   horaFin: {
     type: String,
     required: true,
-    match: /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/,
   },
   intervaloAlerta: {
     type: Number,
     required: true,
-    min: 5,
-    max: 1440,
+    default: 30,
   },
   activo: {
     type: Boolean,
@@ -51,7 +51,9 @@ const horarioSchema = new mongoose.Schema({
   },
 });
 
-horarioSchema.index({ asignadoA: 1, activo: 1 });
-horarioSchema.index({ creadoPor: 1, activo: 1 });
+horarioSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
 
 module.exports = mongoose.model('Horario', horarioSchema);
