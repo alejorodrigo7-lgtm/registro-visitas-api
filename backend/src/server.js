@@ -1,4 +1,6 @@
 require('dotenv').config();
+process.env.TZ = 'America/Guayaquil'; // 👈 ZONA HORARIA DE ECUADOR
+
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/database');
@@ -12,7 +14,7 @@ const cajaRoutes = require('./routes/cajaRoutes');
 const reporteRoutes = require('./routes/reporteRoutes');
 const visitaRoutes = require('./routes/visitaRoutes');
 const bodegaRoutes = require('./routes/bodegaRoutes');
-const horarioRoutes = require('./routes/horarioRoutes'); // 👈 AGREGAR
+const horarioRoutes = require('./routes/horarioRoutes');
 
 const app = express();
 
@@ -103,7 +105,7 @@ app.use('/api/cajas', cajaRoutes);
 app.use('/api/reportes', reporteRoutes);
 app.use('/api/visitas', visitaRoutes);
 app.use('/api/bodegas', bodegaRoutes);
-app.use('/api/horarios', horarioRoutes); // 👈 AGREGAR
+app.use('/api/horarios', horarioRoutes);
 
 // ============================================
 // RUTA DE PRUEBA
@@ -116,6 +118,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log(`📡 Escuchando en todas las interfaces (0.0.0.0)`);
+  console.log(`🕐 Zona horaria: ${process.env.TZ || 'UTC'}`);
   console.log(`🔍 /api/clientes/buscar/:identificador`);
   console.log(`📋 /api/clientes/todos`);
   console.log(`📤 /api/transferencias`);
@@ -124,5 +127,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 /api/reportes`);
   console.log(`📋 /api/visitas`);
   console.log(`🏪 /api/bodegas`);
-  console.log(`📋 /api/horarios`); // 👈 AGREGAR
+  console.log(`📋 /api/horarios`);
 });
