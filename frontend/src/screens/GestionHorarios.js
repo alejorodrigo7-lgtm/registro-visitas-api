@@ -24,6 +24,7 @@ const GestionHorarios = ({ navigation }) => {
   const [horarios, setHorarios] = useState([]);
   const [miHorario, setMiHorario] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
+  const [jefes, setJefes] = useState([]); // 👈 LISTA DE JEFES PARA SOLICITUDES
   const [modalVisible, setModalVisible] = useState(false);
   const [modalSolicitudVisible, setModalSolicitudVisible] = useState(false);
   const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
@@ -46,6 +47,7 @@ const GestionHorarios = ({ navigation }) => {
     intervaloAlerta: '30',
   });
 
+  // Estado del formulario de solicitud
   const [solicitudData, setSolicitudData] = useState({
     tipo: 'PERMISO',
     fecha: new Date(),
@@ -55,6 +57,7 @@ const GestionHorarios = ({ navigation }) => {
     jefeId: '',
   });
 
+  // Estados para DateTimePicker
   const [showFechaInicio, setShowFechaInicio] = useState(false);
   const [showFechaFin, setShowFechaFin] = useState(false);
   const [showSolicitudFecha, setShowSolicitudFecha] = useState(false);
@@ -64,14 +67,17 @@ const GestionHorarios = ({ navigation }) => {
   // ============================================
   const cargarDatos = async () => {
     try {
+      // Cargar horarios
       const responseHorarios = await api.get('/horarios');
       setHorarios(responseHorarios.data.data || []);
 
+      // Cargar mi horario (si es Técnico/Coordinador)
       if (isTecnicoOrCoordinador) {
         const responseMiHorario = await api.get('/horarios/mi-horario');
         setMiHorario(responseMiHorario.data.data);
       }
 
+      // Cargar usuarios para asignar horarios (Técnicos y Coordinadores)
       if (isAdminOrJefe) {
         const responseUsuarios = await api.get('/auth/usuarios');
         const usuariosFiltrados = responseUsuarios.data.data.filter(
@@ -80,6 +86,14 @@ const GestionHorarios = ({ navigation }) => {
         setUsuarios(usuariosFiltrados);
       }
 
+      // 👈 CARGAR JEFES PARA EL SELECTOR DE SOLICITUDES
+      const responseJefes = await api.get('/auth/usuarios');
+      const jefesFiltrados = responseJefes.data.data.filter(
+        u => u.rol === 'Admin' || u.rol === 'Jefe'
+      );
+      setJefes(jefesFiltrados);
+
+      // Cargar solicitudes
       const responseSolicitudes = await api.get('/horarios/solicitudes');
       setSolicitudes(responseSolicitudes.data.data || []);
 
@@ -154,7 +168,7 @@ const GestionHorarios = ({ navigation }) => {
   };
 
   // ============================================
-  // SOLICITUD DE PERMISO/RESESO (CUALQUIER USUARIO)
+  // SOLICITUD DE PERMISO/RESESO
   // ============================================
   const handleCrearSolicitud = async () => {
     if (!solicitudData.jefeId) {
@@ -356,7 +370,6 @@ const GestionHorarios = ({ navigation }) => {
               </View>
             )}
 
-            {/* Botón Pedir Permiso/Reseso - Todos los usuarios */}
             <TouchableOpacity
               style={styles.solicitarButton}
               onPress={() => setModalSolicitudVisible(true)}
@@ -464,7 +477,7 @@ const GestionHorarios = ({ navigation }) => {
       </ScrollView>
 
       {/* ============================================ */}
-      {/* MODAL CREAR HORARIO - Solo Admin/Jefe */}
+      {/* MODAL CREAR HORARIO */}
       {/* ============================================ */}
       <Modal
         animationType="slide"
@@ -593,7 +606,7 @@ const GestionHorarios = ({ navigation }) => {
       </Modal>
 
       {/* ============================================ */}
-      {/* MODAL SOLICITUD PERMISO/RESESO */}
+      {/* MODAL SOLICITUD PERMISO/RESESO - CON LISTA DE JEFES */}
       {/* ============================================ */}
       <Modal
         animationType="slide"
@@ -673,8 +686,8 @@ const GestionHorarios = ({ navigation }) => {
                 style={styles.picker}
               >
                 <Picker.Item label="Selecciona un jefe" value="" />
-                {usuarios.filter(u => ['Admin', 'Jefe'].includes(u.rol)).map((u) => (
-                  <Picker.Item key={u._id} label={`${u.nombre} (${u.rol})`} value={u._id} />
+                {jefes.map((j) => (
+                  <Picker.Item key={j._id} label={`${j.nombre} (${j.rol})`} value={j._id} />
                 ))}
               </Picker>
             </View>
@@ -699,7 +712,7 @@ const GestionHorarios = ({ navigation }) => {
       </Modal>
 
       {/* ============================================ */}
-      {/* MODAL DETALLE HORARIO - Con permisos */}
+      {/* MODAL DETALLE HORARIO */}
       {/* ============================================ */}
       <Modal
         animationType="slide"
@@ -749,10 +762,9 @@ const GestionHorarios = ({ navigation }) => {
                   </Text>
                 </View>
 
-                {/* ✅ BOTONES DE ACCIÓN - SOLO ADMIN Y JEFE */}
+                {/* 🗑️ Botones de acción - Solo Admin/Jefe */}
                 {isAdminOrJefe && (
                   <View style={styles.detalleAcciones}>
-                    {/* Desactivar/Activar - Admin y Jefe */}
                     <TouchableOpacity
                       style={[
                         styles.detalleButton,
@@ -769,7 +781,6 @@ const GestionHorarios = ({ navigation }) => {
                       </Text>
                     </TouchableOpacity>
 
-                    {/* Eliminar - Solo Admin */}
                     {isAdmin && (
                       <TouchableOpacity
                         style={[styles.detalleButton, styles.detalleButtonEliminar]}
