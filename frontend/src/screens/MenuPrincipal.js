@@ -155,6 +155,19 @@ const MenuPrincipal = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
+// Agregar después de Reportes o donde quieras
+        {isAdminOrJefe && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.mapaMenuItem]}
+            onPress={() => navigation.navigate('MapasMenu')}
+          >
+            <Text style={[styles.menuItemText, styles.mapaMenuItemText]}>
+              🗺️ Mapas
+            </Text>
+          </TouchableOpacity>
+        )}
+
+
         {/* Bodegas - Solo Admin y Jefe */}
         {isAdminOrJefe && (
           <TouchableOpacity
@@ -308,4 +321,13 @@ const styles = StyleSheet.create({
   },
 });
 
+mapaMenuItem: {
+  backgroundColor: '#E8F0FE',
+  borderWidth: 1,
+  borderColor: '#0984E3',
+},
+mapaMenuItemText: {
+  color: '#0984E3',
+  fontWeight: '500',
+},
 export default MenuPrincipal;

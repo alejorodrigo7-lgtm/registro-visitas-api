@@ -47,6 +47,11 @@ import CrearBodega from './src/screens/CrearBodega';
 import AsignarMaterial from './src/screens/AsignarMaterial';
 import RevisionBodegas from './src/screens/RevisionBodegas';
 
+import MapasMenu from './src/screens/MapasMenu';
+import MapaAnalisis from './src/screens/MapaAnalisis';
+import MapaReal from './src/screens/MapaReal';
+import MapaKMZ from './src/screens/MapaKMZ';
+
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -111,6 +116,11 @@ export default function App() {
           <Stack.Screen name="CrearBodega" component={CrearBodega} options={{ title: 'Crear Bodega' }} />
           <Stack.Screen name="AsignarMaterial" component={AsignarMaterial} options={{ title: 'Asignar Material' }} />
           <Stack.Screen name="RevisionBodegas" component={RevisionBodegas} options={{ title: 'Revisar Bodegas' }} />
+          // Agregar al Stack.Navigator:
+          <Stack.Screen name="MapasMenu" component={MapasMenu} options={{ title: 'Mapas' }} />
+          <Stack.Screen name="MapaAnalisis" component={MapaAnalisis} options={{ title: 'Mapa Análisis' }} />
+          <Stack.Screen name="MapaReal" component={MapaReal} options={{ title: 'Mapa Real' }} />
+          <Stack.Screen name="MapaKMZ" component={MapaKMZ} options={{ title: 'KMZ' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </AuthProvider>
