@@ -45,6 +45,7 @@ const MenuPrincipal = ({ navigation }) => {
 
   const isAdmin = user?.rol === 'Admin';
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
+  const isTecnicoOrCoordinador = ['Tecnico', 'Coordinador'].includes(user?.rol);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -59,7 +60,7 @@ const MenuPrincipal = ({ navigation }) => {
         showsVerticalScrollIndicator={true}
         contentContainerStyle={styles.menuContentContainer}
       >
-        {/* Registrar Visita */}
+        {/* Registrar Visita - Todos */}
         <TouchableOpacity
           style={styles.menuItem}
           onPress={() => navigation.navigate('RegistroVisita')}
@@ -67,7 +68,7 @@ const MenuPrincipal = ({ navigation }) => {
           <Text style={styles.menuItemText}>📋 Registrar Visita</Text>
         </TouchableOpacity>
 
-        {/* Alertas */}
+        {/* Alertas - Todos */}
         <TouchableOpacity
           style={styles.menuItem}
           onPress={() => navigation.navigate('Alertas')}
@@ -75,17 +76,28 @@ const MenuPrincipal = ({ navigation }) => {
           <Text style={styles.menuItemText}>🔔 Alertas</Text>
         </TouchableOpacity>
 
-        {/* Horarios - Solo Admin y Jefe */}
-        {isAdminOrJefe && (
+        {/* Horarios - Todos los usuarios */}
+        {isAdminOrJefe ? (
+          // Admin y Jefe: Gestión completa
           <TouchableOpacity
             style={[styles.menuItem, styles.adminMenuItem]}
             onPress={() => navigation.navigate('GestionHorarios')}
           >
             <Text style={[styles.menuItemText, styles.adminMenuItemText]}>
-              📋 Horarios
+              📋 Gestión de Horarios
             </Text>
           </TouchableOpacity>
-        )}
+        ) : isTecnicoOrCoordinador ? (
+          // Técnico y Coordinador: Solo Mi Horario
+          <TouchableOpacity
+            style={[styles.menuItem, styles.horarioMenuItem]}
+            onPress={() => navigation.navigate('GestionHorarios')}
+          >
+            <Text style={[styles.menuItemText, styles.horarioMenuItemText]}>
+              📋 Mi Horario
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Gestión de Usuarios - Solo Admin */}
         {isAdmin && (
@@ -99,7 +111,7 @@ const MenuPrincipal = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
-        {/* Transferencias */}
+        {/* Transferencias - Todos */}
         <TouchableOpacity
           style={[styles.menuItem, styles.transferenciaMenuItem]}
           onPress={() => navigation.navigate('TransferenciasMenu')}
@@ -109,7 +121,7 @@ const MenuPrincipal = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
 
-        {/* Servicios */}
+        {/* Servicios - Todos */}
         <TouchableOpacity
           style={[styles.menuItem, styles.servicioMenuItem]}
           onPress={() => navigation.navigate('ServiciosMenu')}
@@ -228,6 +240,15 @@ const styles = StyleSheet.create({
   adminMenuItemText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+  },
+  horarioMenuItem: {
+    backgroundColor: '#E8F0FE',
+    borderWidth: 1,
+    borderColor: '#0984E3',
+  },
+  horarioMenuItemText: {
+    color: '#0984E3',
+    fontWeight: '500',
   },
   transferenciaMenuItem: {
     backgroundColor: '#E8F0FE',
