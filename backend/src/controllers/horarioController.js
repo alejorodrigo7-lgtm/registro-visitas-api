@@ -2,7 +2,7 @@ const Horario = require('../models/Horario');
 const Notificacion = require('../models/Notificacion');
 const User = require('../models/User');
 const Visita = require('../models/Visita');
-const { enviarNotificacionPush } = require('../services/pushService');
+const pushService = require('../services/pushService'); // 👈 CORREGIDO
 
 // ============================================
 // CREAR HORARIO
@@ -45,7 +45,7 @@ exports.crearHorario = async (req, res) => {
 
     // Intentar enviar notificación push
     try {
-      await enviarNotificacionPush(usuarioAsignado._id, {
+      await pushService.enviarNotificacionPush(usuarioAsignado._id, {
         title: '📋 Nuevo Horario',
         body: `Se te ha asignado un nuevo horario de trabajo.`,
         data: { horarioId: horario._id.toString() },
@@ -163,7 +163,7 @@ exports.updateHorario = async (req, res) => {
       });
 
       try {
-        await enviarNotificacionPush(horario.asignadoA, {
+        await pushService.enviarNotificacionPush(horario.asignadoA, {
           title: '📋 Horario Actualizado',
           body: 'Tu horario de trabajo ha sido actualizado.',
           data: { horarioId: horario._id.toString() },
@@ -269,7 +269,6 @@ exports.verificarAlertasHorario = async () => {
 
         console.log(`📝 Guardando notificación para el técnico: ${mensajeTecnico}`);
         
-        // Guardar notificación para el técnico
         await Notificacion.create({
           titulo: '⏰ Alerta de Visita',
           mensaje: mensajeTecnico,
@@ -278,9 +277,8 @@ exports.verificarAlertasHorario = async () => {
           datos: { horarioId: horario._id, tiempoSinVisita },
         });
 
-        // Enviar push al técnico
         try {
-          await enviarNotificacionPush(horario.asignadoA._id, {
+          await pushService.enviarNotificacionPush(horario.asignadoA._id, {
             title: '⏰ Alerta de Visita',
             body: mensajeTecnico,
             data: { horarioId: horario._id.toString(), tipo: 'alerta_tecnico' },
@@ -291,7 +289,6 @@ exports.verificarAlertasHorario = async () => {
 
         console.log(`📝 Guardando notificación para el jefe: ${mensajeJefe}`);
 
-        // Guardar notificación para el jefe
         await Notificacion.create({
           titulo: '⏰ Alerta de Visita',
           mensaje: mensajeJefe,
@@ -300,9 +297,8 @@ exports.verificarAlertasHorario = async () => {
           datos: { horarioId: horario._id, tiempoSinVisita },
         });
 
-        // Enviar push al jefe
         try {
-          await enviarNotificacionPush(horario.creadoPor, {
+          await pushService.enviarNotificacionPush(horario.creadoPor, {
             title: '⏰ Alerta de Visita',
             body: mensajeJefe,
             data: { horarioId: horario._id.toString(), tipo: 'alerta_jefe' },
