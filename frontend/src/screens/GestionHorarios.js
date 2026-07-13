@@ -74,7 +74,7 @@ const GestionHorarios = ({ navigation }) => {
         setMiHorario(responseMiHorario.data.data);
       }
 
-      // Cargar usuarios para asignar horarios (Técnicos y Coordinadores)
+      // Cargar usuarios para asignar horarios (solo Admin/Jefe)
       if (isAdminOrJefe) {
         const responseUsuarios = await api.get('/auth/usuarios');
         const usuariosFiltrados = responseUsuarios.data.data.filter(
@@ -83,11 +83,12 @@ const GestionHorarios = ({ navigation }) => {
         setUsuarios(usuariosFiltrados);
       }
 
-      // Cargar jefes para el selector de solicitudes
+      // ✅ CARGAR JEFES PARA TODOS LOS USUARIOS
       const responseJefes = await api.get('/auth/usuarios');
       const jefesFiltrados = responseJefes.data.data.filter(
         u => u.rol === 'Admin' || u.rol === 'Jefe'
       );
+      console.log('📋 Jefes cargados:', jefesFiltrados.length);
       setJefes(jefesFiltrados);
 
       // Cargar solicitudes
