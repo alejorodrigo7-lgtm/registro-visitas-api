@@ -83,13 +83,22 @@ const GestionHorarios = ({ navigation }) => {
         setUsuarios(usuariosFiltrados);
       }
 
-      // ✅ CARGAR JEFES PARA TODOS LOS USUARIOS
-      const responseJefes = await api.get('/auth/usuarios');
-      const jefesFiltrados = responseJefes.data.data.filter(
-        u => u.rol === 'Admin' || u.rol === 'Jefe'
-      );
-      console.log('📋 Jefes cargados:', jefesFiltrados.length);
-      setJefes(jefesFiltrados);
+      // ✅ CARGAR JEFES DESDE RUTA PÚBLICA
+      try {
+        const responseJefes = await api.get('/auth/jefes');
+        setJefes(responseJefes.data.data || []);
+        console.log('📋 Jefes cargados:', responseJefes.data.data?.length || 0);
+      } catch (jefeError) {
+        console.log('⚠️ Error cargando jefes:', jefeError.message);
+        // Si falla, intentar con la ruta de usuarios (para Admin/Jefe)
+        if (isAdminOrJefe) {
+          const responseJefes2 = await api.get('/auth/usuarios');
+          const jefesFiltrados = responseJefes2.data.data.filter(
+            u => u.rol === 'Admin' || u.rol === 'Jefe'
+          );
+          setJefes(jefesFiltrados);
+        }
+      }
 
       // Cargar solicitudes
       const responseSolicitudes = await api.get('/horarios/solicitudes');
