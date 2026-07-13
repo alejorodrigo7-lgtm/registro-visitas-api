@@ -17,7 +17,8 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    if (user.rol !== rol) {
+    // El rol es opcional - si no se envía, no validar
+    if (rol && user.rol !== rol) {
       return res.status(401).json({ message: 'Rol incorrecto' });
     }
 
@@ -274,6 +275,27 @@ router.post('/registrar-push-token', protect, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: error.message 
+    });
+  }
+});
+
+// ============================================
+// 📋 OBTENER JEFES (PÚBLICO PARA SOLICITUDES)
+// ============================================
+router.get('/jefes', async (req, res) => {
+  try {
+    const jefes = await User.find({
+      rol: { $in: ['Admin', 'Jefe'] }
+    }).select('nombre email rol');
+    
+    res.json({
+      success: true,
+      data: jefes,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 });
