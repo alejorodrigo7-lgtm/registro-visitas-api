@@ -46,7 +46,6 @@ const GestionHorarios = ({ navigation }) => {
     intervaloAlerta: '30',
   });
 
-  // Estado del formulario de solicitud
   const [solicitudData, setSolicitudData] = useState({
     tipo: 'PERMISO',
     fecha: new Date(),
@@ -56,7 +55,6 @@ const GestionHorarios = ({ navigation }) => {
     jefeId: '',
   });
 
-  // Estados para DateTimePicker
   const [showFechaInicio, setShowFechaInicio] = useState(false);
   const [showFechaFin, setShowFechaFin] = useState(false);
   const [showSolicitudFecha, setShowSolicitudFecha] = useState(false);
@@ -66,17 +64,14 @@ const GestionHorarios = ({ navigation }) => {
   // ============================================
   const cargarDatos = async () => {
     try {
-      // Cargar horarios
       const responseHorarios = await api.get('/horarios');
       setHorarios(responseHorarios.data.data || []);
 
-      // Cargar mi horario (si es Técnico/Coordinador)
       if (isTecnicoOrCoordinador) {
         const responseMiHorario = await api.get('/horarios/mi-horario');
         setMiHorario(responseMiHorario.data.data);
       }
 
-      // Cargar usuarios para asignar (solo Admin/Jefe)
       if (isAdminOrJefe) {
         const responseUsuarios = await api.get('/auth/usuarios');
         const usuariosFiltrados = responseUsuarios.data.data.filter(
@@ -85,7 +80,6 @@ const GestionHorarios = ({ navigation }) => {
         setUsuarios(usuariosFiltrados);
       }
 
-      // Cargar solicitudes
       const responseSolicitudes = await api.get('/horarios/solicitudes');
       setSolicitudes(responseSolicitudes.data.data || []);
 
@@ -108,9 +102,14 @@ const GestionHorarios = ({ navigation }) => {
   };
 
   // ============================================
-  // CREAR HORARIO
+  // CREAR HORARIO (SOLO ADMIN/JEFE)
   // ============================================
   const handleCreateHorario = async () => {
+    if (!isAdminOrJefe) {
+      Alert.alert('⛔ Acceso Denegado', 'Solo Administradores y Jefes pueden crear horarios');
+      return;
+    }
+
     if (!formData.asignadoA) {
       Alert.alert('Error', 'Selecciona un usuario');
       return;
@@ -155,7 +154,7 @@ const GestionHorarios = ({ navigation }) => {
   };
 
   // ============================================
-  // SOLICITUD DE PERMISO/RESESO
+  // SOLICITUD DE PERMISO/RESESO (CUALQUIER USUARIO)
   // ============================================
   const handleCrearSolicitud = async () => {
     if (!solicitudData.jefeId) {
@@ -202,9 +201,14 @@ const GestionHorarios = ({ navigation }) => {
   };
 
   // ============================================
-  // APROBAR/DESAPROBAR SOLICITUD
+  // APROBAR/DESAPROBAR SOLICITUD (SOLO ADMIN/JEFE)
   // ============================================
   const handleActualizarSolicitud = async (solicitudId, estado, comentario = '') => {
+    if (!isAdminOrJefe) {
+      Alert.alert('⛔ Acceso Denegado', 'Solo Administradores y Jefes pueden gestionar solicitudes');
+      return;
+    }
+
     Alert.alert(
       'Confirmar',
       `¿Estás seguro de ${estado === 'APROBADO' ? 'aprobar' : 'desaprobar'} esta solicitud?`,
@@ -222,6 +226,72 @@ const GestionHorarios = ({ navigation }) => {
               cargarDatos();
             } catch (error) {
               Alert.alert('Error', error.response?.data?.message || 'Error al procesar');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ============================================
+  // 🗑️ ELIMINAR HORARIO (SOLO ADMIN)
+  // ============================================
+  const handleEliminarHorario = async (id, nombre) => {
+    if (!isAdmin) {
+      Alert.alert('⛔ Acceso Denegado', 'Solo los Administradores pueden eliminar horarios');
+      return;
+    }
+
+    Alert.alert(
+      '🗑️ Eliminar Horario',
+      `¿Estás seguro de eliminar el horario de ${nombre}? Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/horarios/${id}`);
+              Alert.alert('✅ Éxito', 'Horario eliminado correctamente');
+              setModalDetalleVisible(false);
+              cargarDatos();
+            } catch (error) {
+              Alert.alert('Error', error.response?.data?.message || 'Error al eliminar horario');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ============================================
+  // 🔄 DESACTIVAR/ACTIVAR HORARIO (ADMIN Y JEFE)
+  // ============================================
+  const handleToggleHorario = async (id, activo, nombre) => {
+    if (!isAdminOrJefe) {
+      Alert.alert('⛔ Acceso Denegado', 'Solo Administradores y Jefes pueden cambiar el estado');
+      return;
+    }
+
+    const nuevoEstado = !activo;
+    const mensaje = nuevoEstado ? 'activar' : 'desactivar';
+
+    Alert.alert(
+      `🔄 ${mensaje === 'activar' ? 'Activar' : 'Desactivar'} Horario`,
+      `¿Estás seguro de ${mensaje} el horario de ${nombre}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: mensaje === 'activar' ? 'Activar' : 'Desactivar',
+          onPress: async () => {
+            try {
+              await api.put(`/horarios/${id}`, { activo: nuevoEstado });
+              Alert.alert('✅ Éxito', `Horario ${mensaje === 'activar' ? 'activado' : 'desactivado'} correctamente`);
+              setModalDetalleVisible(false);
+              cargarDatos();
+            } catch (error) {
+              Alert.alert('Error', error.response?.data?.message || 'Error al cambiar estado');
             }
           },
         },
@@ -256,9 +326,8 @@ const GestionHorarios = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-
         {/* ============================================ */}
-        {/* MI HORARIO - Para Técnico/Coordinador */}
+        {/* MI HORARIO - Técnico/Coordinador */}
         {/* ============================================ */}
         {isTecnicoOrCoordinador && (
           <View style={styles.section}>
@@ -287,7 +356,7 @@ const GestionHorarios = ({ navigation }) => {
               </View>
             )}
 
-            {/* Botón Pedir Permiso/Reseso */}
+            {/* Botón Pedir Permiso/Reseso - Todos los usuarios */}
             <TouchableOpacity
               style={styles.solicitarButton}
               onPress={() => setModalSolicitudVisible(true)}
@@ -350,9 +419,9 @@ const GestionHorarios = ({ navigation }) => {
         )}
 
         {/* ============================================ */}
-        {/* SOLICITUDES - Solo Admin/Jefe */}
+        {/* SOLICITUDES PENDIENTES - Solo Admin/Jefe */}
         {/* ============================================ */}
-        {isAdminOrJefe && solicitudes.length > 0 && (
+        {isAdminOrJefe && solicitudes.filter(s => s.estado === 'PENDIENTE').length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📋 Solicitudes Pendientes</Text>
             {solicitudes
@@ -395,7 +464,7 @@ const GestionHorarios = ({ navigation }) => {
       </ScrollView>
 
       {/* ============================================ */}
-      {/* MODAL CREAR HORARIO */}
+      {/* MODAL CREAR HORARIO - Solo Admin/Jefe */}
       {/* ============================================ */}
       <Modal
         animationType="slide"
@@ -630,7 +699,7 @@ const GestionHorarios = ({ navigation }) => {
       </Modal>
 
       {/* ============================================ */}
-      {/* MODAL DETALLE HORARIO */}
+      {/* MODAL DETALLE HORARIO - Con permisos */}
       {/* ============================================ */}
       <Modal
         animationType="slide"
@@ -639,7 +708,7 @@ const GestionHorarios = ({ navigation }) => {
         onRequestClose={() => setModalDetalleVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <ScrollView style={styles.modalContent}>
             <Text style={styles.modalTitle}>📋 Detalle Horario</Text>
 
             {horarioSeleccionado && (
@@ -679,6 +748,41 @@ const GestionHorarios = ({ navigation }) => {
                     {horarioSeleccionado.activo ? '✅ Activo' : '❌ Inactivo'}
                   </Text>
                 </View>
+
+                {/* ✅ BOTONES DE ACCIÓN - SOLO ADMIN Y JEFE */}
+                {isAdminOrJefe && (
+                  <View style={styles.detalleAcciones}>
+                    {/* Desactivar/Activar - Admin y Jefe */}
+                    <TouchableOpacity
+                      style={[
+                        styles.detalleButton,
+                        horarioSeleccionado?.activo ? styles.detalleButtonDesactivar : styles.detalleButtonActivar
+                      ]}
+                      onPress={() => handleToggleHorario(
+                        horarioSeleccionado._id,
+                        horarioSeleccionado.activo,
+                        horarioSeleccionado.asignadoA?.nombre || 'N/A'
+                      )}
+                    >
+                      <Text style={styles.detalleButtonText}>
+                        {horarioSeleccionado?.activo ? '🔴 Desactivar' : '🟢 Activar'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Eliminar - Solo Admin */}
+                    {isAdmin && (
+                      <TouchableOpacity
+                        style={[styles.detalleButton, styles.detalleButtonEliminar]}
+                        onPress={() => handleEliminarHorario(
+                          horarioSeleccionado._id,
+                          horarioSeleccionado.asignadoA?.nombre || 'N/A'
+                        )}
+                      >
+                        <Text style={styles.detalleButtonText}>🗑️ Eliminar</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </View>
             )}
 
@@ -688,7 +792,7 @@ const GestionHorarios = ({ navigation }) => {
             >
               <Text style={styles.modalCerrarText}>Cerrar</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -992,6 +1096,31 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     fontSize: 14,
     fontWeight: '500',
+  },
+  detalleAcciones: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 15,
+  },
+  detalleButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  detalleButtonDesactivar: {
+    backgroundColor: '#E17055',
+  },
+  detalleButtonActivar: {
+    backgroundColor: '#00B894',
+  },
+  detalleButtonEliminar: {
+    backgroundColor: '#FF6B6B',
+  },
+  detalleButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });
 
