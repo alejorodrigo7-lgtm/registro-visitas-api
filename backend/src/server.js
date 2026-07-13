@@ -1,10 +1,11 @@
 require('dotenv').config();
-process.env.TZ = 'America/Guayaquil'; // 👈 ZONA HORARIA DE ECUADOR
+process.env.TZ = 'America/Guayaquil';
 
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/database');
-const { protect } = require('./middleware/auth');
+const { protect, authorize } = require('./middleware/auth');
+const User = require('./models/User');
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
@@ -108,6 +109,69 @@ app.use('/api/bodegas', bodegaRoutes);
 app.use('/api/horarios', horarioRoutes);
 
 // ============================================
+// 📲 RUTA DE PRUEBA PARA NOTIFICACIONES
+// ============================================
+app.post('/api/test-transferencia-push', protect, authorize('Admin', 'Jefe'), async (req, res) => {
+  try {
+    const { userId, titulo, mensaje } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'El userId es obligatorio'
+      });
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+    
+    if (!user.expoPushToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Usuario no tiene token push registrado'
+      });
+    }
+    
+    const { Expo } = require('expo-server-sdk');
+    const expo = new Expo();
+    
+    const messages = [{
+      to: user.expoPushToken,
+      sound: 'default',
+      title: titulo || '🔔 Prueba de Notificación',
+      body: mensaje || 'Esta es una notificación de prueba',
+      data: { tipo: 'test' },
+    }];
+    
+    const chunks = expo.chunkPushNotifications(messages);
+    const tickets = [];
+    for (const chunk of chunks) {
+      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+      tickets.push(ticketChunk);
+    }
+    
+    console.log(`📲 Push de prueba enviado a ${user.email}`);
+    
+    res.json({
+      success: true,
+      message: 'Notificación de prueba enviada',
+      tickets,
+    });
+  } catch (error) {
+    console.error('❌ Error en test push:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ============================================
 // RUTA DE PRUEBA
 // ============================================
 app.get('/api/test', (req, res) => {
@@ -128,4 +192,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📋 /api/visitas`);
   console.log(`🏪 /api/bodegas`);
   console.log(`📋 /api/horarios`);
+  console.log(`📲 /api/test-transferencia-push`);
 });
