@@ -194,6 +194,8 @@ export const initDatabase = async () => {
         CREATE INDEX IF NOT EXISTS idx_cajas_sincronizado ON cajas_pendientes(sincronizado);
         CREATE INDEX IF NOT EXISTS idx_bodegas_sincronizado ON bodegas_pendientes(sincronizado);
         CREATE INDEX IF NOT EXISTS idx_horarios_sincronizado ON horarios_pendientes(sincronizado);
+        CREATE INDEX IF NOT EXISTS idx_clientes_identificador ON clientes_cache(identificador);
+        CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes_cache(nombre);
       `);
       
       await AsyncStorage.setItem('@db_initialized', 'true');
@@ -256,7 +258,7 @@ export const guardarClientesCache = async (clientes) => {
         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           cliente._id || cliente.id,
-          cliente.nombre,
+          cliente.nombre || '',
           cliente.identificador || '',
           cliente.barrio || '',
           cliente.direccion || '',
@@ -291,10 +293,25 @@ export const getClientesCache = async () => {
 export const buscarClienteCache = async (identificador) => {
   try {
     if (!db) await initDatabase();
-    const result = await db.getFirstAsync(
+    // Búsqueda exacta
+    let result = await db.getFirstAsync(
       'SELECT * FROM clientes_cache WHERE identificador = ?',
       [identificador]
     );
+    
+    // Si no hay resultado, búsqueda parcial
+    if (!result) {
+      const resultados = await db.getAllAsync(
+        `SELECT * FROM clientes_cache 
+         WHERE identificador LIKE ? OR nombre LIKE ? 
+         ORDER BY nombre ASC LIMIT 1`,
+        [`%${identificador}%`, `%${identificador}%`]
+      );
+      if (resultados.length > 0) {
+        result = resultados[0];
+      }
+    }
+    
     return result;
   } catch (error) {
     console.error('❌ Error buscando cliente en caché:', error);
@@ -322,23 +339,32 @@ export const buscarClientesPorNombreCache = async (texto) => {
 };
 
 // ============================================
-// 🔄 SINCRONIZAR CLIENTES DESDE EL SERVIDOR
+// 🔄 SINCRONIZAR CLIENTES (CON CONTROL DE DUPLICADOS)
 // ============================================
+let sincronizandoClientes = false;
+
 export const sincronizarClientes = async (apiInstance) => {
+  if (sincronizandoClientes) {
+    console.log('⏳ Sincronización de clientes ya en progreso...');
+    const clientes = await getClientesCache();
+    return { success: true, count: clientes.length, cache: true };
+  }
+  
+  sincronizandoClientes = true;
+  
   try {
     if (!db) await initDatabase();
     
-    // Verificar conexión a internet
     const netInfo = await NetInfo.fetch();
     if (!netInfo.isConnected) {
       console.log('📋 Sin conexión, usando caché local');
       const clientes = await getClientesCache();
+      sincronizandoClientes = false;
       return { success: true, count: clientes.length, cache: true };
     }
     
     console.log('🔄 Sincronizando clientes desde servidor...');
     
-    // Usar la instancia de api pasada o importarla
     const api = apiInstance || require('./api').default;
     const response = await api.get('/clientes/todos?limit=1000');
     
@@ -346,12 +372,14 @@ export const sincronizarClientes = async (apiInstance) => {
       const clientes = response.data.data || [];
       await guardarClientesCache(clientes);
       console.log(`✅ ${clientes.length} clientes sincronizados en caché`);
+      sincronizandoClientes = false;
       return { success: true, count: clientes.length, cache: false };
     }
+    sincronizandoClientes = false;
     return { success: false, error: 'Error al obtener clientes' };
   } catch (error) {
     console.error('❌ Error sincronizando clientes:', error);
-    // Si falla, usar caché existente
+    sincronizandoClientes = false;
     const clientes = await getClientesCache();
     return { success: true, count: clientes.length, cache: true, error: error.message };
   }

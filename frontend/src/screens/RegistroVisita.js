@@ -23,6 +23,7 @@ import {
   buscarClientesPorNombreCache,
   guardarClientesCache,
   sincronizarClientes,
+  getClientesCache,
 } from '../services/database';
 
 const RegistroVisita = ({ navigation }) => {
@@ -83,9 +84,15 @@ const RegistroVisita = ({ navigation }) => {
     const inicializar = async () => {
       try {
         await initDatabase();
-        // Cargar clientes en caché si hay conexión
         const netInfo = await NetInfo.fetch();
-        if (netInfo.isConnected) {
+        setIsConnected(netInfo.isConnected);
+        
+        // Verificar clientes en caché
+        const clientes = await getClientesCache();
+        console.log(`📋 Clientes en caché: ${clientes.length}`);
+        
+        if (clientes.length === 0 && netInfo.isConnected) {
+          console.log('⚠️ No hay clientes en caché, sincronizando...');
           await sincronizarClientes(api);
         }
       } catch (error) {
@@ -98,9 +105,7 @@ const RegistroVisita = ({ navigation }) => {
       setIsConnected(state.isConnected);
       if (state.isConnected) {
         try {
-          // Sincronizar clientes al reconectar
           await sincronizarClientes(api);
-          // Sincronizar visitas pendientes
           const { sincronizarVisitas } = require('../services/database');
           const result = await sincronizarVisitas(api);
           if (result.sincronizados > 0) {
@@ -133,59 +138,90 @@ const RegistroVisita = ({ navigation }) => {
     setClienteEncontrado(null);
     
     try {
-      const idBuscado = identificador.trim();
+      const idBuscado = identificador.trim().toUpperCase();
       
-      // 1. Buscar en caché local primero
-      const clienteCache = await buscarClienteCache(idBuscado);
+      // 1. Buscar en caché local (búsqueda exacta y parcial)
+      const clientesCache = await getClientesCache();
+      console.log(`📋 Buscando en ${clientesCache.length} clientes en caché...`);
       
-      if (clienteCache) {
-        console.log('✅ Cliente encontrado en caché:', clienteCache.nombre);
-        setClienteEncontrado(clienteCache);
+      // Buscar coincidencia exacta primero
+      let clienteEncontrado = clientesCache.find(c => 
+        c.identificador?.toUpperCase() === idBuscado
+      );
+      
+      // Si no, buscar coincidencia parcial
+      if (!clienteEncontrado) {
+        clienteEncontrado = clientesCache.find(c => 
+          c.identificador?.toUpperCase().includes(idBuscado) ||
+          c.nombre?.toUpperCase().includes(idBuscado)
+        );
+      }
+      
+      if (clienteEncontrado) {
+        console.log('✅ Cliente encontrado en caché:', clienteEncontrado.nombre);
+        setClienteEncontrado(clienteEncontrado);
         setClienteNoEncontrado(false);
         setFormData({
           ...formData,
-          nombre: clienteCache.nombre || '',
-          identificador: clienteCache.identificador || '',
-          barrio: clienteCache.barrio || '',
-          direccion: clienteCache.direccion || '',
-          telefono: clienteCache.telefono || '',
+          nombre: clienteEncontrado.nombre || '',
+          identificador: clienteEncontrado.identificador || '',
+          barrio: clienteEncontrado.barrio || '',
+          direccion: clienteEncontrado.direccion || '',
+          telefono: clienteEncontrado.telefono || '',
         });
-        setSearchTerm(clienteCache.nombre);
+        setSearchTerm(clienteEncontrado.nombre);
         setMostrarClientes(false);
-        Alert.alert('✅ Cliente encontrado', clienteCache.nombre);
+        Alert.alert('✅ Cliente encontrado', clienteEncontrado.nombre);
         setBuscando(false);
         return;
       }
       
       // 2. Si no está en caché y hay internet, buscar en servidor
       if (isConnected) {
-        const response = await api.get(`/clientes/buscar/${idBuscado}`);
+        console.log('📡 Buscando en servidor...');
+        const response = await api.get(`/clientes/buscar/${encodeURIComponent(idBuscado)}`);
         if (response.data.success) {
           const cliente = response.data.data;
-          // Guardar en caché
-          await guardarClientesCache([cliente]);
-          setClienteEncontrado(cliente);
-          setClienteNoEncontrado(false);
-          setFormData({
-            ...formData,
-            nombre: cliente.nombre || '',
-            identificador: cliente.identificador || '',
-            barrio: cliente.barrio || '',
-            direccion: cliente.direccion || '',
-            telefono: cliente.telefono || '',
-          });
-          setSearchTerm(cliente.nombre);
-          setMostrarClientes(false);
-          Alert.alert('✅ Cliente encontrado', cliente.nombre);
-          setBuscando(false);
-          return;
+          if (cliente) {
+            await guardarClientesCache([cliente]);
+            setClienteEncontrado(cliente);
+            setClienteNoEncontrado(false);
+            setFormData({
+              ...formData,
+              nombre: cliente.nombre || '',
+              identificador: cliente.identificador || '',
+              barrio: cliente.barrio || '',
+              direccion: cliente.direccion || '',
+              telefono: cliente.telefono || '',
+            });
+            setSearchTerm(cliente.nombre);
+            setMostrarClientes(false);
+            Alert.alert('✅ Cliente encontrado', cliente.nombre);
+            setBuscando(false);
+            return;
+          }
         }
       }
       
-      // 3. No encontrado
+      // 3. No encontrado - mostrar clientes similares
       setClienteEncontrado(null);
       setClienteNoEncontrado(true);
-      Alert.alert('❌ Cliente no encontrado', `No se encontró cliente con identificador ${identificador}`);
+      
+      const similares = clientesCache.filter(c => 
+        c.nombre?.toUpperCase().includes(idBuscado) ||
+        c.identificador?.toUpperCase().includes(idBuscado)
+      );
+      
+      if (similares.length > 0) {
+        setClientesFiltrados(similares);
+        setMostrarClientes(true);
+        Alert.alert(
+          '🔍 Cliente no encontrado',
+          `No se encontró "${identificador}". Mostrando ${similares.length} clientes similares.`
+        );
+      } else {
+        Alert.alert('❌ Cliente no encontrado', `No se encontró cliente con identificador ${identificador}`);
+      }
       
     } catch (error) {
       console.error('❌ Error buscando cliente:', error);
@@ -232,7 +268,6 @@ const RegistroVisita = ({ navigation }) => {
           if (response.data.success) {
             const resultados = response.data.data || [];
             if (resultados.length > 0) {
-              // Guardar en caché
               await guardarClientesCache(resultados);
               setClientesFiltrados(resultados);
               setMostrarClientes(true);
@@ -478,6 +513,7 @@ const RegistroVisita = ({ navigation }) => {
       loadingLocation: false,
       error: null,
     });
+    navigation.goBack();
   };
 
   const handleSubmit = async () => {
