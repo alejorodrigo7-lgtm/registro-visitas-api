@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,13 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { registerForPushNotificationsAsync } from '../services/notificationService';
+import { contarPendientes } from '../services/database';
+import { verificarEstadoSincronizacion } from '../services/syncService';
 
 const MenuPrincipal = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const [pendientes, setPendientes] = useState({ total: 0 });
+  const [conectado, setConectado] = useState(true);
 
   useEffect(() => {
     const registerPush = async () => {
@@ -23,6 +27,24 @@ const MenuPrincipal = ({ navigation }) => {
       }
     };
     registerPush();
+  }, []);
+
+  useEffect(() => {
+    const actualizarPendientes = async () => {
+      try {
+        const estado = await verificarEstadoSincronizacion();
+        setConectado(estado.conectado);
+        setPendientes(estado.detalles || { total: 0 });
+      } catch (error) {
+        console.log('⚠️ Error al obtener pendientes:', error);
+      }
+    };
+    
+    actualizarPendientes();
+    
+    // Actualizar cada 30 segundos
+    const interval = setInterval(actualizarPendientes, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = async () => {
@@ -53,6 +75,20 @@ const MenuPrincipal = ({ navigation }) => {
         <Text style={styles.welcomeText}>Bienvenido,</Text>
         <Text style={styles.userName}>{user?.nombre || 'Usuario'}</Text>
         <Text style={styles.userRole}>{user?.rol || ''}</Text>
+        
+        {/* Estado de sincronización */}
+        <View style={styles.syncStatus}>
+          <Text style={styles.syncStatusText}>
+            {conectado ? '🟢 Conectado' : '🔴 Sin conexión'}
+          </Text>
+          {pendientes.total > 0 && (
+            <View style={styles.pendientesBadge}>
+              <Text style={styles.pendientesBadgeText}>
+                📤 {pendientes.total} pendiente{pendientes.total > 1 ? 's' : ''}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <ScrollView
@@ -66,6 +102,11 @@ const MenuPrincipal = ({ navigation }) => {
           onPress={() => navigation.navigate('RegistroVisita')}
         >
           <Text style={styles.menuItemText}>📋 Registrar Visita</Text>
+          {pendientes.visitas > 0 && (
+            <View style={styles.badgeSmall}>
+              <Text style={styles.badgeSmallText}>{pendientes.visitas}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* Alertas - Todos */}
@@ -85,6 +126,11 @@ const MenuPrincipal = ({ navigation }) => {
             <Text style={[styles.menuItemText, styles.adminMenuItemText]}>
               📋 Gestión de Horarios
             </Text>
+            {pendientes.horarios > 0 && (
+              <View style={[styles.badgeSmall, styles.badgeWhite]}>
+                <Text style={[styles.badgeSmallText, styles.badgeWhiteText]}>{pendientes.horarios}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         ) : isTecnicoOrCoordinador ? (
           <TouchableOpacity
@@ -117,6 +163,11 @@ const MenuPrincipal = ({ navigation }) => {
           <Text style={[styles.menuItemText, styles.transferenciaMenuItemText]}>
             💰 Transferencias
           </Text>
+          {pendientes.transferencias > 0 && (
+            <View style={styles.badgeSmall}>
+              <Text style={styles.badgeSmallText}>{pendientes.transferencias}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* Servicios - Todos */}
@@ -127,6 +178,11 @@ const MenuPrincipal = ({ navigation }) => {
           <Text style={[styles.menuItemText, styles.servicioMenuItemText]}>
             🛠️ Servicios
           </Text>
+          {pendientes.servicios > 0 && (
+            <View style={styles.badgeSmall}>
+              <Text style={styles.badgeSmallText}>{pendientes.servicios}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* Cajas - Solo Jefe y Admin */}
@@ -138,6 +194,11 @@ const MenuPrincipal = ({ navigation }) => {
             <Text style={[styles.menuItemText, styles.cajaMenuItemText]}>
               💰 Cajas
             </Text>
+            {pendientes.cajas > 0 && (
+              <View style={styles.badgeSmall}>
+                <Text style={styles.badgeSmallText}>{pendientes.cajas}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
 
@@ -174,6 +235,11 @@ const MenuPrincipal = ({ navigation }) => {
             <Text style={[styles.menuItemText, styles.bodegaMenuItemText]}>
               🏪 Bodegas
             </Text>
+            {pendientes.bodegas > 0 && (
+              <View style={styles.badgeSmall}>
+                <Text style={styles.badgeSmallText}>{pendientes.bodegas}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
 
@@ -220,6 +286,32 @@ const styles = StyleSheet.create({
     marginTop: 5,
     opacity: 0.9,
   },
+  syncStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 10,
+  },
+  syncStatusText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    opacity: 0.8,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  pendientesBadge: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  pendientesBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   menuScrollView: {
     flex: 1,
   },
@@ -228,6 +320,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     padding: 18,
     borderRadius: 12,
@@ -324,6 +419,25 @@ const styles = StyleSheet.create({
   },
   footerSpacer: {
     height: 20,
+  },
+  badgeSmall: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 12,
+    minWidth: 28,
+    alignItems: 'center',
+  },
+  badgeSmallText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  badgeWhite: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  badgeWhiteText: {
+    color: '#FFFFFF',
   },
 });
 
