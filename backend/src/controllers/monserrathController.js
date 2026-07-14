@@ -48,18 +48,18 @@ exports.crearRegistro = async (req, res) => {
       return res.status(400).json({ success: false, message: 'La hora de salida es obligatoria' });
     }
 
-    // 🔥 CORREGIR: Usar la fecha enviada desde el frontend o la fecha actual en zona horaria local
+    // 🔥 USAR LA FECHA EXACTA QUE VIENE DEL FRONTEND
+    // El frontend envía la fecha en formato ISO con la hora local
     let fechaRegistro = fecha ? new Date(fecha) : new Date();
     
-    // Ajustar a zona horaria de Ecuador si viene del frontend
-    if (fecha) {
-      // La fecha ya viene en formato ISO del frontend
-      fechaRegistro = new Date(fecha);
-    } else {
-      // Usar fecha actual con zona horaria local
+    // Si la fecha viene del frontend, usarla directamente
+    // Si no, usar la fecha actual del servidor (que también está en UTC-5)
+    if (!fecha) {
       const ahora = new Date();
       fechaRegistro = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
     }
+
+    console.log(`📅 Fecha a guardar: ${fechaRegistro.toISOString()}`);
 
     const registro = new Monserrath({
       cliente,
@@ -86,33 +86,6 @@ exports.crearRegistro = async (req, res) => {
     console.log('✅ Registro guardado con ID:', registro._id);
     console.log('📅 Fecha guardada:', registro.fecha);
 
-    // 📍 Guardar ubicación en colección Ubicacion
-    if (ubicacion?.latitude && ubicacion?.longitude) {
-      try {
-        const ubicacionData = {
-          usuario: req.user._id,
-          usuarioNombre: req.user.nombre,
-          coordenadas: {
-            type: 'Point',
-            coordinates: [ubicacion.longitude, ubicacion.latitude],
-          },
-          direccion: ubicacion.address || '',
-          tipo: 'monserrath',
-          fecha: new Date(),
-          datos: {
-            registroId: registro._id,
-            cliente: cliente,
-            tipo: 'Monserrath',
-          },
-        };
-        const nuevaUbicacion = new Ubicacion(ubicacionData);
-        await nuevaUbicacion.save();
-        console.log(`📍 Ubicación guardada para registro ${registro._id}`);
-      } catch (ubiError) {
-        console.error('❌ Error al guardar ubicación:', ubiError);
-      }
-    }
-
     res.status(201).json({
       success: true,
       message: 'Registro creado correctamente',
@@ -138,20 +111,16 @@ exports.obtenerRegistros = async (req, res) => {
     let query = {};
 
     if (fechaInicio && fechaFin) {
-      // 🔥 CORREGIR: Ajustar fechas correctamente
+      // 🔥 BUSCAR POR FECHA EXACTA SIN AJUSTAR
       const inicio = new Date(fechaInicio);
       inicio.setHours(0, 0, 0, 0);
       
       const fin = new Date(fechaFin);
       fin.setHours(23, 59, 59, 999);
       
-      // Convertir a UTC para buscar en MongoDB
-      query.fecha = { 
-        $gte: new Date(inicio.getTime() - (5 * 60 * 60 * 1000)),
-        $lte: new Date(fin.getTime() - (5 * 60 * 60 * 1000))
-      };
+      query.fecha = { $gte: inicio, $lte: fin };
       
-      console.log(`📅 Buscando entre: ${inicio} y ${fin}`);
+      console.log(`📅 Buscando entre: ${inicio.toISOString()} y ${fin.toISOString()}`);
     }
 
     if (tecnico) query.tecnico = tecnico;
@@ -164,6 +133,8 @@ exports.obtenerRegistros = async (req, res) => {
     const registros = await Monserrath.find(query)
       .populate('tecnico', 'nombre email')
       .sort({ fecha: -1 });
+
+    console.log(`📋 ${registros.length} registros encontrados`);
 
     res.json({
       success: true,
@@ -268,7 +239,7 @@ exports.eliminarRegistro = async (req, res) => {
 };
 
 // ============================================
-// 📊 REPORTE MONSERRATH EN EXCEL (CORREGIDO)
+// 📊 REPORTE MONSERRATH EN EXCEL
 // ============================================
 exports.generarReporteExcel = async (req, res) => {
   try {
@@ -278,21 +249,16 @@ exports.generarReporteExcel = async (req, res) => {
     console.log(`📅 Reporte Excel - Fecha Inicio: ${fechaInicio}, Fecha Fin: ${fechaFin}`);
 
     if (fechaInicio && fechaFin) {
-      // 🔥 CORREGIR: Ajustar fechas a la zona horaria de Ecuador
+      // 🔥 BUSCAR POR FECHA EXACTA SIN AJUSTAR
       const inicio = new Date(fechaInicio);
       inicio.setHours(0, 0, 0, 0);
       
       const fin = new Date(fechaFin);
       fin.setHours(23, 59, 59, 999);
       
-      // Ajustar para que MongoDB busque correctamente (UTC-5)
-      query.fecha = { 
-        $gte: new Date(inicio.getTime() - (5 * 60 * 60 * 1000)),
-        $lte: new Date(fin.getTime() - (5 * 60 * 60 * 1000))
-      };
+      query.fecha = { $gte: inicio, $lte: fin };
       
-      console.log(`📅 Buscando entre: ${inicio.toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
-      console.log(`📅 Query MongoDB: ${query.fecha.$gte} y ${query.fecha.$lte}`);
+      console.log(`📅 Buscando entre: ${inicio.toISOString()} y ${fin.toISOString()}`);
     }
 
     if (tecnico) query.tecnico = tecnico;
@@ -340,7 +306,6 @@ exports.generarReporteExcel = async (req, res) => {
 
     // Agregar datos
     registros.forEach((registro, index) => {
-      // Formatear fecha para mostrar en Ecuador
       let fechaMostrar = '';
       if (registro.fecha) {
         const fechaObj = new Date(registro.fecha);
@@ -365,7 +330,6 @@ exports.generarReporteExcel = async (req, res) => {
     });
 
     // Agregar resumen al final
-    const totalRow = worksheet.addRow({});
     worksheet.addRow({
       cliente: 'TOTAL REGISTROS',
       identificador: registros.length,
