@@ -48,6 +48,19 @@ exports.crearRegistro = async (req, res) => {
       return res.status(400).json({ success: false, message: 'La hora de salida es obligatoria' });
     }
 
+    // 🔥 CORREGIR: Usar la fecha enviada desde el frontend o la fecha actual en zona horaria local
+    let fechaRegistro = fecha ? new Date(fecha) : new Date();
+    
+    // Ajustar a zona horaria de Ecuador si viene del frontend
+    if (fecha) {
+      // La fecha ya viene en formato ISO del frontend
+      fechaRegistro = new Date(fecha);
+    } else {
+      // Usar fecha actual con zona horaria local
+      const ahora = new Date();
+      fechaRegistro = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
+    }
+
     const registro = new Monserrath({
       cliente,
       identificador,
@@ -59,7 +72,7 @@ exports.crearRegistro = async (req, res) => {
         longitude: ubicacion.longitude,
         address: ubicacion.address || '',
       } : null,
-      fecha: fecha || new Date(),
+      fecha: fechaRegistro,
       hora_llegada,
       hora_salida,
       material_usado: material_usado || '',
@@ -71,6 +84,7 @@ exports.crearRegistro = async (req, res) => {
 
     await registro.save();
     console.log('✅ Registro guardado con ID:', registro._id);
+    console.log('📅 Fecha guardada:', registro.fecha);
 
     // 📍 Guardar ubicación en colección Ubicacion
     if (ubicacion?.latitude && ubicacion?.longitude) {
@@ -124,11 +138,20 @@ exports.obtenerRegistros = async (req, res) => {
     let query = {};
 
     if (fechaInicio && fechaFin) {
+      // 🔥 CORREGIR: Ajustar fechas correctamente
       const inicio = new Date(fechaInicio);
       inicio.setHours(0, 0, 0, 0);
+      
       const fin = new Date(fechaFin);
       fin.setHours(23, 59, 59, 999);
-      query.fecha = { $gte: inicio, $lte: fin };
+      
+      // Convertir a UTC para buscar en MongoDB
+      query.fecha = { 
+        $gte: new Date(inicio.getTime() - (5 * 60 * 60 * 1000)),
+        $lte: new Date(fin.getTime() - (5 * 60 * 60 * 1000))
+      };
+      
+      console.log(`📅 Buscando entre: ${inicio} y ${fin}`);
     }
 
     if (tecnico) query.tecnico = tecnico;
@@ -245,19 +268,31 @@ exports.eliminarRegistro = async (req, res) => {
 };
 
 // ============================================
-// 📊 REPORTE MONSERRATH EN EXCEL
+// 📊 REPORTE MONSERRATH EN EXCEL (CORREGIDO)
 // ============================================
 exports.generarReporteExcel = async (req, res) => {
   try {
     const { fechaInicio, fechaFin, tecnico, estado } = req.query;
     let query = {};
 
+    console.log(`📅 Reporte Excel - Fecha Inicio: ${fechaInicio}, Fecha Fin: ${fechaFin}`);
+
     if (fechaInicio && fechaFin) {
+      // 🔥 CORREGIR: Ajustar fechas a la zona horaria de Ecuador
       const inicio = new Date(fechaInicio);
       inicio.setHours(0, 0, 0, 0);
+      
       const fin = new Date(fechaFin);
       fin.setHours(23, 59, 59, 999);
-      query.fecha = { $gte: inicio, $lte: fin };
+      
+      // Ajustar para que MongoDB busque correctamente (UTC-5)
+      query.fecha = { 
+        $gte: new Date(inicio.getTime() - (5 * 60 * 60 * 1000)),
+        $lte: new Date(fin.getTime() - (5 * 60 * 60 * 1000))
+      };
+      
+      console.log(`📅 Buscando entre: ${inicio.toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
+      console.log(`📅 Query MongoDB: ${query.fecha.$gte} y ${query.fecha.$lte}`);
     }
 
     if (tecnico) query.tecnico = tecnico;
@@ -270,6 +305,8 @@ exports.generarReporteExcel = async (req, res) => {
     const registros = await Monserrath.find(query)
       .populate('tecnico', 'nombre email')
       .sort({ fecha: -1 });
+
+    console.log(`📋 ${registros.length} registros encontrados`);
 
     // Crear libro Excel
     const workbook = new ExcelJS.Workbook();
@@ -303,6 +340,13 @@ exports.generarReporteExcel = async (req, res) => {
 
     // Agregar datos
     registros.forEach((registro, index) => {
+      // Formatear fecha para mostrar en Ecuador
+      let fechaMostrar = '';
+      if (registro.fecha) {
+        const fechaObj = new Date(registro.fecha);
+        fechaMostrar = fechaObj.toLocaleDateString('es-ES', { timeZone: 'America/Guayaquil' });
+      }
+
       worksheet.addRow({
         index: index + 1,
         cliente: registro.cliente || '',
@@ -310,7 +354,7 @@ exports.generarReporteExcel = async (req, res) => {
         barrio: registro.barrio || '',
         direccion: registro.direccion || '',
         telefono: registro.telefono || '',
-        fecha: registro.fecha ? new Date(registro.fecha).toLocaleDateString('es-ES') : '',
+        fecha: fechaMostrar,
         hora_llegada: registro.hora_llegada || '',
         hora_salida: registro.hora_salida || '',
         material_usado: registro.material_usado || '',
