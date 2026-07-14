@@ -65,11 +65,21 @@ const Reportes = ({ navigation }) => {
 
     setLoading(true);
     try {
-      let url = `/reportes/${tipoReporte}?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+      let url = '';
+      
+      // 🔥 CONSTRUIR URL SEGÚN TIPO DE REPORTE
+      if (tipoReporte === 'monserrath') {
+        url = `/monserrath/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        if (filtroEstado) url += `&estado=${filtroEstado}`;
+        if (filtro) url += `&tecnico=${filtro}`;
+      } else {
+        url = `/reportes/${tipoReporte}?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        if (filtro) url += `&${getFiltroParam()}=${filtro}`;
+        if (filtroZona) url += `&zona=${filtroZona}`;
+        if (filtroEstado) url += `&estado=${filtroEstado}`;
+      }
 
-      if (filtro) url += `&${getFiltroParam()}=${filtro}`;
-      if (filtroZona) url += `&zona=${filtroZona}`;
-      if (filtroEstado) url += `&estado=${filtroEstado}`;
+      console.log('📡 URL:', url);
 
       const response = await api.get(url, {
         responseType: 'arraybuffer',
@@ -221,15 +231,25 @@ const Reportes = ({ navigation }) => {
       );
     }
 
-    // En la función generarReporte, cuando tipoReporte === 'monserrath'
-if (tipoReporte === 'monserrath') {
-  url = `/monserrath/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
-  if (filtroEstado) url += `&estado=${filtroEstado}`;
-  if (filtro) url += `&tecnico=${filtro}`;
-} else {
-  url = `/reportes/${tipoReporte}?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
-  // ... resto del código
-}
+    if (tipoReporte === 'monserrath') {
+      return (
+        <View>
+          <Text style={styles.label}>Estado</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={filtroEstado}
+              onValueChange={setFiltroEstado}
+              style={styles.picker}
+            >
+              <Picker.Item label="Todos" value="" />
+              {estadosMonserrath.map((e) => (
+                <Picker.Item key={e} label={e} value={e} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      );
+    }
 
     return null;
   };
