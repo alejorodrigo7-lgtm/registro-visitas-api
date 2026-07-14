@@ -24,6 +24,7 @@ import {
   guardarClientesCache,
   sincronizarClientes,
   getClientesCache,
+  contarClientesCache,
 } from '../services/database';
 
 const RegistroVisita = ({ navigation }) => {
@@ -32,6 +33,8 @@ const RegistroVisita = ({ navigation }) => {
   const [buscando, setBuscando] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
   const [visitasPendientes, setVisitasPendientes] = useState(0);
+  const [sincronizandoClientes, setSincronizandoClientes] = useState(false);
+  const [clientesEnCache, setClientesEnCache] = useState(0);
   
   // 🔍 Búsqueda por identificador
   const [identificador, setIdentificador] = useState('');
@@ -88,15 +91,27 @@ const RegistroVisita = ({ navigation }) => {
         setIsConnected(netInfo.isConnected);
         
         // Verificar clientes en caché
-        const clientes = await getClientesCache();
-        console.log(`📋 Clientes en caché: ${clientes.length}`);
+        const total = await contarClientesCache();
+        setClientesEnCache(total);
+        console.log(`📋 Clientes en caché: ${total}`);
         
-        if (clientes.length === 0 && netInfo.isConnected) {
-          console.log('⚠️ No hay clientes en caché, sincronizando...');
-          await sincronizarClientes(api);
+        if (total === 0 && netInfo.isConnected) {
+          setSincronizandoClientes(true);
+          console.log('⚠️ No hay clientes en caché, sincronizando TODOS...');
+          const result = await sincronizarClientes(api);
+          setSincronizandoClientes(false);
+          if (result.success) {
+            const nuevos = await contarClientesCache();
+            setClientesEnCache(nuevos);
+            Alert.alert(
+              '✅ Clientes sincronizados',
+              `${nuevos} clientes disponibles offline`
+            );
+          }
         }
       } catch (error) {
         console.log('⚠️ Error inicializando:', error);
+        setSincronizandoClientes(false);
       }
     };
     inicializar();
@@ -105,11 +120,17 @@ const RegistroVisita = ({ navigation }) => {
       setIsConnected(state.isConnected);
       if (state.isConnected) {
         try {
-          await sincronizarClientes(api);
+          // Sincronizar clientes si hay cambios
+          const result = await sincronizarClientes(api);
+          if (result.success) {
+            const nuevos = await contarClientesCache();
+            setClientesEnCache(nuevos);
+          }
+          // Sincronizar visitas pendientes
           const { sincronizarVisitas } = require('../services/database');
-          const result = await sincronizarVisitas(api);
-          if (result.sincronizados > 0) {
-            Alert.alert('✅ Sincronización', `${result.sincronizados} visitas sincronizadas`);
+          const resultVisitas = await sincronizarVisitas(api);
+          if (resultVisitas.sincronizados > 0) {
+            Alert.alert('✅ Sincronización', `${resultVisitas.sincronizados} visitas sincronizadas`);
           }
           const total = await contarPendientes();
           setVisitasPendientes(total.total || 0);
@@ -264,7 +285,7 @@ const RegistroVisita = ({ navigation }) => {
         
         // 2. Si hay internet, buscar en servidor
         if (isConnected) {
-          const response = await api.get(`/clientes/todos?search=${encodeURIComponent(text)}&limit=20`);
+          const response = await api.get(`/clientes/todos?search=${encodeURIComponent(text)}`);
           if (response.data.success) {
             const resultados = response.data.data || [];
             if (resultados.length > 0) {
@@ -640,7 +661,7 @@ const RegistroVisita = ({ navigation }) => {
       <View style={styles.form}>
         
         {/* ============================================ */}
-        {/* 📡 ESTADO DE CONEXIÓN */}
+        {/* 📡 ESTADO DE CONEXIÓN Y CLIENTES */}
         {/* ============================================ */}
         <View style={styles.connectionStatus}>
           <Text style={[styles.connectionText, isConnected ? styles.connected : styles.disconnected]}>
@@ -648,6 +669,15 @@ const RegistroVisita = ({ navigation }) => {
           </Text>
           {visitasPendientes > 0 && (
             <Text style={styles.pendientesText}>📤 {visitasPendientes} pendiente{visitasPendientes > 1 ? 's' : ''}</Text>
+          )}
+        </View>
+
+        <View style={styles.clientesStatus}>
+          <Text style={styles.clientesStatusText}>
+            📋 {sincronizandoClientes ? '🔄 Sincronizando clientes...' : `${clientesEnCache} clientes en caché`}
+          </Text>
+          {sincronizandoClientes && (
+            <ActivityIndicator size="small" color="#6C5CE7" />
           )}
         </View>
 
@@ -910,7 +940,7 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
-    marginBottom: 15,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#DFE6E9',
   },
@@ -931,6 +961,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  clientesStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  clientesStatusText: {
+    fontSize: 12,
+    color: '#636E72',
   },
   label: {
     fontSize: 16,

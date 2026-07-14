@@ -288,6 +288,20 @@ export const getClientesCache = async () => {
 };
 
 // ============================================
+// 📋 CACHE DE CLIENTES - CONTAR
+// ============================================
+export const contarClientesCache = async () => {
+  try {
+    if (!db) await initDatabase();
+    const result = await db.getFirstAsync('SELECT COUNT(*) as total FROM clientes_cache');
+    return result?.total || 0;
+  } catch (error) {
+    console.error('❌ Error contando clientes caché:', error);
+    return 0;
+  }
+};
+
+// ============================================
 // 📋 CACHE DE CLIENTES - BUSCAR POR IDENTIFICADOR
 // ============================================
 export const buscarClienteCache = async (identificador) => {
@@ -339,7 +353,7 @@ export const buscarClientesPorNombreCache = async (texto) => {
 };
 
 // ============================================
-// 🔄 SINCRONIZAR CLIENTES (CON CONTROL DE DUPLICADOS)
+// 🔄 SINCRONIZAR CLIENTES (TODOS - SIN LÍMITE)
 // ============================================
 let sincronizandoClientes = false;
 
@@ -363,14 +377,26 @@ export const sincronizarClientes = async (apiInstance) => {
       return { success: true, count: clientes.length, cache: true };
     }
     
-    console.log('🔄 Sincronizando clientes desde servidor...');
+    console.log('🔄 Sincronizando TODOS los clientes desde servidor...');
     
     const api = apiInstance || require('./api').default;
-    const response = await api.get('/clientes/todos?limit=1000');
+    // 🔥 SIN LÍMITE - obtener TODOS los clientes
+    const response = await api.get('/clientes/todos');
     
     if (response.data.success) {
       const clientes = response.data.data || [];
-      await guardarClientesCache(clientes);
+      console.log(`📋 Recibidos ${clientes.length} clientes del servidor`);
+      
+      // Guardar en caché por lotes para no bloquear
+      const batchSize = 500;
+      let guardados = 0;
+      for (let i = 0; i < clientes.length; i += batchSize) {
+        const batch = clientes.slice(i, i + batchSize);
+        await guardarClientesCache(batch);
+        guardados += batch.length;
+        console.log(`✅ Lote ${Math.floor(i / batchSize) + 1}: ${batch.length} clientes (${guardados} total)`);
+      }
+      
       console.log(`✅ ${clientes.length} clientes sincronizados en caché`);
       sincronizandoClientes = false;
       return { success: true, count: clientes.length, cache: false };
@@ -703,6 +729,7 @@ export default {
   sincronizarVisitas,
   sincronizarClientes,
   getClientesCache,
+  contarClientesCache,
   buscarClienteCache,
   buscarClientesPorNombreCache,
   guardarClientesCache,
