@@ -18,6 +18,8 @@ const bodegaRoutes = require('./routes/bodegaRoutes');
 const horarioRoutes = require('./routes/horarioRoutes');
 const mapaRoutes = require('./routes/mapaRoutes');
 const monserrathRoutes = require('./routes/monserrathRoutes');
+const asistenciaRoutes = require('./routes/asistenciaRoutes');
+const pedirAusenciaRoutes = require('./routes/pedirAusenciaRoutes');
 
 const app = express();
 
@@ -111,6 +113,8 @@ app.use('/api/bodegas', bodegaRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/mapas', mapaRoutes);
 app.use('/api/monserrath', monserrathRoutes);
+app.use('/api/asistencia', asistenciaRoutes);
+app.use('/api/pedir-ausencia', pedirAusenciaRoutes);
 
 // ============================================
 // 📲 RUTA DE PRUEBA PARA NOTIFICACIONES
