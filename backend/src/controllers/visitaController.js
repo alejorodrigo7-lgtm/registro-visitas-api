@@ -1,4 +1,5 @@
 const Visita = require('../models/Visita');
+const Ubicacion = require('../models/Ubicacion');
 
 // ============================================
 // 📋 CREAR VISITA
@@ -118,6 +119,37 @@ exports.crearVisita = async (req, res) => {
     await visita.save();
 
     console.log('✅ Visita guardada con ID:', visita._id);
+
+    // ============================================
+    // 📍 GUARDAR UBICACIÓN EN COLECCIÓN UBICACION
+    // ============================================
+    if (ubicacion && ubicacion.latitude && ubicacion.longitude) {
+      try {
+        const ubicacionData = {
+          usuario: tecnicoId,
+          usuarioNombre: req.user.nombre,
+          coordenadas: {
+            type: 'Point',
+            coordinates: [ubicacion.longitude, ubicacion.latitude],
+          },
+          direccion: ubicacion.address || '',
+          tipo: 'visita',
+          fecha: new Date(),
+          datos: {
+            visitaId: visita._id,
+            cliente: cliente,
+            tipo: tipo,
+          },
+        };
+
+        const nuevaUbicacion = new Ubicacion(ubicacionData);
+        await nuevaUbicacion.save();
+        console.log(`📍 Ubicación guardada para visita ${visita._id}`);
+      } catch (ubiError) {
+        console.error('❌ Error al guardar ubicación:', ubiError);
+        // No fallamos la creación de la visita si falla la ubicación
+      }
+    }
 
     res.status(201).json({
       success: true,
