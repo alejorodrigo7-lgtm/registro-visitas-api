@@ -150,21 +150,6 @@ const MenuPrincipal = ({ navigation }) => {
           )}
         </TouchableOpacity>
 
-        {/* Monserrath - Todos */}
-        <TouchableOpacity
-          style={[styles.menuItem, styles.monserrathMenuItem]}
-          onPress={() => navigation.navigate('MonserrathScreen')}
-        >
-          <Text style={[styles.menuItemText, styles.monserrathMenuItemText]}>
-            📋 Monserrath
-          </Text>
-          {pendientes.monserrath > 0 && (
-            <View style={styles.badgeSmall}>
-              <Text style={styles.badgeSmallText}>{pendientes.monserrath}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
         {/* Alertas - Todos */}
         <TouchableOpacity
           style={styles.menuItem}
@@ -463,15 +448,6 @@ const styles = StyleSheet.create({
   },
   bodegaMenuItemText: {
     color: '#0984E3',
-    fontWeight: '500',
-  },
-  monserrathMenuItem: {
-    backgroundColor: '#F3E8FF',
-    borderWidth: 1,
-    borderColor: '#9C27B0',
-  },
-  monserrathMenuItemText: {
-    color: '#9C27B0',
     fontWeight: '500',
   },
   logoutButton: {

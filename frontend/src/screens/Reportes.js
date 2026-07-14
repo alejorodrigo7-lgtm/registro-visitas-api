@@ -36,12 +36,14 @@ const Reportes = ({ navigation }) => {
     { value: 'cajas', label: '💰 Cajas' },
     { value: 'depositos', label: '🏦 Depósitos' },
     { value: 'usuarios', label: '👥 Usuarios' },
+    { value: 'monserrath', label: '📋 Monserrath' },
   ];
 
   const zonas = ['TOLA', 'MAGDALENA', 'CHILIBULO'];
   const estadosVisita = ['Pendiente', 'Completada', 'Cancelada'];
   const estadosTransferencia = ['SUBIDA', 'CONFIRMADA', 'DENEGADA', 'INGRESADA', 'EN_REVISION'];
   const estadosServicio = ['TOMADO', 'EJECUTADO', 'PENDIENTE', 'RETROALIMENTADO'];
+  const estadosMonserrath = ['Pendiente', 'Completado', 'Cancelado'];
 
   const formatDate = (date) => {
     if (!date) return '';
@@ -119,6 +121,7 @@ const Reportes = ({ navigation }) => {
       'cajas': 'zona',
       'depositos': 'zona',
       'usuarios': 'rol',
+      'monserrath': 'tecnico',
     };
     return params[tipoReporte] || '';
   };
@@ -218,7 +221,32 @@ const Reportes = ({ navigation }) => {
       );
     }
 
+    if (tipoReporte === 'monserrath') {
+      return (
+        <View>
+          <Text style={styles.label}>Estado</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={filtroEstado}
+              onValueChange={setFiltroEstado}
+              style={styles.picker}
+            >
+              <Picker.Item label="Todos" value="" />
+              {estadosMonserrath.map((e) => (
+                <Picker.Item key={e} label={e} value={e} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      );
+    }
+
     return null;
+  };
+
+  // Botón para ir al reporte detallado de Monserrath
+  const irAReporteMonserrath = () => {
+    navigation.navigate('ReporteMonserrath');
   };
 
   return (
@@ -285,9 +313,19 @@ const Reportes = ({ navigation }) => {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.generarButtonText}>📥 Generar Reporte</Text>
+              <Text style={styles.generarButtonText}>📥 Generar Reporte Excel</Text>
             )}
           </TouchableOpacity>
+
+          {/* Botón para reporte detallado Monserrath */}
+          {tipoReporte === 'monserrath' && (
+            <TouchableOpacity
+              style={[styles.generarButton, styles.monserrathButton]}
+              onPress={irAReporteMonserrath}
+            >
+              <Text style={styles.generarButtonText}>📋 Ver Reporte Detallado</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.infoCard}>
@@ -382,6 +420,10 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
+    marginTop: 10,
+  },
+  monserrathButton: {
+    backgroundColor: '#9C27B0',
     marginTop: 10,
   },
   generarButtonText: {

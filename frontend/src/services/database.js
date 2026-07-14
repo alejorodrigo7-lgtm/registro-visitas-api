@@ -43,31 +43,6 @@ export const initDatabase = async () => {
         );
         
         -- ============================================
-        -- 📋 MONSERRATH
-        -- ============================================
-        CREATE TABLE IF NOT EXISTS monserrath_pendientes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          cliente TEXT NOT NULL,
-          identificador TEXT NOT NULL,
-          barrio TEXT NOT NULL,
-          direccion TEXT NOT NULL,
-          telefono TEXT NOT NULL,
-          fecha TEXT NOT NULL,
-          hora_llegada TEXT NOT NULL,
-          hora_salida TEXT NOT NULL,
-          material_usado TEXT,
-          observaciones TEXT,
-          tecnico TEXT NOT NULL,
-          tecnicoNombre TEXT NOT NULL,
-          ubicacion_lat REAL,
-          ubicacion_lng REAL,
-          ubicacion_address TEXT,
-          sincronizado INTEGER DEFAULT 0,
-          intentos INTEGER DEFAULT 0,
-          error TEXT
-        );
-        
-        -- ============================================
         -- 💰 TRANSFERENCIAS
         -- ============================================
         CREATE TABLE IF NOT EXISTS transferencias_pendientes (
@@ -214,7 +189,6 @@ export const initDatabase = async () => {
         -- ÍNDICES
         -- ============================================
         CREATE INDEX IF NOT EXISTS idx_visitas_sincronizado ON visitas_pendientes(sincronizado);
-        CREATE INDEX IF NOT EXISTS idx_monserrath_sincronizado ON monserrath_pendientes(sincronizado);
         CREATE INDEX IF NOT EXISTS idx_transferencias_sincronizado ON transferencias_pendientes(sincronizado);
         CREATE INDEX IF NOT EXISTS idx_servicios_sincronizado ON servicios_pendientes(sincronizado);
         CREATE INDEX IF NOT EXISTS idx_cajas_sincronizado ON cajas_pendientes(sincronizado);
@@ -226,6 +200,39 @@ export const initDatabase = async () => {
       
       await AsyncStorage.setItem('@db_initialized', 'true');
       console.log('✅ Base de datos local inicializada');
+    }
+    
+    // ============================================
+    // 🔧 VERIFICAR/CREAR TABLA MONSERRATH
+    // ============================================
+    try {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS monserrath_pendientes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cliente TEXT NOT NULL,
+          identificador TEXT NOT NULL,
+          barrio TEXT NOT NULL,
+          direccion TEXT NOT NULL,
+          telefono TEXT NOT NULL,
+          fecha TEXT NOT NULL,
+          hora_llegada TEXT NOT NULL,
+          hora_salida TEXT NOT NULL,
+          material_usado TEXT,
+          observaciones TEXT,
+          tecnico TEXT NOT NULL,
+          tecnicoNombre TEXT NOT NULL,
+          ubicacion_lat REAL,
+          ubicacion_lng REAL,
+          ubicacion_address TEXT,
+          sincronizado INTEGER DEFAULT 0,
+          intentos INTEGER DEFAULT 0,
+          error TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_monserrath_sincronizado ON monserrath_pendientes(sincronizado);
+      `);
+      console.log('✅ Tabla monserrath_pendientes verificada/creada');
+    } catch (error) {
+      console.error('❌ Error creando tabla monserrath_pendientes:', error);
     }
     
     return db;

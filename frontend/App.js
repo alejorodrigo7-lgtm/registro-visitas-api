@@ -6,7 +6,6 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { setupNotificationListeners } from './src/services/notificationService';
 import { initDatabase } from './src/services/database';
 import { iniciarSincronizacionAutomatica, detenerSincronizacionAutomatica } from './src/services/syncService';
-import { Alert, View, Text } from 'react-native';
 
 // Pantallas principales
 import RoleSelection from './src/screens/RoleSelection';
@@ -56,6 +55,10 @@ import MapaAnalisis from './src/screens/MapaAnalisis';
 import MapaReal from './src/screens/MapaReal';
 import MapaKMZ from './src/screens/MapaKMZ';
 
+// Monserrath
+import MonserrathScreen from './src/screens/MonserrathScreen';
+import ReporteMonserrath from './src/screens/ReporteMonserrath';
+
 const Stack = createStackNavigator();
 
 // ============================================
@@ -68,11 +71,9 @@ const AppInitializer = ({ children }) => {
   useEffect(() => {
     const inicializarApp = async () => {
       try {
-        // 1. Inicializar base de datos local
         await initDatabase();
         console.log('✅ Base de datos local inicializada');
         
-        // 2. Iniciar sincronización automática si hay usuario
         if (user) {
           console.log('🔄 Iniciando sincronización automática...');
           syncUnsubscribeRef.current = await iniciarSincronizacionAutomatica((result) => {
@@ -88,7 +89,6 @@ const AppInitializer = ({ children }) => {
     
     inicializarApp();
     
-    // Limpiar al desmontar
     return () => {
       if (syncUnsubscribeRef.current) {
         syncUnsubscribeRef.current();
@@ -165,6 +165,10 @@ export default function App() {
             <Stack.Screen name="MapaAnalisis" component={MapaAnalisis} options={{ title: 'Mapa Análisis' }} />
             <Stack.Screen name="MapaReal" component={MapaReal} options={{ title: 'Mapa Real' }} />
             <Stack.Screen name="MapaKMZ" component={MapaKMZ} options={{ title: 'KMZ' }} />
+
+            {/* Monserrath */}
+            <Stack.Screen name="MonserrathScreen" component={MonserrathScreen} options={{ title: 'Monserrath' }} />
+            <Stack.Screen name="ReporteMonserrath" component={ReporteMonserrath} options={{ title: 'Reporte Monserrath' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppInitializer>

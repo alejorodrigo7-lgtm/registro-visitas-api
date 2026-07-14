@@ -1,10 +1,10 @@
 import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
@@ -75,6 +75,21 @@ const ServiciosMenu = ({ navigation }) => {
           </View>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
+
+        {/* ============================================ */}
+        {/* 📋 MONSERRATH - DENTRO DE SERVICIOS */}
+        {/* ============================================ */}
+        <TouchableOpacity
+          style={[styles.menuItem, styles.monserrathMenuItem]}
+          onPress={() => navigation.navigate('MonserrathScreen')}
+        >
+          <Text style={styles.menuIcon}>📋</Text>
+          <View style={styles.menuTextContainer}>
+            <Text style={[styles.menuTitle, styles.monserrathText]}>Monserrath</Text>
+            <Text style={styles.menuDescription}>Registro de visitas y servicios Monserrath</Text>
+          </View>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -138,6 +153,14 @@ const styles = StyleSheet.create({
   menuArrow: {
     fontSize: 24,
     color: '#B2BEC3',
+  },
+  monserrathMenuItem: {
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1,
+    borderColor: '#9C27B0',
+  },
+  monserrathText: {
+    color: '#9C27B0',
   },
 });
 
