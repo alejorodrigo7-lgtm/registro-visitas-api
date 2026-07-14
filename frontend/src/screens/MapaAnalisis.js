@@ -9,12 +9,15 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+
+const { width, height } = Dimensions.get('window');
 
 const MapaAnalisis = ({ navigation }) => {
   const { user } = useAuth();
@@ -24,10 +27,8 @@ const MapaAnalisis = ({ navigation }) => {
   const [fecha, setFecha] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [ubicaciones, setUbicaciones] = useState([]);
-  const [region, setRegion] = useState(null);
   const [showModal, setShowModal] = useState(false);
-
-  const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
+  const [mapaHTML, setMapaHTML] = useState('');
 
   useEffect(() => {
     cargarUsuarios();
@@ -63,16 +64,17 @@ const MapaAnalisis = ({ navigation }) => {
       setUbicaciones(response.data.data || []);
       
       if (response.data.data.length > 0) {
-        // Centrar mapa en el primer punto
-        const primera = response.data.data[0];
-        setRegion({
-          latitude: primera.coordenadas.coordinates[1],
-          longitude: primera.coordenadas.coordinates[0],
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
+        const puntos = response.data.data.map((u, index) => ({
+          lat: u.coordenadas.coordinates[1],
+          lng: u.coordenadas.coordinates[0],
+          nombre: u.direccion || `Punto ${index + 1}`,
+          hora: new Date(u.fecha).toLocaleTimeString('es-ES'),
+        }));
+        const html = generarHTMLMapa(puntos);
+        setMapaHTML(html);
       } else {
         Alert.alert('Sin datos', 'No hay ubicaciones registradas para esta fecha');
+        setMapaHTML('');
       }
     } catch (error) {
       console.error('Error al buscar ubicaciones:', error);
@@ -80,6 +82,67 @@ const MapaAnalisis = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const generarHTMLMapa = (puntos) => {
+    if (puntos.length === 0) return '';
+
+    const centroLat = puntos.reduce((sum, p) => sum + p.lat, 0) / puntos.length;
+    const centroLng = puntos.reduce((sum, p) => sum + p.lng, 0) / puntos.length;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Mapa de Visitas</title>
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+          <style>
+            body { margin: 0; padding: 0; height: 100vh; }
+            #map { height: 100vh; width: 100%; }
+            .info { 
+              position: absolute; 
+              bottom: 20px; 
+              left: 50%; 
+              transform: translateX(-50%);
+              background: rgba(0,0,0,0.8); 
+              color: white; 
+              padding: 8px 16px; 
+              border-radius: 20px;
+              font-family: Arial, sans-serif;
+              font-size: 12px;
+              z-index: 1000;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="map"></div>
+          <div class="info">📍 ${puntos.length} puntos visitados</div>
+          <script>
+            var map = L.map('map').setView([${centroLat}, ${centroLng}], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '© OpenStreetMap'
+            }).addTo(map);
+            
+            ${puntos.map((p, i) => `
+              L.marker([${p.lat}, ${p.lng}])
+                .addTo(map)
+                .bindPopup('<b>Punto ${i + 1}</b><br>📍 ${p.nombre}<br>🕐 ${p.hora}');
+            `).join('')}
+            
+            var latlngs = [${puntos.map(p => `[${p.lat}, ${p.lng}]`).join(', ')}];
+            if (latlngs.length > 1) {
+              var polyline = L.polyline(latlngs, { color: '#6C5CE7', weight: 3, opacity: 0.8 }).addTo(map);
+              map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+            } else {
+              map.setView([${puntos[0].lat}, ${puntos[0].lng}], 15);
+            }
+          </script>
+        </body>
+      </html>
+    `;
   };
 
   const formatFecha = (date) => {
@@ -146,37 +209,14 @@ const MapaAnalisis = ({ navigation }) => {
         )}
       </View>
 
-      {/* Mapa */}
       <View style={styles.mapaContainer}>
-        {region ? (
-          <MapView
-            style={styles.mapa}
-            region={region}
-            showsUserLocation={true}
-          >
-            {ubicaciones.map((item, index) => (
-              <Marker
-                key={item._id}
-                coordinate={{
-                  latitude: item.coordenadas.coordinates[1],
-                  longitude: item.coordenadas.coordinates[0],
-                }}
-                title={`Punto ${index + 1}`}
-                description={item.direccion || 'Sin dirección'}
-                pinColor={index === 0 ? '#00B894' : '#6C5CE7'}
-              />
-            ))}
-            {ubicaciones.length > 1 && (
-              <Polyline
-                coordinates={ubicaciones.map(item => ({
-                  latitude: item.coordenadas.coordinates[1],
-                  longitude: item.coordenadas.coordinates[0],
-                }))}
-                strokeColor="#6C5CE7"
-                strokeWidth={3}
-              />
-            )}
-          </MapView>
+        {mapaHTML ? (
+          <WebView
+            source={{ html: mapaHTML }}
+            style={styles.mapaWebView}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+          />
         ) : (
           <View style={styles.mapaPlaceholder}>
             <Text style={styles.mapaPlaceholderText}>🗺️</Text>
@@ -187,17 +227,15 @@ const MapaAnalisis = ({ navigation }) => {
         )}
       </View>
 
-      {/* Lista de puntos */}
       {ubicaciones.length > 0 && (
         <TouchableOpacity
           style={styles.verListaButton}
           onPress={() => setShowModal(true)}
         >
-          <Text style={styles.verListaButtonText}>📋 Ver lista de puntos</Text>
+          <Text style={styles.verListaButtonText}>📋 Ver lista de puntos ({ubicaciones.length})</Text>
         </TouchableOpacity>
       )}
 
-      {/* Modal de lista de puntos */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -330,10 +368,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#E8F0FE',
   },
-  mapa: {
+  mapaWebView: {
     flex: 1,
     width: '100%',
-    height: '100%',
   },
   mapaPlaceholder: {
     flex: 1,
