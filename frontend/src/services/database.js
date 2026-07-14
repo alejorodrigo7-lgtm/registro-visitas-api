@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 
 let db;
 
@@ -10,11 +11,9 @@ export const initDatabase = async () => {
   try {
     const isFirstTime = await AsyncStorage.getItem('@db_initialized');
     
-    // Abrir base de datos con la API moderna
     db = await SQLite.openDatabaseAsync('registro_visitas.db');
     
     if (!isFirstTime) {
-      // Crear tablas
       await db.execAsync(`
         PRAGMA journal_mode = WAL;
         
@@ -244,6 +243,121 @@ export const guardarVisitaOffline = async (data) => {
 };
 
 // ============================================
+// 📋 CACHE DE CLIENTES - GUARDAR
+// ============================================
+export const guardarClientesCache = async (clientes) => {
+  try {
+    if (!db) await initDatabase();
+    
+    for (const cliente of clientes) {
+      await db.runAsync(
+        `INSERT OR REPLACE INTO clientes_cache 
+        (id, nombre, identificador, barrio, direccion, telefono, fecha_actualizacion)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          cliente._id || cliente.id,
+          cliente.nombre,
+          cliente.identificador || '',
+          cliente.barrio || '',
+          cliente.direccion || '',
+          cliente.telefono || '',
+          new Date().toISOString(),
+        ]
+      );
+    }
+    console.log(`✅ ${clientes.length} clientes guardados en caché`);
+  } catch (error) {
+    console.error('❌ Error guardando clientes caché:', error);
+  }
+};
+
+// ============================================
+// 📋 CACHE DE CLIENTES - OBTENER TODOS
+// ============================================
+export const getClientesCache = async () => {
+  try {
+    if (!db) await initDatabase();
+    const result = await db.getAllAsync('SELECT * FROM clientes_cache ORDER BY nombre ASC');
+    return result;
+  } catch (error) {
+    console.error('❌ Error obteniendo clientes caché:', error);
+    return [];
+  }
+};
+
+// ============================================
+// 📋 CACHE DE CLIENTES - BUSCAR POR IDENTIFICADOR
+// ============================================
+export const buscarClienteCache = async (identificador) => {
+  try {
+    if (!db) await initDatabase();
+    const result = await db.getFirstAsync(
+      'SELECT * FROM clientes_cache WHERE identificador = ?',
+      [identificador]
+    );
+    return result;
+  } catch (error) {
+    console.error('❌ Error buscando cliente en caché:', error);
+    return null;
+  }
+};
+
+// ============================================
+// 📋 CACHE DE CLIENTES - BUSCAR POR NOMBRE
+// ============================================
+export const buscarClientesPorNombreCache = async (texto) => {
+  try {
+    if (!db) await initDatabase();
+    const result = await db.getAllAsync(
+      `SELECT * FROM clientes_cache 
+       WHERE nombre LIKE ? OR identificador LIKE ? 
+       ORDER BY nombre ASC LIMIT 20`,
+      [`%${texto}%`, `%${texto}%`]
+    );
+    return result;
+  } catch (error) {
+    console.error('❌ Error buscando clientes por nombre:', error);
+    return [];
+  }
+};
+
+// ============================================
+// 🔄 SINCRONIZAR CLIENTES DESDE EL SERVIDOR
+// ============================================
+export const sincronizarClientes = async (apiInstance) => {
+  try {
+    if (!db) await initDatabase();
+    
+    // Verificar conexión a internet
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      console.log('📋 Sin conexión, usando caché local');
+      const clientes = await getClientesCache();
+      return { success: true, count: clientes.length, cache: true };
+    }
+    
+    console.log('🔄 Sincronizando clientes desde servidor...');
+    
+    // Usar la instancia de api pasada o importarla
+    const api = apiInstance || require('./api').default;
+    const response = await api.get('/clientes/todos?limit=1000');
+    
+    if (response.data.success) {
+      const clientes = response.data.data || [];
+      await guardarClientesCache(clientes);
+      console.log(`✅ ${clientes.length} clientes sincronizados en caché`);
+      return { success: true, count: clientes.length, cache: false };
+    }
+    return { success: false, error: 'Error al obtener clientes' };
+  } catch (error) {
+    console.error('❌ Error sincronizando clientes:', error);
+    // Si falla, usar caché existente
+    const clientes = await getClientesCache();
+    return { success: true, count: clientes.length, cache: true, error: error.message };
+  }
+};
+
+// ============================================
 // 📊 CONTAR PENDIENTES
 // ============================================
 export const contarPendientes = async () => {
@@ -304,9 +418,9 @@ export const getTodasPendientes = async () => {
 };
 
 // ============================================
-// 🔄 SINCRONIZAR TODOS
+// 🔄 SINCRONIZAR VISITAS PENDIENTES
 // ============================================
-export const sincronizarTodos = async (api) => {
+export const sincronizarVisitas = async (apiInstance) => {
   try {
     const pendientes = await getTodasPendientes();
     const total = pendientes.total;
@@ -318,6 +432,7 @@ export const sincronizarTodos = async (api) => {
     
     console.log(`🔄 Sincronizando ${total} elementos...`);
     
+    const api = apiInstance || require('./api').default;
     let sincronizados = 0;
     let errores = 0;
     
@@ -557,134 +672,10 @@ export default {
   guardarVisitaOffline,
   contarPendientes,
   getTodasPendientes,
-  sincronizarTodos,
-};
-// ============================================
-// 📋 CACHE DE CLIENTES
-// ============================================
-
-// Guardar clientes en caché local
-export const guardarClientesCache = async (clientes) => {
-  try {
-    if (!db) await initDatabase();
-    
-    for (const cliente of clientes) {
-      await db.runAsync(
-        `INSERT OR REPLACE INTO clientes_cache 
-        (id, nombre, identificador, barrio, direccion, telefono, fecha_actualizacion)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          cliente._id || cliente.id,
-          cliente.nombre,
-          cliente.identificador,
-          cliente.barrio || '',
-          cliente.direccion || '',
-          cliente.telefono || '',
-          new Date().toISOString(),
-        ]
-      );
-    }
-    console.log(`✅ ${clientes.length} clientes guardados en caché`);
-  } catch (error) {
-    console.error('❌ Error guardando clientes caché:', error);
-  }
-};
-
-// Obtener todos los clientes del caché
-export const getClientesCache = async () => {
-  try {
-    if (!db) await initDatabase();
-    const result = await db.getAllAsync('SELECT * FROM clientes_cache ORDER BY nombre ASC');
-    return result;
-  } catch (error) {
-    console.error('❌ Error obteniendo clientes caché:', error);
-    return [];
-  }
-};
-
-// Buscar cliente por identificador en caché
-export const buscarClienteCache = async (identificador) => {
-  try {
-    if (!db) await initDatabase();
-    const result = await db.getFirstAsync(
-      'SELECT * FROM clientes_cache WHERE identificador = ?',
-      [identificador]
-    );
-    return result;
-  } catch (error) {
-    console.error('❌ Error buscando cliente en caché:', error);
-    return null;
-  }
-};
-
-// Buscar clientes por nombre en caché
-export const buscarClientesPorNombreCache = async (texto) => {
-  try {
-    if (!db) await initDatabase();
-    const result = await db.getAllAsync(
-      `SELECT * FROM clientes_cache 
-       WHERE nombre LIKE ? OR identificador LIKE ? 
-       ORDER BY nombre ASC LIMIT 20`,
-      [`%${texto}%`, `%${texto}%`]
-    );
-    return result;
-  } catch (error) {
-    console.error('❌ Error buscando clientes por nombre:', error);
-    return [];
-  }
-};
-
-// Sincronizar clientes desde el servidor
-export const sincronizarClientes = async (api) => {
-  try {
-    console.log('🔄 Sincronizando clientes...');
-    const response = await api.get('/clientes/todos?limit=1000');
-    
-    if (response.data.success) {
-      const clientes = response.data.data || [];
-      await guardarClientesCache(clientes);
-      console.log(`✅ ${clientes.length} clientes sincronizados`);
-      return { success: true, count: clientes.length };
-    }
-    return { success: false, error: 'Error al obtener clientes' };
-  } catch (error) {
-    console.error('❌ Error sincronizando clientes:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-// ============================================
-// 🔄 SINCRONIZAR CLIENTES DESDE EL SERVIDOR
-// ============================================
-export const sincronizarClientes = async () => {
-  try {
-    if (!db) await initDatabase();
-    
-    // Verificar si hay conexión a internet
-    const netInfo = await NetInfo.fetch();
-    if (!netInfo.isConnected) {
-      console.log('📋 Sin conexión, usando caché local');
-      const clientes = await getClientesCache();
-      return { success: true, count: clientes.length, cache: true };
-    }
-    
-    console.log('🔄 Sincronizando clientes desde servidor...');
-    
-    // Usar api que viene de fuera o importarla
-    const api = require('./api').default;
-    const response = await api.get('/clientes/todos?limit=1000');
-    
-    if (response.data.success) {
-      const clientes = response.data.data || [];
-      await guardarClientesCache(clientes);
-      console.log(`✅ ${clientes.length} clientes sincronizados en caché`);
-      return { success: true, count: clientes.length, cache: false };
-    }
-    return { success: false, error: 'Error al obtener clientes' };
-  } catch (error) {
-    console.error('❌ Error sincronizando clientes:', error);
-    // Si falla, usar caché existente
-    const clientes = await getClientesCache();
-    return { success: true, count: clientes.length, cache: true, error: error.message };
-  }
+  sincronizarVisitas,
+  sincronizarClientes,
+  getClientesCache,
+  buscarClienteCache,
+  buscarClientesPorNombreCache,
+  guardarClientesCache,
 };
