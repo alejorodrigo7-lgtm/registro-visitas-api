@@ -652,3 +652,39 @@ export const sincronizarClientes = async (api) => {
     return { success: false, error: error.message };
   }
 };
+
+// ============================================
+// 🔄 SINCRONIZAR CLIENTES DESDE EL SERVIDOR
+// ============================================
+export const sincronizarClientes = async () => {
+  try {
+    if (!db) await initDatabase();
+    
+    // Verificar si hay conexión a internet
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      console.log('📋 Sin conexión, usando caché local');
+      const clientes = await getClientesCache();
+      return { success: true, count: clientes.length, cache: true };
+    }
+    
+    console.log('🔄 Sincronizando clientes desde servidor...');
+    
+    // Usar api que viene de fuera o importarla
+    const api = require('./api').default;
+    const response = await api.get('/clientes/todos?limit=1000');
+    
+    if (response.data.success) {
+      const clientes = response.data.data || [];
+      await guardarClientesCache(clientes);
+      console.log(`✅ ${clientes.length} clientes sincronizados en caché`);
+      return { success: true, count: clientes.length, cache: false };
+    }
+    return { success: false, error: 'Error al obtener clientes' };
+  } catch (error) {
+    console.error('❌ Error sincronizando clientes:', error);
+    // Si falla, usar caché existente
+    const clientes = await getClientesCache();
+    return { success: true, count: clientes.length, cache: true, error: error.message };
+  }
+};

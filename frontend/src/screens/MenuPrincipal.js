@@ -10,13 +10,19 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { registerForPushNotificationsAsync } from '../services/notificationService';
-import { contarPendientes } from '../services/database';
+import { 
+  contarPendientes, 
+  sincronizarClientes,
+  getClientesCache 
+} from '../services/database';
 import { verificarEstadoSincronizacion } from '../services/syncService';
+import NetInfo from '@react-native-community/netinfo';
 
 const MenuPrincipal = ({ navigation }) => {
   const { user, logout } = useAuth();
   const [pendientes, setPendientes] = useState({ total: 0 });
   const [conectado, setConectado] = useState(true);
+  const [clientesCargados, setClientesCargados] = useState(false);
 
   useEffect(() => {
     const registerPush = async () => {
@@ -29,6 +35,38 @@ const MenuPrincipal = ({ navigation }) => {
     registerPush();
   }, []);
 
+  // ============================================
+  // 📋 CARGAR CLIENTES EN CACHÉ AL INICIAR
+  // ============================================
+  useEffect(() => {
+    const cargarClientes = async () => {
+      try {
+        const netInfo = await NetInfo.fetch();
+        setConectado(netInfo.isConnected);
+        
+        if (netInfo.isConnected) {
+          console.log('🔄 Sincronizando clientes en caché...');
+          const result = await sincronizarClientes();
+          if (result.success) {
+            console.log(`✅ ${result.count} clientes sincronizados en caché`);
+          }
+        } else {
+          // Verificar si hay clientes en caché
+          const clientes = await getClientesCache();
+          console.log(`📋 ${clientes.length} clientes en caché local`);
+        }
+        setClientesCargados(true);
+      } catch (error) {
+        console.error('❌ Error cargando clientes:', error);
+      }
+    };
+    
+    cargarClientes();
+  }, []);
+
+  // ============================================
+  // 📊 ACTUALIZAR PENDIENTES
+  // ============================================
   useEffect(() => {
     const actualizarPendientes = async () => {
       try {
@@ -42,7 +80,6 @@ const MenuPrincipal = ({ navigation }) => {
     
     actualizarPendientes();
     
-    // Actualizar cada 30 segundos
     const interval = setInterval(actualizarPendientes, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -87,6 +124,11 @@ const MenuPrincipal = ({ navigation }) => {
                 📤 {pendientes.total} pendiente{pendientes.total > 1 ? 's' : ''}
               </Text>
             </View>
+          )}
+          {clientesCargados && (
+            <Text style={styles.syncStatusText}>
+              📋 Clientes listos
+            </Text>
           )}
         </View>
       </View>
@@ -251,7 +293,6 @@ const MenuPrincipal = ({ navigation }) => {
           <Text style={[styles.menuItemText, styles.logoutText]}>🚪 Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        {/* Espacio extra al final para mejor scroll */}
         <View style={styles.footerSpacer} />
       </ScrollView>
     </SafeAreaView>
@@ -289,8 +330,9 @@ const styles = StyleSheet.create({
   syncStatus: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     marginTop: 10,
-    gap: 10,
+    gap: 8,
   },
   syncStatusText: {
     color: '#FFFFFF',
