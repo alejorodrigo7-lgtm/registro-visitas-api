@@ -11,11 +11,15 @@ import {
   Modal,
   TextInput,
   RefreshControl,
+  Dimensions,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+
+const { width, height } = Dimensions.get('window');
 
 const MapaKMZ = ({ navigation }) => {
   const { user } = useAuth();
@@ -24,6 +28,7 @@ const MapaKMZ = ({ navigation }) => {
   const [kmzs, setKmzs] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
+  const [modalVisorVisible, setModalVisorVisible] = useState(false);
   const [kmzSeleccionado, setKmzSeleccionado] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
@@ -31,6 +36,7 @@ const MapaKMZ = ({ navigation }) => {
     archivo: null,
     archivoNombre: '',
   });
+  const [visorLoading, setVisorLoading] = useState(true);
 
   const isAdmin = user?.rol === 'Admin';
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
@@ -64,7 +70,6 @@ const MapaKMZ = ({ navigation }) => {
       });
 
       if (result.type === 'success') {
-        // Leer el archivo como base64
         const fileContent = await FileSystem.readAsStringAsync(result.uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
@@ -136,6 +141,12 @@ const MapaKMZ = ({ navigation }) => {
     setModalDetalleVisible(true);
   };
 
+  const abrirVisorKMZ = (kmz) => {
+    setKmzSeleccionado(kmz);
+    setVisorLoading(true);
+    setModalVisorVisible(true);
+  };
+
   const eliminarKMZ = async (id, nombre) => {
     if (!isAdmin) {
       Alert.alert('⛔ Acceso Denegado', 'Solo Administradores pueden eliminar archivos');
@@ -166,6 +177,111 @@ const MapaKMZ = ({ navigation }) => {
 
   const formatFecha = (fecha) => {
     return new Date(fecha).toLocaleDateString('es-ES');
+  };
+
+  // Generar HTML para el visor de KMZ
+  const generarHTMLVisor = (kmz) => {
+    // Si es KML, podemos mostrarlo directamente
+    if (kmz.tipo === 'kml') {
+      const kmlContent = kmz.archivo;
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Visor KML</title>
+            <style>
+              body { margin: 0; padding: 0; height: 100vh; }
+              #map { height: 100vh; width: 100%; }
+            </style>
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+          </head>
+          <body>
+            <div id="map"></div>
+            <script>
+              var map = L.map('map').setView([-0.18, -78.47], 12);
+              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+              }).addTo(map);
+              
+              try {
+                var kmlData = atob("${kmz.archivo}");
+                var blob = new Blob([kmlData], { type: 'application/vnd.google-earth.kml+xml' });
+                var url = URL.createObjectURL(blob);
+                omnivore.kml(url).addTo(map);
+              } catch(e) {
+                document.body.innerHTML = '<p style="padding:20px;color:red;">Error al cargar el KML: ' + e.message + '</p>';
+              }
+            </script>
+          </body>
+        </html>
+      `;
+    }
+
+    // Para KMZ, usamos un visor externo
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Visor KMZ</title>
+          <style>
+            body { 
+              margin: 0; 
+              padding: 20px; 
+              font-family: Arial, sans-serif;
+              background: #f5f5f5;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              flex-direction: column;
+            }
+            .info {
+              text-align: center;
+              max-width: 500px;
+            }
+            .info h2 { color: #2D3436; }
+            .info p { color: #636E72; }
+            .info .icon { font-size: 80px; margin-bottom: 20px; }
+            .btn {
+              background: #6C5CE7;
+              color: white;
+              padding: 12px 30px;
+              border-radius: 8px;
+              border: none;
+              font-size: 16px;
+              cursor: pointer;
+              margin-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="info">
+            <div class="icon">🗺️</div>
+            <h2>${kmz.nombre}</h2>
+            <p>${kmz.descripcion || 'Archivo KMZ'}</p>
+            <p style="font-size:12px;color:#999;">Tamaño: ${(kmz.archivo.length / 1024).toFixed(2)} KB</p>
+            <p style="font-size:12px;color:#999;">Tipo: ${kmz.tipo?.toUpperCase()}</p>
+            <button class="btn" onclick="window.ReactNativeWebView.postMessage('descargar')">
+              📥 Descargar KMZ
+            </button>
+            <p style="font-size:12px;color:#999;margin-top:20px;">
+              Para visualizar este archivo, descárgalo y ábrelo en Google Earth.
+            </p>
+          </div>
+          <script>
+            document.querySelector('.btn').addEventListener('click', function() {
+              window.ReactNativeWebView.postMessage('descargar');
+            });
+          </script>
+        </body>
+      </html>
+    `;
   };
 
   if (loading) {
@@ -232,16 +348,28 @@ const MapaKMZ = ({ navigation }) => {
                 <Text style={styles.kmzInfo}>
                   📅 {formatFecha(kmz.createdAt)}
                 </Text>
+                <Text style={styles.kmzInfo}>
+                  📦 {(kmz.archivo?.length / 1024).toFixed(1)} KB
+                </Text>
               </View>
 
-              {isAdmin && (
+              <View style={styles.kmzAcciones}>
                 <TouchableOpacity
-                  style={styles.kmzEliminar}
-                  onPress={() => eliminarKMZ(kmz._id, kmz.nombre)}
+                  style={[styles.kmzAccion, styles.kmzAccionVer]}
+                  onPress={() => abrirVisorKMZ(kmz)}
                 >
-                  <Text style={styles.kmzEliminarText}>🗑️ Eliminar</Text>
+                  <Text style={styles.kmzAccionText}>🗺️ Ver</Text>
                 </TouchableOpacity>
-              )}
+
+                {isAdmin && (
+                  <TouchableOpacity
+                    style={[styles.kmzAccion, styles.kmzAccionEliminar]}
+                    onPress={() => eliminarKMZ(kmz._id, kmz.nombre)}
+                  >
+                    <Text style={styles.kmzAccionText}>🗑️</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </TouchableOpacity>
           ))
         )}
@@ -293,24 +421,8 @@ const MapaKMZ = ({ navigation }) => {
                 <TouchableOpacity
                   style={styles.modalAbrirButton}
                   onPress={() => {
-                    Alert.alert(
-                      '📁 Abrir KMZ',
-                      `¿Quieres abrir ${kmzSeleccionado.nombre}?`,
-                      [
-                        { text: 'Cancelar', style: 'cancel' },
-                        {
-                          text: 'Abrir',
-                          onPress: () => {
-                            // Aquí puedes implementar la apertura del KMZ
-                            // Por ejemplo, descargar o abrir con una app externa
-                            Alert.alert(
-                              '✅ Abrir KMZ',
-                              `Abriendo ${kmzSeleccionado.nombre}...\n\n(La funcionalidad de visualización se implementará con una librería de mapas)`
-                            );
-                          },
-                        },
-                      ]
-                    );
+                    setModalDetalleVisible(false);
+                    abrirVisorKMZ(kmzSeleccionado);
                   }}
                 >
                   <Text style={styles.modalAbrirButtonText}>🗺️ Abrir KMZ</Text>
@@ -324,6 +436,77 @@ const MapaKMZ = ({ navigation }) => {
             >
               <Text style={styles.modalCerrarText}>Cerrar</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Visor KMZ */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisorVisible}
+        onRequestClose={() => setModalVisorVisible(false)}
+      >
+        <View style={styles.visorModalOverlay}>
+          <View style={styles.visorModalContent}>
+            <View style={styles.visorHeader}>
+              <Text style={styles.visorTitle}>
+                🗺️ {kmzSeleccionado?.nombre || 'Visor'}
+              </Text>
+              <TouchableOpacity
+                style={styles.visorCerrar}
+                onPress={() => setModalVisorVisible(false)}
+              >
+                <Text style={styles.visorCerrarText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {visorLoading && (
+              <View style={styles.visorLoadingContainer}>
+                <ActivityIndicator size="large" color="#6C5CE7" />
+                <Text style={styles.visorLoadingText}>Cargando mapa...</Text>
+              </View>
+            )}
+
+            {kmzSeleccionado && (
+              <WebView
+                style={styles.visorWebView}
+                source={{ html: generarHTMLVisor(kmzSeleccionado) }}
+                onLoadStart={() => setVisorLoading(true)}
+                onLoadEnd={() => setVisorLoading(false)}
+                onMessage={(event) => {
+                  if (event.nativeEvent.data === 'descargar') {
+                    // Crear archivo para descargar
+                    Alert.alert(
+                      '📥 Descargar KMZ',
+                      '¿Quieres descargar este archivo?',
+                      [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                          text: 'Descargar',
+                          onPress: async () => {
+                            try {
+                              const filePath = `${FileSystem.documentDirectory}${kmzSeleccionado.nombre}.${kmzSeleccionado.tipo || 'kmz'}`;
+                              await FileSystem.writeAsStringAsync(
+                                filePath,
+                                kmzSeleccionado.archivo,
+                                { encoding: FileSystem.EncodingType.Base64 }
+                              );
+                              Alert.alert(
+                                '✅ Descarga completa',
+                                `Archivo guardado en:\n${filePath}`
+                              );
+                            } catch (error) {
+                              Alert.alert('Error', 'No se pudo descargar el archivo');
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }
+                }}
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -490,19 +673,30 @@ const styles = StyleSheet.create({
   kmzFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    flexWrap: 'wrap',
+    marginBottom: 10,
   },
   kmzInfo: {
     fontSize: 12,
     color: '#636E72',
   },
-  kmzEliminar: {
-    backgroundColor: '#FF6B6B',
-    padding: 8,
-    borderRadius: 8,
-    alignItems: 'center',
+  kmzAcciones: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
   },
-  kmzEliminarText: {
+  kmzAccion: {
+    paddingHorizontal: 15,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  kmzAccionVer: {
+    backgroundColor: '#6C5CE7',
+  },
+  kmzAccionEliminar: {
+    backgroundColor: '#FF6B6B',
+  },
+  kmzAccionText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',
@@ -643,6 +837,65 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     fontSize: 14,
     fontWeight: '500',
+  },
+  visorModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  visorModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    width: '95%',
+    height: '90%',
+    overflow: 'hidden',
+  },
+  visorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#6C5CE7',
+  },
+  visorTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  visorCerrar: {
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visorCerrarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  visorLoadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    zIndex: 10,
+  },
+  visorLoadingText: {
+    marginTop: 10,
+    color: '#636E72',
+  },
+  visorWebView: {
+    flex: 1,
+    width: '100%',
   },
 });
 
