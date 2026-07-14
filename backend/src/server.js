@@ -58,11 +58,11 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
 });
 
 // ============================================
-// 📋 OBTENER TODOS LOS CLIENTES (CON BÚSQUEDA)
+// 📋 OBTENER TODOS LOS CLIENTES (SIN LÍMITE)
 // ============================================
 app.get('/api/clientes/todos', protect, async (req, res) => {
   try {
-    const { search, limit = 100 } = req.query;
+    const { search } = req.query;
     let query = {};
     
     if (search && search.trim() !== '') {
@@ -79,9 +79,11 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
     }
     
     const Cliente = require('./models/Cliente');
-    const clientes = await Cliente.find(query)
-      .sort({ nombre: 1 })
-      .limit(parseInt(limit));
+    
+    // 🔥 SIN LÍMITE - obtener TODOS los clientes
+    const clientes = await Cliente.find(query).sort({ nombre: 1 });
+    
+    console.log(`📋 ${clientes.length} clientes encontrados`);
     
     res.json({
       success: true,
@@ -90,6 +92,57 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error en /todos:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ============================================
+// 📋 OBTENER CLIENTES CON PAGINACIÓN (OPCIONAL)
+// ============================================
+app.get('/api/clientes/paginados', protect, async (req, res) => {
+  try {
+    const { search, page = 1, limit = 500 } = req.query;
+    let query = {};
+    
+    if (search && search.trim() !== '') {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query = {
+        $or: [
+          { nombre: { $regex: searchRegex } },
+          { identificador: { $regex: searchRegex } },
+          { barrio: { $regex: searchRegex } },
+          { direccion: { $regex: searchRegex } },
+          { telefono: { $regex: searchRegex } }
+        ]
+      };
+    }
+    
+    const Cliente = require('./models/Cliente');
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const [clientes, total] = await Promise.all([
+      Cliente.find(query)
+        .sort({ nombre: 1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Cliente.countDocuments(query)
+    ]);
+    
+    console.log(`📋 Página ${page}: ${clientes.length} clientes (${total} total)`);
+    
+    res.json({
+      success: true,
+      count: clientes.length,
+      total: total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit)),
+      data: clientes,
+    });
+  } catch (error) {
+    console.error('❌ Error en /paginados:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -186,7 +239,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 Escuchando en todas las interfaces (0.0.0.0)`);
   console.log(`🕐 Zona horaria: ${process.env.TZ || 'UTC'}`);
   console.log(`🔍 /api/clientes/buscar/:identificador`);
-  console.log(`📋 /api/clientes/todos`);
+  console.log(`📋 /api/clientes/todos (SIN LÍMITE)`);
+  console.log(`📋 /api/clientes/paginados (CON PAGINACIÓN)`);
   console.log(`📤 /api/transferencias`);
   console.log(`🛠️ /api/servicios`);
   console.log(`💰 /api/cajas`);
