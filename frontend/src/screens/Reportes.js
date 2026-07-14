@@ -221,25 +221,15 @@ const Reportes = ({ navigation }) => {
       );
     }
 
-    if (tipoReporte === 'monserrath') {
-      return (
-        <View>
-          <Text style={styles.label}>Estado</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={filtroEstado}
-              onValueChange={setFiltroEstado}
-              style={styles.picker}
-            >
-              <Picker.Item label="Todos" value="" />
-              {estadosMonserrath.map((e) => (
-                <Picker.Item key={e} label={e} value={e} />
-              ))}
-            </Picker>
-          </View>
-        </View>
-      );
-    }
+    // En la función generarReporte, cuando tipoReporte === 'monserrath'
+if (tipoReporte === 'monserrath') {
+  url = `/monserrath/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+  if (filtroEstado) url += `&estado=${filtroEstado}`;
+  if (filtro) url += `&tecnico=${filtro}`;
+} else {
+  url = `/reportes/${tipoReporte}?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+  // ... resto del código
+}
 
     return null;
   };

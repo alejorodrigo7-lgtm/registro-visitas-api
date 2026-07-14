@@ -1,5 +1,6 @@
 const Monserrath = require('../models/Monserrath');
 const Ubicacion = require('../models/Ubicacion');
+const ExcelJS = require('exceljs');
 
 // ============================================
 // 📋 CREAR REGISTRO MONSERRATH
@@ -244,11 +245,11 @@ exports.eliminarRegistro = async (req, res) => {
 };
 
 // ============================================
-// 📊 REPORTE MONSERRATH
+// 📊 REPORTE MONSERRATH EN EXCEL
 // ============================================
-exports.obtenerReporte = async (req, res) => {
+exports.generarReporteExcel = async (req, res) => {
   try {
-    const { fechaInicio, fechaFin, tecnico } = req.query;
+    const { fechaInicio, fechaFin, tecnico, estado } = req.query;
     let query = {};
 
     if (fechaInicio && fechaFin) {
@@ -260,6 +261,7 @@ exports.obtenerReporte = async (req, res) => {
     }
 
     if (tecnico) query.tecnico = tecnico;
+    if (estado) query.estado = estado;
 
     if (req.user.rol === 'Tecnico') {
       query.tecnico = req.user._id;
@@ -269,25 +271,72 @@ exports.obtenerReporte = async (req, res) => {
       .populate('tecnico', 'nombre email')
       .sort({ fecha: -1 });
 
-    // Estadísticas
-    const total = registros.length;
-    const completados = registros.filter(r => r.estado === 'Completado').length;
-    const pendientes = registros.filter(r => r.estado === 'Pendiente').length;
-    const cancelados = registros.filter(r => r.estado === 'Cancelado').length;
+    // Crear libro Excel
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Monserrath');
 
-    res.json({
-      success: true,
-      data: registros,
-      estadisticas: {
-        total,
-        completados,
-        pendientes,
-        cancelados,
-      },
+    // Definir columnas
+    worksheet.columns = [
+      { header: '#', key: 'index', width: 8 },
+      { header: 'Cliente', key: 'cliente', width: 30 },
+      { header: 'Identificador', key: 'identificador', width: 20 },
+      { header: 'Barrio', key: 'barrio', width: 20 },
+      { header: 'Dirección', key: 'direccion', width: 35 },
+      { header: 'Teléfono', key: 'telefono', width: 15 },
+      { header: 'Fecha', key: 'fecha', width: 15 },
+      { header: 'Hora Llegada', key: 'hora_llegada', width: 15 },
+      { header: 'Hora Salida', key: 'hora_salida', width: 15 },
+      { header: 'Material Usado', key: 'material_usado', width: 25 },
+      { header: 'Observaciones', key: 'observaciones', width: 30 },
+      { header: 'Estado', key: 'estado', width: 15 },
+      { header: 'Técnico', key: 'tecnico', width: 20 },
+    ];
+
+    // Estilo de encabezados
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF6C5CE7' },
+    };
+    worksheet.getRow(1).font = { color: { argb: 'FFFFFFFF' }, bold: true };
+
+    // Agregar datos
+    registros.forEach((registro, index) => {
+      worksheet.addRow({
+        index: index + 1,
+        cliente: registro.cliente || '',
+        identificador: registro.identificador || '',
+        barrio: registro.barrio || '',
+        direccion: registro.direccion || '',
+        telefono: registro.telefono || '',
+        fecha: registro.fecha ? new Date(registro.fecha).toLocaleDateString('es-ES') : '',
+        hora_llegada: registro.hora_llegada || '',
+        hora_salida: registro.hora_salida || '',
+        material_usado: registro.material_usado || '',
+        observaciones: registro.observaciones || '',
+        estado: registro.estado || 'Pendiente',
+        tecnico: registro.tecnicoNombre || '',
+      });
     });
 
+    // Agregar resumen al final
+    const totalRow = worksheet.addRow({});
+    worksheet.addRow({
+      cliente: 'TOTAL REGISTROS',
+      identificador: registros.length,
+    });
+    worksheet.getRow(worksheet.rowCount).font = { bold: true };
+
+    // Generar archivo
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=monserrath_${fechaInicio || 'all'}_${fechaFin || 'all'}.xlsx`);
+    res.send(buffer);
+
   } catch (error) {
-    console.error('❌ Error en obtenerReporte:', error);
+    console.error('❌ Error en generarReporteExcel:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

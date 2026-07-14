@@ -7,7 +7,7 @@ const {
   obtenerRegistro,
   actualizarRegistro,
   eliminarRegistro,
-  obtenerReporte,
+  generarReporteExcel,
 } = require('../controllers/monserrathController');
 
 // Todas las rutas requieren autenticación
@@ -16,7 +16,7 @@ router.use(protect);
 // Rutas principales
 router.post('/', crearRegistro);
 router.get('/', obtenerRegistros);
-router.get('/reporte', obtenerReporte);
+router.get('/reporte-excel', generarReporteExcel);
 router.get('/:id', obtenerRegistro);
 router.put('/:id', actualizarRegistro);
 router.delete('/:id', authorize('Admin', 'Jefe'), eliminarRegistro);
