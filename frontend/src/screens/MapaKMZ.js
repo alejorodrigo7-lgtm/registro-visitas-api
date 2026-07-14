@@ -13,9 +13,11 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
+import MapView, { Marker, Polyline, Circle } from 'react-native-maps';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import JSZip from 'jszip';
+import { DOMParser } from 'xmldom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -37,6 +39,16 @@ const MapaKMZ = ({ navigation }) => {
     archivoNombre: '',
   });
   const [visorLoading, setVisorLoading] = useState(true);
+  const [kmlData, setKmlData] = useState(null);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: -0.1807,
+    longitude: -78.4678,
+    latitudeDelta: 0.5,
+    longitudeDelta: 0.5,
+  });
+  const [markers, setMarkers] = useState([]);
+  const [polylines, setPolylines] = useState([]);
+  const [polygons, setPolygons] = useState([]);
 
   const isAdmin = user?.rol === 'Admin';
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
@@ -136,15 +148,172 @@ const MapaKMZ = ({ navigation }) => {
     }
   };
 
+  // ============================================
+  // 📍 PROCESAR KMZ/KML
+  // ============================================
+  const procesarKMZ = async (kmz) => {
+    setVisorLoading(true);
+    setMarkers([]);
+    setPolylines([]);
+    setPolygons([]);
+
+    try {
+      let kmlString = '';
+
+      if (kmz.tipo === 'kml') {
+        // Es KML directo
+        kmlString = Buffer.from(kmz.archivo, 'base64').toString('utf-8');
+      } else {
+        // Es KMZ (ZIP con KML dentro)
+        const zip = new JSZip();
+        const zipContent = await zip.loadAsync(
+          Buffer.from(kmz.archivo, 'base64')
+        );
+
+        // Buscar archivo KML dentro del ZIP
+        let kmlFile = null;
+        for (const [filename, file] of Object.entries(zipContent.files)) {
+          if (filename.endsWith('.kml')) {
+            kmlFile = file;
+            break;
+          }
+        }
+
+        if (kmlFile) {
+          kmlString = await kmlFile.async('string');
+        } else {
+          throw new Error('No se encontró archivo KML dentro del KMZ');
+        }
+      }
+
+      // Parsear KML
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(kmlString, 'text/xml');
+
+      // Extraer coordenadas
+      const coordinates = xmlDoc.getElementsByTagName('coordinates');
+      const placemarks = xmlDoc.getElementsByTagName('Placemark');
+
+      let puntos = [];
+      let lineas = [];
+      let poligonos = [];
+
+      for (let i = 0; i < placemarks.length; i++) {
+        const placemark = placemarks[i];
+        const nameTag = placemark.getElementsByTagName('name');
+        const name = nameTag.length > 0 ? nameTag[0].textContent : `Punto ${i + 1}`;
+        const pointTag = placemark.getElementsByTagName('Point');
+        const lineStringTag = placemark.getElementsByTagName('LineString');
+        const polygonTag = placemark.getElementsByTagName('Polygon');
+
+        // Puntos
+        if (pointTag.length > 0) {
+          const coordsTag = pointTag[0].getElementsByTagName('coordinates');
+          if (coordsTag.length > 0) {
+            const coordText = coordsTag[0].textContent.trim();
+            const coordParts = coordText.split(',');
+            if (coordParts.length >= 2) {
+              puntos.push({
+                name: name,
+                latitude: parseFloat(coordParts[1]),
+                longitude: parseFloat(coordParts[0]),
+              });
+            }
+          }
+        }
+
+        // Líneas
+        if (lineStringTag.length > 0) {
+          const coordsTag = lineStringTag[0].getElementsByTagName('coordinates');
+          if (coordsTag.length > 0) {
+            const coordText = coordsTag[0].textContent.trim();
+            const coordPairs = coordText.split(/\s+/);
+            const linePoints = [];
+            for (const pair of coordPairs) {
+              const parts = pair.split(',');
+              if (parts.length >= 2) {
+                linePoints.push({
+                  latitude: parseFloat(parts[1]),
+                  longitude: parseFloat(parts[0]),
+                });
+              }
+            }
+            if (linePoints.length > 1) {
+              lineas.push(linePoints);
+            }
+          }
+        }
+
+        // Polígonos
+        if (polygonTag.length > 0) {
+          const outerBoundary = polygonTag[0].getElementsByTagName('outerBoundaryIs');
+          if (outerBoundary.length > 0) {
+            const linearRing = outerBoundary[0].getElementsByTagName('LinearRing');
+            if (linearRing.length > 0) {
+              const coordsTag = linearRing[0].getElementsByTagName('coordinates');
+              if (coordsTag.length > 0) {
+                const coordText = coordsTag[0].textContent.trim();
+                const coordPairs = coordText.split(/\s+/);
+                const polygonPoints = [];
+                for (const pair of coordPairs) {
+                  const parts = pair.split(',');
+                  if (parts.length >= 2) {
+                    polygonPoints.push({
+                      latitude: parseFloat(parts[1]),
+                      longitude: parseFloat(parts[0]),
+                    });
+                  }
+                }
+                if (polygonPoints.length > 2) {
+                  poligonos.push(polygonPoints);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      setMarkers(puntos);
+      setPolylines(lineas);
+      setPolygons(poligonos);
+
+      // Centrar mapa en el primer punto
+      if (puntos.length > 0) {
+        setMapRegion({
+          latitude: puntos[0].latitude,
+          longitude: puntos[0].longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        });
+      } else if (lineas.length > 0 && lineas[0].length > 0) {
+        setMapRegion({
+          latitude: lineas[0][0].latitude,
+          longitude: lineas[0][0].longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        });
+      }
+
+      setKmlData({ puntos, lineas, poligonos });
+      setVisorLoading(false);
+
+    } catch (error) {
+      console.error('Error al procesar KMZ:', error);
+      Alert.alert('Error', 'No se pudo procesar el archivo KMZ: ' + error.message);
+      setVisorLoading(false);
+    }
+  };
+
   const verKMZ = (kmz) => {
     setKmzSeleccionado(kmz);
     setModalDetalleVisible(true);
   };
 
-  const abrirVisorKMZ = (kmz) => {
+  const abrirVisorKMZ = async (kmz) => {
     setKmzSeleccionado(kmz);
     setVisorLoading(true);
     setModalVisorVisible(true);
+    await procesarKMZ(kmz);
   };
 
   const eliminarKMZ = async (id, nombre) => {
@@ -177,111 +346,6 @@ const MapaKMZ = ({ navigation }) => {
 
   const formatFecha = (fecha) => {
     return new Date(fecha).toLocaleDateString('es-ES');
-  };
-
-  // Generar HTML para el visor de KMZ
-  const generarHTMLVisor = (kmz) => {
-    // Si es KML, podemos mostrarlo directamente
-    if (kmz.tipo === 'kml') {
-      const kmlContent = kmz.archivo;
-      return `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Visor KML</title>
-            <style>
-              body { margin: 0; padding: 0; height: 100vh; }
-              #map { height: 100vh; width: 100%; }
-            </style>
-            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-            <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
-          </head>
-          <body>
-            <div id="map"></div>
-            <script>
-              var map = L.map('map').setView([-0.18, -78.47], 12);
-              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-              }).addTo(map);
-              
-              try {
-                var kmlData = atob("${kmz.archivo}");
-                var blob = new Blob([kmlData], { type: 'application/vnd.google-earth.kml+xml' });
-                var url = URL.createObjectURL(blob);
-                omnivore.kml(url).addTo(map);
-              } catch(e) {
-                document.body.innerHTML = '<p style="padding:20px;color:red;">Error al cargar el KML: ' + e.message + '</p>';
-              }
-            </script>
-          </body>
-        </html>
-      `;
-    }
-
-    // Para KMZ, usamos un visor externo
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Visor KMZ</title>
-          <style>
-            body { 
-              margin: 0; 
-              padding: 20px; 
-              font-family: Arial, sans-serif;
-              background: #f5f5f5;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              flex-direction: column;
-            }
-            .info {
-              text-align: center;
-              max-width: 500px;
-            }
-            .info h2 { color: #2D3436; }
-            .info p { color: #636E72; }
-            .info .icon { font-size: 80px; margin-bottom: 20px; }
-            .btn {
-              background: #6C5CE7;
-              color: white;
-              padding: 12px 30px;
-              border-radius: 8px;
-              border: none;
-              font-size: 16px;
-              cursor: pointer;
-              margin-top: 20px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="info">
-            <div class="icon">🗺️</div>
-            <h2>${kmz.nombre}</h2>
-            <p>${kmz.descripcion || 'Archivo KMZ'}</p>
-            <p style="font-size:12px;color:#999;">Tamaño: ${(kmz.archivo.length / 1024).toFixed(2)} KB</p>
-            <p style="font-size:12px;color:#999;">Tipo: ${kmz.tipo?.toUpperCase()}</p>
-            <button class="btn" onclick="window.ReactNativeWebView.postMessage('descargar')">
-              📥 Descargar KMZ
-            </button>
-            <p style="font-size:12px;color:#999;margin-top:20px;">
-              Para visualizar este archivo, descárgalo y ábrelo en Google Earth.
-            </p>
-          </div>
-          <script>
-            document.querySelector('.btn').addEventListener('click', function() {
-              window.ReactNativeWebView.postMessage('descargar');
-            });
-          </script>
-        </body>
-      </html>
-    `;
   };
 
   if (loading) {
@@ -353,23 +417,21 @@ const MapaKMZ = ({ navigation }) => {
                 </Text>
               </View>
 
-              <View style={styles.kmzAcciones}>
-                <TouchableOpacity
-                  style={[styles.kmzAccion, styles.kmzAccionVer]}
-                  onPress={() => abrirVisorKMZ(kmz)}
-                >
-                  <Text style={styles.kmzAccionText}>🗺️ Ver</Text>
-                </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.kmzVerButton}
+                onPress={() => abrirVisorKMZ(kmz)}
+              >
+                <Text style={styles.kmzVerButtonText}>🗺️ Ver en Mapa</Text>
+              </TouchableOpacity>
 
-                {isAdmin && (
-                  <TouchableOpacity
-                    style={[styles.kmzAccion, styles.kmzAccionEliminar]}
-                    onPress={() => eliminarKMZ(kmz._id, kmz.nombre)}
-                  >
-                    <Text style={styles.kmzAccionText}>🗑️</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              {isAdmin && (
+                <TouchableOpacity
+                  style={styles.kmzEliminar}
+                  onPress={() => eliminarKMZ(kmz._id, kmz.nombre)}
+                >
+                  <Text style={styles.kmzEliminarText}>🗑️ Eliminar</Text>
+                </TouchableOpacity>
+              )}
             </TouchableOpacity>
           ))
         )}
@@ -425,7 +487,7 @@ const MapaKMZ = ({ navigation }) => {
                     abrirVisorKMZ(kmzSeleccionado);
                   }}
                 >
-                  <Text style={styles.modalAbrirButtonText}>🗺️ Abrir KMZ</Text>
+                  <Text style={styles.modalAbrirButtonText}>🗺️ Ver en Mapa</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -440,7 +502,7 @@ const MapaKMZ = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Modal Visor KMZ */}
+      {/* Modal Visor KMZ con Mapa */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -461,51 +523,52 @@ const MapaKMZ = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {visorLoading && (
+            {visorLoading ? (
               <View style={styles.visorLoadingContainer}>
                 <ActivityIndicator size="large" color="#6C5CE7" />
-                <Text style={styles.visorLoadingText}>Cargando mapa...</Text>
+                <Text style={styles.visorLoadingText}>Procesando archivo...</Text>
               </View>
-            )}
+            ) : (
+              <MapView
+                style={styles.visorMapa}
+                region={mapRegion}
+                showsUserLocation={true}
+                showsMyLocationButton={true}
+              >
+                {/* Marcadores */}
+                {markers.map((marker, index) => (
+                  <Marker
+                    key={`marker-${index}`}
+                    coordinate={{
+                      latitude: marker.latitude,
+                      longitude: marker.longitude,
+                    }}
+                    title={marker.name || `Punto ${index + 1}`}
+                    pinColor="#6C5CE7"
+                  />
+                ))}
 
-            {kmzSeleccionado && (
-              <WebView
-                style={styles.visorWebView}
-                source={{ html: generarHTMLVisor(kmzSeleccionado) }}
-                onLoadStart={() => setVisorLoading(true)}
-                onLoadEnd={() => setVisorLoading(false)}
-                onMessage={(event) => {
-                  if (event.nativeEvent.data === 'descargar') {
-                    // Crear archivo para descargar
-                    Alert.alert(
-                      '📥 Descargar KMZ',
-                      '¿Quieres descargar este archivo?',
-                      [
-                        { text: 'Cancelar', style: 'cancel' },
-                        {
-                          text: 'Descargar',
-                          onPress: async () => {
-                            try {
-                              const filePath = `${FileSystem.documentDirectory}${kmzSeleccionado.nombre}.${kmzSeleccionado.tipo || 'kmz'}`;
-                              await FileSystem.writeAsStringAsync(
-                                filePath,
-                                kmzSeleccionado.archivo,
-                                { encoding: FileSystem.EncodingType.Base64 }
-                              );
-                              Alert.alert(
-                                '✅ Descarga completa',
-                                `Archivo guardado en:\n${filePath}`
-                              );
-                            } catch (error) {
-                              Alert.alert('Error', 'No se pudo descargar el archivo');
-                            }
-                          },
-                        },
-                      ]
-                    );
-                  }
-                }}
-              />
+                {/* Líneas */}
+                {polylines.map((line, index) => (
+                  <Polyline
+                    key={`line-${index}`}
+                    coordinates={line}
+                    strokeColor="#6C5CE7"
+                    strokeWidth={3}
+                  />
+                ))}
+
+                {/* Polígonos */}
+                {polygons.map((polygon, index) => (
+                  <Polyline
+                    key={`polygon-${index}`}
+                    coordinates={polygon}
+                    strokeColor="#00B894"
+                    strokeWidth={2}
+                    fillColor="rgba(0, 184, 148, 0.2)"
+                  />
+                ))}
+              </MapView>
             )}
           </View>
         </View>
@@ -680,23 +743,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#636E72',
   },
-  kmzAcciones: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  kmzAccion: {
-    paddingHorizontal: 15,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  kmzAccionVer: {
+  kmzVerButton: {
     backgroundColor: '#6C5CE7',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  kmzAccionEliminar: {
+  kmzVerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  kmzEliminar: {
     backgroundColor: '#FF6B6B',
+    padding: 8,
+    borderRadius: 8,
+    alignItems: 'center',
   },
-  kmzAccionText: {
+  kmzEliminarText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',
@@ -879,21 +944,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   visorLoadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    zIndex: 10,
   },
   visorLoadingText: {
     marginTop: 10,
     color: '#636E72',
   },
-  visorWebView: {
+  visorMapa: {
     flex: 1,
     width: '100%',
   },
