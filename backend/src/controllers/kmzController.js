@@ -122,7 +122,6 @@ exports.deleteKMZ = async (req, res) => {
       });
     }
 
-    // Solo el creador o Admin pueden eliminar
     if (req.user.rol !== 'Admin' && kmz.creadoPor.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,

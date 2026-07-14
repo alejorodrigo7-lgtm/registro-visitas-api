@@ -4,7 +4,7 @@ process.env.TZ = 'America/Guayaquil';
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/database');
-const { protect, authorize } = require('./middleware/auth');
+const { protect } = require('./middleware/auth');
 const User = require('./models/User');
 
 // Importar rutas
@@ -16,7 +16,7 @@ const reporteRoutes = require('./routes/reporteRoutes');
 const visitaRoutes = require('./routes/visitaRoutes');
 const bodegaRoutes = require('./routes/bodegaRoutes');
 const horarioRoutes = require('./routes/horarioRoutes');
-const mapaRoutes = require('./routes/mapaRoutes');
+const mapaRoutes = require('./routes/mapaRoutes'); // 👈 AGREGAR
 
 const app = express();
 
@@ -25,7 +25,6 @@ connectDB();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use('/api/mapas', mapaRoutes);
 
 // ============================================
 // 🔍 RUTA DE BÚSQUEDA DE CLIENTES
@@ -109,6 +108,7 @@ app.use('/api/reportes', reporteRoutes);
 app.use('/api/visitas', visitaRoutes);
 app.use('/api/bodegas', bodegaRoutes);
 app.use('/api/horarios', horarioRoutes);
+app.use('/api/mapas', mapaRoutes); // 👈 AGREGAR
 
 // ============================================
 // 📲 RUTA DE PRUEBA PARA NOTIFICACIONES
@@ -194,5 +194,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📋 /api/visitas`);
   console.log(`🏪 /api/bodegas`);
   console.log(`📋 /api/horarios`);
+  console.log(`🗺️ /api/mapas`);
   console.log(`📲 /api/test-transferencia-push`);
 });

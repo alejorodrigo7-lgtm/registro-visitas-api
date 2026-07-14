@@ -40,7 +40,6 @@ const ubicacionSchema = new mongoose.Schema({
   },
 });
 
-// Índice geoespacial para búsquedas por ubicación
 ubicacionSchema.index({ coordenadas: '2dsphere' });
 ubicacionSchema.index({ usuario: 1 });
 ubicacionSchema.index({ fecha: -1 });

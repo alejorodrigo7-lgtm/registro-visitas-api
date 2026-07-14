@@ -68,7 +68,6 @@ exports.crearVisita = async (req, res) => {
       });
     }
 
-    // Validar tipo de visita
     const tiposValidos = ['Visita', 'Cobro', 'Instalación', 'Mantenimiento', 'Revisión', 'Otros', 'Servicio Técnico'];
     if (!tiposValidos.includes(tipo)) {
       return res.status(400).json({
@@ -77,7 +76,6 @@ exports.crearVisita = async (req, res) => {
       });
     }
 
-    // Validar monto para cobro
     if (tipo === 'Cobro') {
       if (!monto || monto <= 0) {
         return res.status(400).json({
@@ -87,7 +85,6 @@ exports.crearVisita = async (req, res) => {
       }
     }
 
-    // Crear visita
     const tecnicoId = tecnico || req.user._id;
 
     const visitaData = {
@@ -105,7 +102,6 @@ exports.crearVisita = async (req, res) => {
       fecha: new Date(),
     };
 
-    // Agregar ubicación si existe
     if (ubicacion && ubicacion.latitude && ubicacion.longitude) {
       visitaData.ubicacion = {
         latitude: ubicacion.latitude,
@@ -120,9 +116,7 @@ exports.crearVisita = async (req, res) => {
 
     console.log('✅ Visita guardada con ID:', visita._id);
 
-    // ============================================
     // 📍 GUARDAR UBICACIÓN EN COLECCIÓN UBICACION
-    // ============================================
     if (ubicacion && ubicacion.latitude && ubicacion.longitude) {
       try {
         const ubicacionData = {
@@ -147,7 +141,6 @@ exports.crearVisita = async (req, res) => {
         console.log(`📍 Ubicación guardada para visita ${visita._id}`);
       } catch (ubiError) {
         console.error('❌ Error al guardar ubicación:', ubiError);
-        // No fallamos la creación de la visita si falla la ubicación
       }
     }
 

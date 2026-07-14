@@ -74,7 +74,6 @@ exports.getUbicacionesPorFecha = async (req, res) => {
       });
     }
 
-    // Verificar que el usuario existe
     const usuario = await User.findById(usuarioId);
     if (!usuario) {
       return res.status(404).json({
@@ -83,7 +82,6 @@ exports.getUbicacionesPorFecha = async (req, res) => {
       });
     }
 
-    // Buscar ubicaciones del día
     const fechaInicio = new Date(fecha);
     fechaInicio.setHours(0, 0, 0, 0);
     const fechaFin = new Date(fecha);
@@ -123,7 +121,7 @@ exports.getUbicacionesReales = async (req, res) => {
   console.log('📍 1. getUbicacionesReales - Inicio');
 
   try {
-    const { usuarios } = req.query; // IDs de usuarios separados por coma
+    const { usuarios } = req.query;
 
     if (!usuarios) {
       return res.status(400).json({
@@ -141,7 +139,6 @@ exports.getUbicacionesReales = async (req, res) => {
       });
     }
 
-    // Obtener la última ubicación de cada usuario
     const ubicaciones = await Promise.all(
       userIds.map(async (userId) => {
         const ultimaUbicacion = await Ubicacion.findOne({ usuario: userId })
@@ -153,7 +150,7 @@ exports.getUbicacionesReales = async (req, res) => {
           usuario: usuario || { nombre: 'Desconocido', email: '' },
           ultimaUbicacion: ultimaUbicacion || null,
           activo: ultimaUbicacion ? 
-            (new Date() - new Date(ultimaUbicacion.fecha) < 15 * 60 * 1000) : false, // 15 minutos
+            (new Date() - new Date(ultimaUbicacion.fecha) < 15 * 60 * 1000) : false,
         };
       })
     );

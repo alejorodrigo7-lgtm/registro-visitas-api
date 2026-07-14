@@ -11,7 +11,7 @@ const kmzSchema = new mongoose.Schema({
   },
   archivo: {
     type: String,
-    required: true, // Base64 del archivo KMZ
+    required: true,
   },
   tipo: {
     type: String,

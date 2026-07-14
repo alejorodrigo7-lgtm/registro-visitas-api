@@ -13,7 +13,6 @@ const {
   deleteKMZ,
 } = require('../controllers/kmzController');
 
-// Todas las rutas requieren autenticación
 router.use(protect);
 
 // ============================================
@@ -29,6 +28,6 @@ router.get('/ubicaciones/reales', getUbicacionesReales);
 router.post('/kmz', subirKMZ);
 router.get('/kmz', getKMZ);
 router.get('/kmz/:id', getKMZById);
-router.delete('/kmz/:id', deleteKMZ);
+router.delete('/kmz/:id', authorize('Admin'), deleteKMZ);
 
 module.exports = router;
