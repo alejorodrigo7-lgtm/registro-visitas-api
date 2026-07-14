@@ -30,6 +30,11 @@ const monserrathSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  // 🔥 CAMPO PARA BÚSQUEDA POR FECHA EXACTA (YYYY-MM-DD)
+  fechaStr: {
+    type: String,
+    required: true,
+  },
   hora_llegada: {
     type: String,
     required: true,

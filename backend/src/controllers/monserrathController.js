@@ -3,12 +3,27 @@ const Ubicacion = require('../models/Ubicacion');
 const ExcelJS = require('exceljs');
 
 // ============================================
+// 📋 FUNCIÓN PARA OBTENER FECHA LOCAL DE ECUADOR
+// ============================================
+const getFechaLocal = (date) => {
+  if (!date) date = new Date();
+  return new Date(date.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
+};
+
+const getFechaStr = (date) => {
+  const d = getFechaLocal(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`; // "2026-07-14"
+};
+
+// ============================================
 // 📋 CREAR REGISTRO MONSERRATH
 // ============================================
 exports.crearRegistro = async (req, res) => {
-  console.log('📝 1. CrearRegistro Monserrath - Inicio');
-  console.log('📝 2. Body:', req.body);
-  console.log('📝 3. Usuario:', req.user);
+  console.log('📝 CrearRegistro Monserrath - Inicio');
+  console.log('📝 Body:', req.body);
 
   try {
     const {
@@ -26,40 +41,21 @@ exports.crearRegistro = async (req, res) => {
     } = req.body;
 
     // Validar campos obligatorios
-    if (!cliente) {
-      return res.status(400).json({ success: false, message: 'El campo cliente es obligatorio' });
-    }
-    if (!identificador) {
-      return res.status(400).json({ success: false, message: 'El campo identificador es obligatorio' });
-    }
-    if (!barrio) {
-      return res.status(400).json({ success: false, message: 'El campo barrio es obligatorio' });
-    }
-    if (!direccion) {
-      return res.status(400).json({ success: false, message: 'El campo dirección es obligatorio' });
-    }
-    if (!telefono) {
-      return res.status(400).json({ success: false, message: 'El campo teléfono es obligatorio' });
-    }
-    if (!hora_llegada) {
-      return res.status(400).json({ success: false, message: 'La hora de llegada es obligatoria' });
-    }
-    if (!hora_salida) {
-      return res.status(400).json({ success: false, message: 'La hora de salida es obligatoria' });
-    }
+    if (!cliente) return res.status(400).json({ success: false, message: 'El campo cliente es obligatorio' });
+    if (!identificador) return res.status(400).json({ success: false, message: 'El campo identificador es obligatorio' });
+    if (!barrio) return res.status(400).json({ success: false, message: 'El campo barrio es obligatorio' });
+    if (!direccion) return res.status(400).json({ success: false, message: 'El campo dirección es obligatorio' });
+    if (!telefono) return res.status(400).json({ success: false, message: 'El campo teléfono es obligatorio' });
+    if (!hora_llegada) return res.status(400).json({ success: false, message: 'La hora de llegada es obligatoria' });
+    if (!hora_salida) return res.status(400).json({ success: false, message: 'La hora de salida es obligatoria' });
 
-    // 🔥 USAR LA FECHA EXACTA QUE VIENE DEL FRONTEND
-    // El frontend envía la fecha en formato ISO con la hora local
-    let fechaRegistro = fecha ? new Date(fecha) : new Date();
+    // 🔥 OBTENER FECHA LOCAL DE ECUADOR
+    const fechaLocal = fecha ? new Date(fecha) : new Date();
+    const fechaObj = getFechaLocal(fechaLocal);
+    const fechaStr = getFechaStr(fechaObj);
     
-    // Si la fecha viene del frontend, usarla directamente
-    // Si no, usar la fecha actual del servidor (que también está en UTC-5)
-    if (!fecha) {
-      const ahora = new Date();
-      fechaRegistro = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
-    }
-
-    console.log(`📅 Fecha a guardar: ${fechaRegistro.toISOString()}`);
+    console.log(`📅 Fecha local Ecuador: ${fechaObj.toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
+    console.log(`📅 FechaStr: ${fechaStr}`);
 
     const registro = new Monserrath({
       cliente,
@@ -72,7 +68,8 @@ exports.crearRegistro = async (req, res) => {
         longitude: ubicacion.longitude,
         address: ubicacion.address || '',
       } : null,
-      fecha: fechaRegistro,
+      fecha: fechaObj,
+      fechaStr: fechaStr,
       hora_llegada,
       hora_salida,
       material_usado: material_usado || '',
@@ -84,7 +81,8 @@ exports.crearRegistro = async (req, res) => {
 
     await registro.save();
     console.log('✅ Registro guardado con ID:', registro._id);
-    console.log('📅 Fecha guardada:', registro.fecha);
+    console.log('📅 Fecha guardada (local):', registro.fecha);
+    console.log('📅 FechaStr guardada:', registro.fechaStr);
 
     res.status(201).json({
       success: true,
@@ -111,16 +109,9 @@ exports.obtenerRegistros = async (req, res) => {
     let query = {};
 
     if (fechaInicio && fechaFin) {
-      // 🔥 BUSCAR POR FECHA EXACTA SIN AJUSTAR
-      const inicio = new Date(fechaInicio);
-      inicio.setHours(0, 0, 0, 0);
-      
-      const fin = new Date(fechaFin);
-      fin.setHours(23, 59, 59, 999);
-      
-      query.fecha = { $gte: inicio, $lte: fin };
-      
-      console.log(`📅 Buscando entre: ${inicio.toISOString()} y ${fin.toISOString()}`);
+      // 🔥 BUSCAR POR FECHA STRING (YYYY-MM-DD)
+      query.fechaStr = { $gte: fechaInicio, $lte: fechaFin };
+      console.log(`📅 Buscando entre fechasStr: ${fechaInicio} y ${fechaFin}`);
     }
 
     if (tecnico) query.tecnico = tecnico;
@@ -249,16 +240,9 @@ exports.generarReporteExcel = async (req, res) => {
     console.log(`📅 Reporte Excel - Fecha Inicio: ${fechaInicio}, Fecha Fin: ${fechaFin}`);
 
     if (fechaInicio && fechaFin) {
-      // 🔥 BUSCAR POR FECHA EXACTA SIN AJUSTAR
-      const inicio = new Date(fechaInicio);
-      inicio.setHours(0, 0, 0, 0);
-      
-      const fin = new Date(fechaFin);
-      fin.setHours(23, 59, 59, 999);
-      
-      query.fecha = { $gte: inicio, $lte: fin };
-      
-      console.log(`📅 Buscando entre: ${inicio.toISOString()} y ${fin.toISOString()}`);
+      // 🔥 BUSCAR POR FECHA STRING (YYYY-MM-DD)
+      query.fechaStr = { $gte: fechaInicio, $lte: fechaFin };
+      console.log(`📅 Buscando entre fechasStr: ${fechaInicio} y ${fechaFin}`);
     }
 
     if (tecnico) query.tecnico = tecnico;
@@ -306,6 +290,7 @@ exports.generarReporteExcel = async (req, res) => {
 
     // Agregar datos
     registros.forEach((registro, index) => {
+      // Formatear fecha local de Ecuador
       let fechaMostrar = '';
       if (registro.fecha) {
         const fechaObj = new Date(registro.fecha);
