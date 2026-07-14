@@ -51,7 +51,6 @@ const MenuPrincipal = ({ navigation }) => {
             console.log(`✅ ${result.count} clientes sincronizados en caché`);
           }
         } else {
-          // Verificar si hay clientes en caché
           const clientes = await getClientesCache();
           console.log(`📋 ${clientes.length} clientes en caché local`);
         }
@@ -147,6 +146,21 @@ const MenuPrincipal = ({ navigation }) => {
           {pendientes.visitas > 0 && (
             <View style={styles.badgeSmall}>
               <Text style={styles.badgeSmallText}>{pendientes.visitas}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Monserrath - Todos */}
+        <TouchableOpacity
+          style={[styles.menuItem, styles.monserrathMenuItem]}
+          onPress={() => navigation.navigate('MonserrathScreen')}
+        >
+          <Text style={[styles.menuItemText, styles.monserrathMenuItemText]}>
+            📋 Monserrath
+          </Text>
+          {pendientes.monserrath > 0 && (
+            <View style={styles.badgeSmall}>
+              <Text style={styles.badgeSmallText}>{pendientes.monserrath}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -449,6 +463,15 @@ const styles = StyleSheet.create({
   },
   bodegaMenuItemText: {
     color: '#0984E3',
+    fontWeight: '500',
+  },
+  monserrathMenuItem: {
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1,
+    borderColor: '#9C27B0',
+  },
+  monserrathMenuItemText: {
+    color: '#9C27B0',
     fontWeight: '500',
   },
   logoutButton: {

@@ -43,6 +43,31 @@ export const initDatabase = async () => {
         );
         
         -- ============================================
+        -- 📋 MONSERRATH
+        -- ============================================
+        CREATE TABLE IF NOT EXISTS monserrath_pendientes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cliente TEXT NOT NULL,
+          identificador TEXT NOT NULL,
+          barrio TEXT NOT NULL,
+          direccion TEXT NOT NULL,
+          telefono TEXT NOT NULL,
+          fecha TEXT NOT NULL,
+          hora_llegada TEXT NOT NULL,
+          hora_salida TEXT NOT NULL,
+          material_usado TEXT,
+          observaciones TEXT,
+          tecnico TEXT NOT NULL,
+          tecnicoNombre TEXT NOT NULL,
+          ubicacion_lat REAL,
+          ubicacion_lng REAL,
+          ubicacion_address TEXT,
+          sincronizado INTEGER DEFAULT 0,
+          intentos INTEGER DEFAULT 0,
+          error TEXT
+        );
+        
+        -- ============================================
         -- 💰 TRANSFERENCIAS
         -- ============================================
         CREATE TABLE IF NOT EXISTS transferencias_pendientes (
@@ -189,6 +214,7 @@ export const initDatabase = async () => {
         -- ÍNDICES
         -- ============================================
         CREATE INDEX IF NOT EXISTS idx_visitas_sincronizado ON visitas_pendientes(sincronizado);
+        CREATE INDEX IF NOT EXISTS idx_monserrath_sincronizado ON monserrath_pendientes(sincronizado);
         CREATE INDEX IF NOT EXISTS idx_transferencias_sincronizado ON transferencias_pendientes(sincronizado);
         CREATE INDEX IF NOT EXISTS idx_servicios_sincronizado ON servicios_pendientes(sincronizado);
         CREATE INDEX IF NOT EXISTS idx_cajas_sincronizado ON cajas_pendientes(sincronizado);
@@ -240,6 +266,44 @@ export const guardarVisitaOffline = async (data) => {
     return result;
   } catch (error) {
     console.error('❌ Error guardando visita offline:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// 📋 GUARDAR MONSERRATH OFFLINE
+// ============================================
+export const guardarMonserrathOffline = async (data) => {
+  try {
+    if (!db) await initDatabase();
+    
+    const {
+      cliente, identificador, barrio, direccion, telefono,
+      fecha, hora_llegada, hora_salida, material_usado,
+      observaciones, tecnico, tecnicoNombre, ubicacion,
+    } = data;
+    
+    const result = await db.runAsync(
+      `INSERT INTO monserrath_pendientes (
+        cliente, identificador, barrio, direccion, telefono,
+        fecha, hora_llegada, hora_salida, material_usado,
+        observaciones, tecnico, tecnicoNombre,
+        ubicacion_lat, ubicacion_lng, ubicacion_address,
+        sincronizado
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [
+        cliente, identificador, barrio, direccion, telefono,
+        fecha || new Date().toISOString(), hora_llegada, hora_salida,
+        material_usado || '', observaciones || '',
+        tecnico, tecnicoNombre || 'Usuario',
+        ubicacion?.latitude || null, ubicacion?.longitude || null, ubicacion?.address || null,
+      ]
+    );
+    
+    console.log(`✅ Monserrath guardado offline ID: ${result.lastInsertRowId}`);
+    return result;
+  } catch (error) {
+    console.error('❌ Error guardando Monserrath offline:', error);
     throw error;
   }
 };
@@ -307,13 +371,11 @@ export const contarClientesCache = async () => {
 export const buscarClienteCache = async (identificador) => {
   try {
     if (!db) await initDatabase();
-    // Búsqueda exacta
     let result = await db.getFirstAsync(
       'SELECT * FROM clientes_cache WHERE identificador = ?',
       [identificador]
     );
     
-    // Si no hay resultado, búsqueda parcial
     if (!result) {
       const resultados = await db.getAllAsync(
         `SELECT * FROM clientes_cache 
@@ -380,14 +442,12 @@ export const sincronizarClientes = async (apiInstance) => {
     console.log('🔄 Sincronizando TODOS los clientes desde servidor...');
     
     const api = apiInstance || require('./api').default;
-    // 🔥 SIN LÍMITE - obtener TODOS los clientes
     const response = await api.get('/clientes/todos');
     
     if (response.data.success) {
       const clientes = response.data.data || [];
       console.log(`📋 Recibidos ${clientes.length} clientes del servidor`);
       
-      // Guardar en caché por lotes para no bloquear
       const batchSize = 500;
       let guardados = 0;
       for (let i = 0; i < clientes.length; i += batchSize) {
@@ -419,6 +479,7 @@ export const contarPendientes = async () => {
     if (!db) await initDatabase();
     
     const visitas = await db.getFirstAsync('SELECT COUNT(*) as total FROM visitas_pendientes WHERE sincronizado = 0');
+    const monserrath = await db.getFirstAsync('SELECT COUNT(*) as total FROM monserrath_pendientes WHERE sincronizado = 0');
     const transferencias = await db.getFirstAsync('SELECT COUNT(*) as total FROM transferencias_pendientes WHERE sincronizado = 0');
     const servicios = await db.getFirstAsync('SELECT COUNT(*) as total FROM servicios_pendientes WHERE sincronizado = 0');
     const cajas = await db.getFirstAsync('SELECT COUNT(*) as total FROM cajas_pendientes WHERE sincronizado = 0');
@@ -427,17 +488,18 @@ export const contarPendientes = async () => {
     
     return {
       visitas: visitas?.total || 0,
+      monserrath: monserrath?.total || 0,
       transferencias: transferencias?.total || 0,
       servicios: servicios?.total || 0,
       cajas: cajas?.total || 0,
       bodegas: bodegas?.total || 0,
       horarios: horarios?.total || 0,
-      total: (visitas?.total || 0) + (transferencias?.total || 0) + (servicios?.total || 0) +
-             (cajas?.total || 0) + (bodegas?.total || 0) + (horarios?.total || 0),
+      total: (visitas?.total || 0) + (monserrath?.total || 0) + (transferencias?.total || 0) + 
+             (servicios?.total || 0) + (cajas?.total || 0) + (bodegas?.total || 0) + (horarios?.total || 0),
     };
   } catch (error) {
     console.error('❌ Error contando pendientes:', error);
-    return { visitas: 0, transferencias: 0, servicios: 0, cajas: 0, bodegas: 0, horarios: 0, total: 0 };
+    return { visitas: 0, monserrath: 0, transferencias: 0, servicios: 0, cajas: 0, bodegas: 0, horarios: 0, total: 0 };
   }
 };
 
@@ -449,6 +511,7 @@ export const getTodasPendientes = async () => {
     if (!db) await initDatabase();
     
     const visitas = await db.getAllAsync('SELECT *, "visita" as modulo FROM visitas_pendientes WHERE sincronizado = 0');
+    const monserrath = await db.getAllAsync('SELECT *, "monserrath" as modulo FROM monserrath_pendientes WHERE sincronizado = 0');
     const transferencias = await db.getAllAsync('SELECT *, "transferencia" as modulo FROM transferencias_pendientes WHERE sincronizado = 0');
     const servicios = await db.getAllAsync('SELECT *, "servicio" as modulo FROM servicios_pendientes WHERE sincronizado = 0');
     const cajas = await db.getAllAsync('SELECT *, "caja" as modulo FROM cajas_pendientes WHERE sincronizado = 0');
@@ -457,22 +520,23 @@ export const getTodasPendientes = async () => {
     
     return {
       visitas,
+      monserrath,
       transferencias,
       servicios,
       cajas,
       bodegas,
       horarios,
-      total: visitas.length + transferencias.length + servicios.length + 
-             cajas.length + bodegas.length + horarios.length,
+      total: visitas.length + monserrath.length + transferencias.length + 
+             servicios.length + cajas.length + bodegas.length + horarios.length,
     };
   } catch (error) {
     console.error('❌ Error obteniendo pendientes:', error);
-    return { visitas: [], transferencias: [], servicios: [], cajas: [], bodegas: [], horarios: [], total: 0 };
+    return { visitas: [], monserrath: [], transferencias: [], servicios: [], cajas: [], bodegas: [], horarios: [], total: 0 };
   }
 };
 
 // ============================================
-// 🔄 SINCRONIZAR VISITAS PENDIENTES
+// 🔄 SINCRONIZAR VISITAS Y MONSERRATH PENDIENTES
 // ============================================
 export const sincronizarVisitas = async (apiInstance) => {
   try {
@@ -523,6 +587,45 @@ export const sincronizarVisitas = async (apiInstance) => {
         errores++;
         await db.runAsync(
           'UPDATE visitas_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
+          [error.message, item.id]
+        );
+      }
+    }
+    
+    // ============================================
+    // 📋 Sincronizar Monserrath
+    // ============================================
+    for (const item of pendientes.monserrath) {
+      try {
+        const data = {
+          cliente: item.cliente,
+          identificador: item.identificador,
+          barrio: item.barrio,
+          direccion: item.direccion,
+          telefono: item.telefono,
+          fecha: item.fecha,
+          hora_llegada: item.hora_llegada,
+          hora_salida: item.hora_salida,
+          material_usado: item.material_usado || '',
+          observaciones: item.observaciones || '',
+          tecnico: item.tecnico,
+          ubicacion: {
+            latitude: item.ubicacion_lat,
+            longitude: item.ubicacion_lng,
+            address: item.ubicacion_address,
+          },
+          offline: true,
+        };
+        
+        const response = await api.post('/monserrath', data);
+        if (response.data.success) {
+          await db.runAsync('UPDATE monserrath_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
+          sincronizados++;
+        }
+      } catch (error) {
+        errores++;
+        await db.runAsync(
+          'UPDATE monserrath_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
           [error.message, item.id]
         );
       }
@@ -724,6 +827,7 @@ export const sincronizarVisitas = async (apiInstance) => {
 export default {
   initDatabase,
   guardarVisitaOffline,
+  guardarMonserrathOffline,
   contarPendientes,
   getTodasPendientes,
   sincronizarVisitas,
