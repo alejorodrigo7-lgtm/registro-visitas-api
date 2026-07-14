@@ -13,11 +13,12 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
-import MapView, { Marker, Polyline, Circle } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import JSZip from 'jszip';
 import { DOMParser } from 'xmldom';
+import * as base64 from 'base-64';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -39,7 +40,6 @@ const MapaKMZ = ({ navigation }) => {
     archivoNombre: '',
   });
   const [visorLoading, setVisorLoading] = useState(true);
-  const [kmlData, setKmlData] = useState(null);
   const [mapRegion, setMapRegion] = useState({
     latitude: -0.1807,
     longitude: -78.4678,
@@ -48,7 +48,6 @@ const MapaKMZ = ({ navigation }) => {
   });
   const [markers, setMarkers] = useState([]);
   const [polylines, setPolylines] = useState([]);
-  const [polygons, setPolygons] = useState([]);
 
   const isAdmin = user?.rol === 'Admin';
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
@@ -149,41 +148,54 @@ const MapaKMZ = ({ navigation }) => {
   };
 
   // ============================================
-  // 📍 PROCESAR KMZ/KML
+  // 📍 PROCESAR KMZ/KML (SIN BUFFER)
   // ============================================
   const procesarKMZ = async (kmz) => {
     setVisorLoading(true);
     setMarkers([]);
     setPolylines([]);
-    setPolygons([]);
 
     try {
       let kmlString = '';
 
       if (kmz.tipo === 'kml') {
-        // Es KML directo
-        kmlString = Buffer.from(kmz.archivo, 'base64').toString('utf-8');
+        // Es KML directo - decodificar base64
+        kmlString = base64.decode(kmz.archivo);
       } else {
         // Es KMZ (ZIP con KML dentro)
-        const zip = new JSZip();
-        const zipContent = await zip.loadAsync(
-          Buffer.from(kmz.archivo, 'base64')
-        );
-
-        // Buscar archivo KML dentro del ZIP
-        let kmlFile = null;
-        for (const [filename, file] of Object.entries(zipContent.files)) {
-          if (filename.endsWith('.kml')) {
-            kmlFile = file;
-            break;
+        try {
+          // Decodificar base64 a binario
+          const binaryString = base64.decode(kmz.archivo);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
           }
-        }
+          
+          const zip = new JSZip();
+          const zipContent = await zip.loadAsync(bytes.buffer);
 
-        if (kmlFile) {
-          kmlString = await kmlFile.async('string');
-        } else {
-          throw new Error('No se encontró archivo KML dentro del KMZ');
+          // Buscar archivo KML dentro del ZIP
+          let kmlFile = null;
+          for (const [filename, file] of Object.entries(zipContent.files)) {
+            if (filename.endsWith('.kml')) {
+              kmlFile = file;
+              break;
+            }
+          }
+
+          if (kmlFile) {
+            kmlString = await kmlFile.async('string');
+          } else {
+            throw new Error('No se encontró archivo KML dentro del KMZ');
+          }
+        } catch (zipError) {
+          console.error('Error al descomprimir KMZ:', zipError);
+          throw new Error('No se pudo descomprimir el archivo KMZ');
         }
+      }
+
+      if (!kmlString) {
+        throw new Error('No se pudo extraer el contenido KML');
       }
 
       // Parsear KML
@@ -191,12 +203,10 @@ const MapaKMZ = ({ navigation }) => {
       const xmlDoc = parser.parseFromString(kmlString, 'text/xml');
 
       // Extraer coordenadas
-      const coordinates = xmlDoc.getElementsByTagName('coordinates');
       const placemarks = xmlDoc.getElementsByTagName('Placemark');
 
       let puntos = [];
       let lineas = [];
-      let poligonos = [];
 
       for (let i = 0; i < placemarks.length; i++) {
         const placemark = placemarks[i];
@@ -204,7 +214,6 @@ const MapaKMZ = ({ navigation }) => {
         const name = nameTag.length > 0 ? nameTag[0].textContent : `Punto ${i + 1}`;
         const pointTag = placemark.getElementsByTagName('Point');
         const lineStringTag = placemark.getElementsByTagName('LineString');
-        const polygonTag = placemark.getElementsByTagName('Polygon');
 
         // Puntos
         if (pointTag.length > 0) {
@@ -243,39 +252,10 @@ const MapaKMZ = ({ navigation }) => {
             }
           }
         }
-
-        // Polígonos
-        if (polygonTag.length > 0) {
-          const outerBoundary = polygonTag[0].getElementsByTagName('outerBoundaryIs');
-          if (outerBoundary.length > 0) {
-            const linearRing = outerBoundary[0].getElementsByTagName('LinearRing');
-            if (linearRing.length > 0) {
-              const coordsTag = linearRing[0].getElementsByTagName('coordinates');
-              if (coordsTag.length > 0) {
-                const coordText = coordsTag[0].textContent.trim();
-                const coordPairs = coordText.split(/\s+/);
-                const polygonPoints = [];
-                for (const pair of coordPairs) {
-                  const parts = pair.split(',');
-                  if (parts.length >= 2) {
-                    polygonPoints.push({
-                      latitude: parseFloat(parts[1]),
-                      longitude: parseFloat(parts[0]),
-                    });
-                  }
-                }
-                if (polygonPoints.length > 2) {
-                  poligonos.push(polygonPoints);
-                }
-              }
-            }
-          }
-        }
       }
 
       setMarkers(puntos);
       setPolylines(lineas);
-      setPolygons(poligonos);
 
       // Centrar mapa en el primer punto
       if (puntos.length > 0) {
@@ -294,7 +274,6 @@ const MapaKMZ = ({ navigation }) => {
         });
       }
 
-      setKmlData({ puntos, lineas, poligonos });
       setVisorLoading(false);
 
     } catch (error) {
@@ -528,6 +507,12 @@ const MapaKMZ = ({ navigation }) => {
                 <ActivityIndicator size="large" color="#6C5CE7" />
                 <Text style={styles.visorLoadingText}>Procesando archivo...</Text>
               </View>
+            ) : markers.length === 0 && polylines.length === 0 ? (
+              <View style={styles.visorEmptyContainer}>
+                <Text style={styles.visorEmptyIcon}>🗺️</Text>
+                <Text style={styles.visorEmptyText}>No se encontraron datos en el archivo</Text>
+                <Text style={styles.visorEmptySub}>El archivo no contiene puntos o rutas</Text>
+              </View>
             ) : (
               <MapView
                 style={styles.visorMapa}
@@ -555,17 +540,6 @@ const MapaKMZ = ({ navigation }) => {
                     coordinates={line}
                     strokeColor="#6C5CE7"
                     strokeWidth={3}
-                  />
-                ))}
-
-                {/* Polígonos */}
-                {polygons.map((polygon, index) => (
-                  <Polyline
-                    key={`polygon-${index}`}
-                    coordinates={polygon}
-                    strokeColor="#00B894"
-                    strokeWidth={2}
-                    fillColor="rgba(0, 184, 148, 0.2)"
                   />
                 ))}
               </MapView>
@@ -947,10 +921,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
   visorLoadingText: {
     marginTop: 10,
     color: '#636E72',
+  },
+  visorEmptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+  },
+  visorEmptyIcon: {
+    fontSize: 50,
+    marginBottom: 15,
+  },
+  visorEmptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  visorEmptySub: {
+    fontSize: 14,
+    color: '#636E72',
+    marginTop: 5,
   },
   visorMapa: {
     flex: 1,
