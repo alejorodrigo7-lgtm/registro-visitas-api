@@ -10,9 +10,11 @@ export const initDatabase = async () => {
   try {
     const isFirstTime = await AsyncStorage.getItem('@db_initialized');
     
+    // Abrir base de datos con la API moderna
     db = await SQLite.openDatabaseAsync('registro_visitas.db');
     
     if (!isFirstTime) {
+      // Crear tablas
       await db.execAsync(`
         PRAGMA journal_mode = WAL;
         
@@ -218,19 +220,20 @@ export const guardarVisitaOffline = async (data) => {
       observaciones, foto, tecnico, tecnicoNombre, ubicacion,
     } = data;
     
-    const result = await db.runAsync(`
-      INSERT INTO visitas_pendientes (
+    const result = await db.runAsync(
+      `INSERT INTO visitas_pendientes (
         cliente, identificador, barrio, direccion, telefono, tipo, monto,
         observaciones, foto, tecnico, tecnicoNombre,
         ubicacion_lat, ubicacion_lng, ubicacion_address,
         fecha_creacion, sincronizado
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [
-      cliente, identificador, barrio, direccion, telefono, tipo, monto || 0,
-      observaciones, foto || null, tecnico, tecnicoNombre || 'Usuario',
-      ubicacion?.latitude || null, ubicacion?.longitude || null, ubicacion?.address || null,
-      new Date().toISOString(),
-    ]);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [
+        cliente, identificador, barrio, direccion, telefono, tipo, monto || 0,
+        observaciones, foto || null, tecnico, tecnicoNombre || 'Usuario',
+        ubicacion?.latitude || null, ubicacion?.longitude || null, ubicacion?.address || null,
+        new Date().toISOString(),
+      ]
+    );
     
     console.log(`✅ Visita guardada offline ID: ${result.lastInsertRowId}`);
     return result;
@@ -241,205 +244,48 @@ export const guardarVisitaOffline = async (data) => {
 };
 
 // ============================================
-// 💰 GUARDAR TRANSFERENCIA OFFLINE
+// 📊 CONTAR PENDIENTES
 // ============================================
-export const guardarTransferenciaOffline = async (data) => {
+export const contarPendientes = async () => {
   try {
     if (!db) await initDatabase();
     
-    const {
-      cliente, identificador, barrio, direccion, telefono, monto,
-      metodo, banco, numero_cuenta, titular, observaciones,
-      foto_comprobante, tecnico, tecnicoNombre, ubicacion,
-    } = data;
+    const visitas = await db.getFirstAsync('SELECT COUNT(*) as total FROM visitas_pendientes WHERE sincronizado = 0');
+    const transferencias = await db.getFirstAsync('SELECT COUNT(*) as total FROM transferencias_pendientes WHERE sincronizado = 0');
+    const servicios = await db.getFirstAsync('SELECT COUNT(*) as total FROM servicios_pendientes WHERE sincronizado = 0');
+    const cajas = await db.getFirstAsync('SELECT COUNT(*) as total FROM cajas_pendientes WHERE sincronizado = 0');
+    const bodegas = await db.getFirstAsync('SELECT COUNT(*) as total FROM bodegas_pendientes WHERE sincronizado = 0');
+    const horarios = await db.getFirstAsync('SELECT COUNT(*) as total FROM horarios_pendientes WHERE sincronizado = 0');
     
-    const result = await db.runAsync(`
-      INSERT INTO transferencias_pendientes (
-        cliente, identificador, barrio, direccion, telefono, monto,
-        metodo, banco, numero_cuenta, titular, observaciones,
-        foto_comprobante, tecnico, tecnicoNombre,
-        ubicacion_lat, ubicacion_lng, ubicacion_address,
-        fecha_creacion, sincronizado
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [
-      cliente, identificador, barrio, direccion, telefono, monto,
-      metodo, banco || null, numero_cuenta || null, titular || null,
-      observaciones || '', foto_comprobante || null,
-      tecnico, tecnicoNombre || 'Usuario',
-      ubicacion?.latitude || null, ubicacion?.longitude || null, ubicacion?.address || null,
-      new Date().toISOString(),
-    ]);
-    
-    console.log(`✅ Transferencia guardada offline ID: ${result.lastInsertRowId}`);
-    return result;
+    return {
+      visitas: visitas?.total || 0,
+      transferencias: transferencias?.total || 0,
+      servicios: servicios?.total || 0,
+      cajas: cajas?.total || 0,
+      bodegas: bodegas?.total || 0,
+      horarios: horarios?.total || 0,
+      total: (visitas?.total || 0) + (transferencias?.total || 0) + (servicios?.total || 0) +
+             (cajas?.total || 0) + (bodegas?.total || 0) + (horarios?.total || 0),
+    };
   } catch (error) {
-    console.error('❌ Error guardando transferencia offline:', error);
-    throw error;
+    console.error('❌ Error contando pendientes:', error);
+    return { visitas: 0, transferencias: 0, servicios: 0, cajas: 0, bodegas: 0, horarios: 0, total: 0 };
   }
 };
 
 // ============================================
-// 🛠️ GUARDAR SERVICIO OFFLINE
-// ============================================
-export const guardarServicioOffline = async (data) => {
-  try {
-    if (!db) await initDatabase();
-    
-    const {
-      cliente, identificador, barrio, direccion, telefono,
-      tipo_servicio, descripcion, materiales, tiempo_estimado,
-      prioridad, tecnico, tecnicoNombre, ubicacion,
-    } = data;
-    
-    const result = await db.runAsync(`
-      INSERT INTO servicios_pendientes (
-        cliente, identificador, barrio, direccion, telefono,
-        tipo_servicio, descripcion, materiales, tiempo_estimado,
-        prioridad, tecnico, tecnicoNombre,
-        ubicacion_lat, ubicacion_lng, ubicacion_address,
-        fecha_creacion, sincronizado
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [
-      cliente, identificador, barrio, direccion, telefono,
-      tipo_servicio, descripcion, materiales || '', tiempo_estimado || 0,
-      prioridad || 'Normal', tecnico, tecnicoNombre || 'Usuario',
-      ubicacion?.latitude || null, ubicacion?.longitude || null, ubicacion?.address || null,
-      new Date().toISOString(),
-    ]);
-    
-    console.log(`✅ Servicio guardado offline ID: ${result.lastInsertRowId}`);
-    return result;
-  } catch (error) {
-    console.error('❌ Error guardando servicio offline:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// 💰 GUARDAR CAJA OFFLINE
-// ============================================
-export const guardarCajaOffline = async (data) => {
-  try {
-    if (!db) await initDatabase();
-    
-    const {
-      tipo, monto, descripcion, categoria, metodo,
-      referencia, tecnico, tecnicoNombre, ubicacion,
-    } = data;
-    
-    const result = await db.runAsync(`
-      INSERT INTO cajas_pendientes (
-        tipo, monto, descripcion, categoria, metodo,
-        referencia, tecnico, tecnicoNombre,
-        ubicacion_lat, ubicacion_lng, ubicacion_address,
-        fecha_creacion, sincronizado
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [
-      tipo, monto, descripcion, categoria, metodo,
-      referencia || null, tecnico, tecnicoNombre || 'Usuario',
-      ubicacion?.latitude || null, ubicacion?.longitude || null, ubicacion?.address || null,
-      new Date().toISOString(),
-    ]);
-    
-    console.log(`✅ Caja guardada offline ID: ${result.lastInsertRowId}`);
-    return result;
-  } catch (error) {
-    console.error('❌ Error guardando caja offline:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// 🏪 GUARDAR BODEGA OFFLINE
-// ============================================
-export const guardarBodegaOffline = async (data) => {
-  try {
-    if (!db) await initDatabase();
-    
-    const {
-      nombre, ubicacion, responsable, telefono, tipo,
-      capacidad, observaciones, tecnico, tecnicoNombre, ubicacion_data,
-    } = data;
-    
-    const result = await db.runAsync(`
-      INSERT INTO bodegas_pendientes (
-        nombre, ubicacion, responsable, telefono, tipo,
-        capacidad, observaciones, tecnico, tecnicoNombre,
-        ubicacion_lat, ubicacion_lng, ubicacion_address,
-        fecha_creacion, sincronizado
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [
-      nombre, ubicacion, responsable, telefono, tipo,
-      capacidad || '', observaciones || '', tecnico, tecnicoNombre || 'Usuario',
-      ubicacion_data?.latitude || null, ubicacion_data?.longitude || null, ubicacion_data?.address || null,
-      new Date().toISOString(),
-    ]);
-    
-    console.log(`✅ Bodega guardada offline ID: ${result.lastInsertRowId}`);
-    return result;
-  } catch (error) {
-    console.error('❌ Error guardando bodega offline:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// 📋 GUARDAR HORARIO OFFLINE
-// ============================================
-export const guardarHorarioOffline = async (data) => {
-  try {
-    if (!db) await initDatabase();
-    
-    const {
-      tecnico, tecnicoNombre, dia_semana, hora_inicio,
-      hora_fin, tipo, ubicacion, observaciones,
-    } = data;
-    
-    const result = await db.runAsync(`
-      INSERT INTO horarios_pendientes (
-        tecnico, tecnicoNombre, dia_semana, hora_inicio,
-        hora_fin, tipo, ubicacion, observaciones,
-        fecha_creacion, sincronizado
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `, [
-      tecnico, tecnicoNombre, dia_semana, hora_inicio,
-      hora_fin, tipo || 'Normal', ubicacion || '', observaciones || '',
-      new Date().toISOString(),
-    ]);
-    
-    console.log(`✅ Horario guardado offline ID: ${result.lastInsertRowId}`);
-    return result;
-  } catch (error) {
-    console.error('❌ Error guardando horario offline:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// 📊 OBTENER TODAS LAS PENDIENTES
+// 📋 OBTENER TODAS LAS PENDIENTES
 // ============================================
 export const getTodasPendientes = async () => {
   try {
     if (!db) await initDatabase();
     
-    const visitas = await db.getAllAsync(
-      'SELECT *, "visita" as modulo FROM visitas_pendientes WHERE sincronizado = 0'
-    );
-    const transferencias = await db.getAllAsync(
-      'SELECT *, "transferencia" as modulo FROM transferencias_pendientes WHERE sincronizado = 0'
-    );
-    const servicios = await db.getAllAsync(
-      'SELECT *, "servicio" as modulo FROM servicios_pendientes WHERE sincronizado = 0'
-    );
-    const cajas = await db.getAllAsync(
-      'SELECT *, "caja" as modulo FROM cajas_pendientes WHERE sincronizado = 0'
-    );
-    const bodegas = await db.getAllAsync(
-      'SELECT *, "bodega" as modulo FROM bodegas_pendientes WHERE sincronizado = 0'
-    );
-    const horarios = await db.getAllAsync(
-      'SELECT *, "horario" as modulo FROM horarios_pendientes WHERE sincronizado = 0'
-    );
+    const visitas = await db.getAllAsync('SELECT *, "visita" as modulo FROM visitas_pendientes WHERE sincronizado = 0');
+    const transferencias = await db.getAllAsync('SELECT *, "transferencia" as modulo FROM transferencias_pendientes WHERE sincronizado = 0');
+    const servicios = await db.getAllAsync('SELECT *, "servicio" as modulo FROM servicios_pendientes WHERE sincronizado = 0');
+    const cajas = await db.getAllAsync('SELECT *, "caja" as modulo FROM cajas_pendientes WHERE sincronizado = 0');
+    const bodegas = await db.getAllAsync('SELECT *, "bodega" as modulo FROM bodegas_pendientes WHERE sincronizado = 0');
+    const horarios = await db.getAllAsync('SELECT *, "horario" as modulo FROM horarios_pendientes WHERE sincronizado = 0');
     
     return {
       visitas,
@@ -449,7 +295,7 @@ export const getTodasPendientes = async () => {
       bodegas,
       horarios,
       total: visitas.length + transferencias.length + servicios.length + 
-              cajas.length + bodegas.length + horarios.length,
+             cajas.length + bodegas.length + horarios.length,
     };
   } catch (error) {
     console.error('❌ Error obteniendo pendientes:', error);
@@ -458,7 +304,7 @@ export const getTodasPendientes = async () => {
 };
 
 // ============================================
-// 🔄 SINCRONIZAR TODOS LOS MÓDULOS
+// 🔄 SINCRONIZAR TODOS
 // ============================================
 export const sincronizarTodos = async (api) => {
   try {
@@ -474,7 +320,6 @@ export const sincronizarTodos = async (api) => {
     
     let sincronizados = 0;
     let errores = 0;
-    const resultados = [];
     
     // ============================================
     // 📋 Sincronizar Visitas
@@ -502,12 +347,8 @@ export const sincronizarTodos = async (api) => {
         
         const response = await api.post('/visitas', data);
         if (response.data.success) {
-          await db.runAsync(
-            'UPDATE visitas_pendientes SET sincronizado = 1 WHERE id = ?',
-            [item.id]
-          );
+          await db.runAsync('UPDATE visitas_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
           sincronizados++;
-          resultados.push({ id: item.id, modulo: 'visita', status: 'ok' });
         }
       } catch (error) {
         errores++;
@@ -515,7 +356,6 @@ export const sincronizarTodos = async (api) => {
           'UPDATE visitas_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
           [error.message, item.id]
         );
-        resultados.push({ id: item.id, modulo: 'visita', status: 'error', error: error.message });
       }
     }
     
@@ -548,12 +388,8 @@ export const sincronizarTodos = async (api) => {
         
         const response = await api.post('/transferencias', data);
         if (response.data.success) {
-          await db.runAsync(
-            'UPDATE transferencias_pendientes SET sincronizado = 1 WHERE id = ?',
-            [item.id]
-          );
+          await db.runAsync('UPDATE transferencias_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
           sincronizados++;
-          resultados.push({ id: item.id, modulo: 'transferencia', status: 'ok' });
         }
       } catch (error) {
         errores++;
@@ -561,7 +397,6 @@ export const sincronizarTodos = async (api) => {
           'UPDATE transferencias_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
           [error.message, item.id]
         );
-        resultados.push({ id: item.id, modulo: 'transferencia', status: 'error', error: error.message });
       }
     }
     
@@ -592,12 +427,8 @@ export const sincronizarTodos = async (api) => {
         
         const response = await api.post('/servicios', data);
         if (response.data.success) {
-          await db.runAsync(
-            'UPDATE servicios_pendientes SET sincronizado = 1 WHERE id = ?',
-            [item.id]
-          );
+          await db.runAsync('UPDATE servicios_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
           sincronizados++;
-          resultados.push({ id: item.id, modulo: 'servicio', status: 'ok' });
         }
       } catch (error) {
         errores++;
@@ -605,7 +436,6 @@ export const sincronizarTodos = async (api) => {
           'UPDATE servicios_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
           [error.message, item.id]
         );
-        resultados.push({ id: item.id, modulo: 'servicio', status: 'error', error: error.message });
       }
     }
     
@@ -632,12 +462,8 @@ export const sincronizarTodos = async (api) => {
         
         const response = await api.post('/cajas', data);
         if (response.data.success) {
-          await db.runAsync(
-            'UPDATE cajas_pendientes SET sincronizado = 1 WHERE id = ?',
-            [item.id]
-          );
+          await db.runAsync('UPDATE cajas_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
           sincronizados++;
-          resultados.push({ id: item.id, modulo: 'caja', status: 'ok' });
         }
       } catch (error) {
         errores++;
@@ -645,7 +471,6 @@ export const sincronizarTodos = async (api) => {
           'UPDATE cajas_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
           [error.message, item.id]
         );
-        resultados.push({ id: item.id, modulo: 'caja', status: 'error', error: error.message });
       }
     }
     
@@ -673,12 +498,8 @@ export const sincronizarTodos = async (api) => {
         
         const response = await api.post('/bodegas', data);
         if (response.data.success) {
-          await db.runAsync(
-            'UPDATE bodegas_pendientes SET sincronizado = 1 WHERE id = ?',
-            [item.id]
-          );
+          await db.runAsync('UPDATE bodegas_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
           sincronizados++;
-          resultados.push({ id: item.id, modulo: 'bodega', status: 'ok' });
         }
       } catch (error) {
         errores++;
@@ -686,7 +507,6 @@ export const sincronizarTodos = async (api) => {
           'UPDATE bodegas_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
           [error.message, item.id]
         );
-        resultados.push({ id: item.id, modulo: 'bodega', status: 'error', error: error.message });
       }
     }
     
@@ -709,12 +529,8 @@ export const sincronizarTodos = async (api) => {
         
         const response = await api.post('/horarios', data);
         if (response.data.success) {
-          await db.runAsync(
-            'UPDATE horarios_pendientes SET sincronizado = 1 WHERE id = ?',
-            [item.id]
-          );
+          await db.runAsync('UPDATE horarios_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
           sincronizados++;
-          resultados.push({ id: item.id, modulo: 'horario', status: 'ok' });
         }
       } catch (error) {
         errores++;
@@ -722,12 +538,11 @@ export const sincronizarTodos = async (api) => {
           'UPDATE horarios_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
           [error.message, item.id]
         );
-        resultados.push({ id: item.id, modulo: 'horario', status: 'error', error: error.message });
       }
     }
     
     console.log(`📊 Sincronización completada: ${sincronizados} exitosos, ${errores} errores`);
-    return { success: true, sincronizados, errores, total, resultados };
+    return { success: true, sincronizados, errores, total };
   } catch (error) {
     console.error('❌ Error en sincronización:', error);
     return { success: false, error: error.message };
@@ -735,156 +550,12 @@ export const sincronizarTodos = async (api) => {
 };
 
 // ============================================
-// 📊 CONTAR PENDIENTES POR MÓDULO
+// 📦 EXPORTAR
 // ============================================
-export const contarPendientes = async () => {
-  try {
-    if (!db) await initDatabase();
-    
-    const visitas = await db.getFirstAsync('SELECT COUNT(*) as total FROM visitas_pendientes WHERE sincronizado = 0');
-    const transferencias = await db.getFirstAsync('SELECT COUNT(*) as total FROM transferencias_pendientes WHERE sincronizado = 0');
-    const servicios = await db.getFirstAsync('SELECT COUNT(*) as total FROM servicios_pendientes WHERE sincronizado = 0');
-    const cajas = await db.getFirstAsync('SELECT COUNT(*) as total FROM cajas_pendientes WHERE sincronizado = 0');
-    const bodegas = await db.getFirstAsync('SELECT COUNT(*) as total FROM bodegas_pendientes WHERE sincronizado = 0');
-    const horarios = await db.getFirstAsync('SELECT COUNT(*) as total FROM horarios_pendientes WHERE sincronizado = 0');
-    
-    return {
-      visitas: visitas?.total || 0,
-      transferencias: transferencias?.total || 0,
-      servicios: servicios?.total || 0,
-      cajas: cajas?.total || 0,
-      bodegas: bodegas?.total || 0,
-      horarios: horarios?.total || 0,
-      total: (visitas?.total || 0) + (transferencias?.total || 0) + (servicios?.total || 0) +
-             (cajas?.total || 0) + (bodegas?.total || 0) + (horarios?.total || 0),
-    };
-  } catch (error) {
-    console.error('❌ Error contando pendientes:', error);
-    return { visitas: 0, transferencias: 0, servicios: 0, cajas: 0, bodegas: 0, horarios: 0, total: 0 };
-  }
-};
-
-// ============================================
-// 📋 CACHE DE USUARIOS
-// ============================================
-export const guardarUsuariosCache = async (usuarios) => {
-  try {
-    if (!db) await initDatabase();
-    
-    for (const user of usuarios) {
-      await db.runAsync(`
-        INSERT OR REPLACE INTO usuarios_cache (id, nombre, email, rol, telefono, fecha_actualizacion)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `, [
-        user._id || user.id,
-        user.nombre,
-        user.email,
-        user.rol,
-        user.telefono || '',
-        new Date().toISOString(),
-      ]);
-    }
-    console.log(`✅ ${usuarios.length} usuarios guardados en caché`);
-  } catch (error) {
-    console.error('❌ Error guardando usuarios caché:', error);
-  }
-};
-
-export const getUsuariosCache = async () => {
-  try {
-    if (!db) await initDatabase();
-    return await db.getAllAsync('SELECT * FROM usuarios_cache ORDER BY nombre ASC');
-  } catch (error) {
-    console.error('❌ Error obteniendo usuarios caché:', error);
-    return [];
-  }
-};
-
-// ============================================
-// 📋 CACHE DE CLIENTES
-// ============================================
-export const guardarClientesCache = async (clientes) => {
-  try {
-    if (!db) await initDatabase();
-    
-    for (const cliente of clientes) {
-      await db.runAsync(`
-        INSERT OR REPLACE INTO clientes_cache (id, nombre, identificador, barrio, direccion, telefono, fecha_actualizacion)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [
-        cliente._id || cliente.id,
-        cliente.nombre,
-        cliente.identificador,
-        cliente.barrio,
-        cliente.direccion,
-        cliente.telefono,
-        new Date().toISOString(),
-      ]);
-    }
-    console.log(`✅ ${clientes.length} clientes guardados en caché`);
-  } catch (error) {
-    console.error('❌ Error guardando clientes caché:', error);
-  }
-};
-
-export const getClientesCache = async () => {
-  try {
-    if (!db) await initDatabase();
-    return await db.getAllAsync('SELECT * FROM clientes_cache ORDER BY nombre ASC');
-  } catch (error) {
-    console.error('❌ Error obteniendo clientes caché:', error);
-    return [];
-  }
-};
-
-export const buscarClienteCache = async (identificador) => {
-  try {
-    if (!db) await initDatabase();
-    return await db.getFirstAsync(
-      'SELECT * FROM clientes_cache WHERE identificador = ?',
-      [identificador]
-    );
-  } catch (error) {
-    console.error('❌ Error buscando cliente en caché:', error);
-    return null;
-  }
-};
-
-// ============================================
-// 🗑️ LIMPIAR DATOS SINCRONIZADOS
-// ============================================
-export const limpiarSincronizados = async () => {
-  try {
-    if (!db) await initDatabase();
-    
-    await db.runAsync('DELETE FROM visitas_pendientes WHERE sincronizado = 1');
-    await db.runAsync('DELETE FROM transferencias_pendientes WHERE sincronizado = 1');
-    await db.runAsync('DELETE FROM servicios_pendientes WHERE sincronizado = 1');
-    await db.runAsync('DELETE FROM cajas_pendientes WHERE sincronizado = 1');
-    await db.runAsync('DELETE FROM bodegas_pendientes WHERE sincronizado = 1');
-    await db.runAsync('DELETE FROM horarios_pendientes WHERE sincronizado = 1');
-    
-    console.log('🗑️ Datos sincronizados eliminados');
-  } catch (error) {
-    console.error('❌ Error limpiando datos:', error);
-  }
-};
-
 export default {
   initDatabase,
   guardarVisitaOffline,
-  guardarTransferenciaOffline,
-  guardarServicioOffline,
-  guardarCajaOffline,
-  guardarBodegaOffline,
-  guardarHorarioOffline,
+  contarPendientes,
   getTodasPendientes,
   sincronizarTodos,
-  contarPendientes,
-  guardarUsuariosCache,
-  getUsuariosCache,
-  guardarClientesCache,
-  getClientesCache,
-  buscarClienteCache,
-  limpiarSincronizados,
 };
