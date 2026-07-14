@@ -4,7 +4,7 @@ process.env.TZ = 'America/Guayaquil';
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/database');
-const { protect } = require('./middleware/auth');
+const { protect, authorize } = require('./middleware/auth');
 const User = require('./models/User');
 
 // Importar rutas
@@ -16,7 +16,7 @@ const reporteRoutes = require('./routes/reporteRoutes');
 const visitaRoutes = require('./routes/visitaRoutes');
 const bodegaRoutes = require('./routes/bodegaRoutes');
 const horarioRoutes = require('./routes/horarioRoutes');
-const mapaRoutes = require('./routes/mapaRoutes'); // 👈 AGREGAR
+const mapaRoutes = require('./routes/mapaRoutes');
 
 const app = express();
 
@@ -108,12 +108,12 @@ app.use('/api/reportes', reporteRoutes);
 app.use('/api/visitas', visitaRoutes);
 app.use('/api/bodegas', bodegaRoutes);
 app.use('/api/horarios', horarioRoutes);
-app.use('/api/mapas', mapaRoutes); // 👈 AGREGAR
+app.use('/api/mapas', mapaRoutes);
 
 // ============================================
 // 📲 RUTA DE PRUEBA PARA NOTIFICACIONES
 // ============================================
-app.post('/api/test-transferencia-push', protect, authorize('Admin', 'Jefe'), async (req, res) => {
+app.post('/api/test-transferencia-push', protect, async (req, res) => {
   try {
     const { userId, titulo, mensaje } = req.body;
     
