@@ -78,7 +78,6 @@ const MenuPrincipal = ({ navigation }) => {
 
         {/* Horarios - Todos los usuarios */}
         {isAdminOrJefe ? (
-          // Admin y Jefe: Gestión completa
           <TouchableOpacity
             style={[styles.menuItem, styles.adminMenuItem]}
             onPress={() => navigation.navigate('GestionHorarios')}
@@ -88,7 +87,6 @@ const MenuPrincipal = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         ) : isTecnicoOrCoordinador ? (
-          // Técnico y Coordinador: Solo Mi Horario
           <TouchableOpacity
             style={[styles.menuItem, styles.horarioMenuItem]}
             onPress={() => navigation.navigate('GestionHorarios')}
@@ -155,7 +153,7 @@ const MenuPrincipal = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
-// Agregar después de Reportes o donde quieras
+        {/* Mapas - Solo Admin y Jefe */}
         {isAdminOrJefe && (
           <TouchableOpacity
             style={[styles.menuItem, styles.mapaMenuItem]}
@@ -166,7 +164,6 @@ const MenuPrincipal = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         )}
-
 
         {/* Bodegas - Solo Admin y Jefe */}
         {isAdminOrJefe && (
@@ -299,6 +296,15 @@ const styles = StyleSheet.create({
     color: '#9C27B0',
     fontWeight: '500',
   },
+  mapaMenuItem: {
+    backgroundColor: '#E8F0FE',
+    borderWidth: 1,
+    borderColor: '#0984E3',
+  },
+  mapaMenuItemText: {
+    color: '#0984E3',
+    fontWeight: '500',
+  },
   bodegaMenuItem: {
     backgroundColor: '#E8F0FE',
     borderWidth: 1,
@@ -321,13 +327,4 @@ const styles = StyleSheet.create({
   },
 });
 
-mapaMenuItem: {
-  backgroundColor: '#E8F0FE',
-  borderWidth: 1,
-  borderColor: '#0984E3',
-},
-mapaMenuItemText: {
-  color: '#0984E3',
-  fontWeight: '500',
-},
 export default MenuPrincipal;
