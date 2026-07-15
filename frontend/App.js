@@ -65,6 +65,7 @@ import GestionAusencias from './src/screens/GestionAusencias';
 import ReporteAsistencia from './src/screens/ReporteAsistencia';
 import ReporteAusencias from './src/screens/ReporteAusencias';
 
+
 const Stack = createStackNavigator();
 
 // ============================================
@@ -176,10 +177,10 @@ export default function App() {
             <Stack.Screen name="MonserrathScreen" component={MonserrathScreen} options={{ title: 'Monserrath' }} />
             <Stack.Screen name="ReporteMonserrath" component={ReporteMonserrath} options={{ title: 'Reporte Monserrath' }} />
             <Stack.Screen name="AsistenciaScreen" component={AsistenciaScreen} options={{ title: 'Asistencia' }} />
-<Stack.Screen name="PedirAusenciaScreen" component={PedirAusenciaScreen} options={{ title: 'Pedir Ausencia' }} />
-<Stack.Screen name="GestionAusencias" component={GestionAusencias} options={{ title: 'Gestionar Ausencias' }} />
-<Stack.Screen name="ReporteAsistencia" component={ReporteAsistencia} options={{ title: 'Reporte Asistencia' }} />
-<Stack.Screen name="ReporteAusencias" component={ReporteAusencias} options={{ title: 'Reporte Ausencias' }} />
+            <Stack.Screen name="PedirAusenciaScreen" component={PedirAusenciaScreen} options={{ title: 'Pedir Ausencia' }} />
+            <Stack.Screen name="GestionAusencias" component={GestionAusencias} options={{ title: 'Gestionar Ausencias' }} />
+            <Stack.Screen name="ReporteAsistencia" component={ReporteAsistencia} options={{ title: 'Reporte Asistencia' }} />
+            <Stack.Screen name="ReporteAusencias" component={ReporteAusencias} options={{ title: 'Reporte Ausencias' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppInitializer>
