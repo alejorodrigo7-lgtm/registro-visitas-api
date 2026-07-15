@@ -11,12 +11,10 @@ const {
 
 router.use(protect);
 
-// Rutas para todos los usuarios
 router.post('/', registrarAsistencia);
 router.get('/hoy', obtenerAsistenciaHoy);
 router.get('/ubicaciones', obtenerUbicacionesPermitidas);
 
-// Rutas solo para Admin y Jefe
 router.get('/reporte-excel', authorize('Admin', 'Jefe'), generarReporteExcel);
 router.get('/fechas', authorize('Admin', 'Jefe'), obtenerAsistenciaPorFechas);
 

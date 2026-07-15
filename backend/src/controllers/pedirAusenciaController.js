@@ -1,9 +1,6 @@
 const PedirAusencia = require('../models/PedirAusencia');
 const ExcelJS = require('exceljs');
 
-// ============================================
-// 📋 FUNCIÓN PARA OBTENER FECHA LOCAL
-// ============================================
 const getFechaStr = (date) => {
   if (!date) date = new Date();
   const d = new Date(date.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));

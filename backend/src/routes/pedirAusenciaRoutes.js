@@ -12,11 +12,9 @@ const {
 
 router.use(protect);
 
-// Rutas para todos los usuarios
 router.post('/', crearSolicitud);
 router.get('/mis-solicitudes', obtenerSolicitudesUsuario);
 
-// Rutas solo para Admin y Jefe
 router.get('/pendientes', authorize('Admin', 'Jefe'), obtenerSolicitudesPendientes);
 router.get('/todas', authorize('Admin', 'Jefe'), obtenerTodasSolicitudes);
 router.put('/:id', authorize('Admin', 'Jefe'), actualizarSolicitud);

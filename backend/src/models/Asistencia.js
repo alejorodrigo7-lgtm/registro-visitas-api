@@ -30,6 +30,10 @@ const asistenciaSchema = new mongoose.Schema({
     latitude: Number,
     longitude: Number,
     address: String,
+    accuracy: Number,
+    source: String,
+    verified: Boolean,
+    fakeGpsChecked: Boolean,
   },
   hora_inicio_almuerzo: {
     type: String,
@@ -39,6 +43,10 @@ const asistenciaSchema = new mongoose.Schema({
     latitude: Number,
     longitude: Number,
     address: String,
+    accuracy: Number,
+    source: String,
+    verified: Boolean,
+    fakeGpsChecked: Boolean,
   },
   hora_fin_almuerzo: {
     type: String,
@@ -48,6 +56,10 @@ const asistenciaSchema = new mongoose.Schema({
     latitude: Number,
     longitude: Number,
     address: String,
+    accuracy: Number,
+    source: String,
+    verified: Boolean,
+    fakeGpsChecked: Boolean,
   },
   hora_salida: {
     type: String,
@@ -57,6 +69,10 @@ const asistenciaSchema = new mongoose.Schema({
     latitude: Number,
     longitude: Number,
     address: String,
+    accuracy: Number,
+    source: String,
+    verified: Boolean,
+    fakeGpsChecked: Boolean,
   },
   estado: {
     type: String,

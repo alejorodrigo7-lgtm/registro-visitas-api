@@ -8,8 +8,11 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 import * as Location from 'expo-location';
+import * as IntentLauncher from 'expo-intent-launcher';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -28,9 +31,9 @@ const AsistenciaScreen = ({ navigation }) => {
   const [siguientePaso, setSiguientePaso] = useState('entrada');
   const [siguientePasoNombre, setSiguientePasoNombre] = useState('Entrada');
   const [completado, setCompletado] = useState(false);
-  const [ubicacion, setUbicacion] = useState(null);
   const [ausenciasPendientes, setAusenciasPendientes] = useState([]);
   const [ubicacionesPermitidas, setUbicacionesPermitidas] = useState([]);
+  const [fakeGpsDetectado, setFakeGpsDetectado] = useState(false);
 
   useEffect(() => {
     cargarAsistenciaHoy();
@@ -62,6 +65,65 @@ const AsistenciaScreen = ({ navigation }) => {
     }
   };
 
+  const calcularDistancia = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c * 1000;
+  };
+
+  const verificarFakeGps = async (ubicacion) => {
+    try {
+      // Verificar precisión sospechosa
+      if (ubicacion.accuracy !== undefined && ubicacion.accuracy < 5) {
+        return { sospechoso: true, razon: 'Precisión de ubicación sospechosa (Fake GPS detectado)' };
+      }
+
+      // Verificar coordenadas (0,0)
+      if (ubicacion.latitude === 0 && ubicacion.longitude === 0) {
+        return { sospechoso: true, razon: 'Ubicación (0,0) inválida' };
+      }
+
+      // Verificar rangos de Ecuador
+      if (ubicacion.latitude < -5 || ubicacion.latitude > 2 || 
+          ubicacion.longitude < -82 || ubicacion.longitude > -74) {
+        return { sospechoso: true, razon: 'Coordenadas fuera de Ecuador' };
+      }
+
+      // Verificar con ubicación anterior
+      const ubicacionAnterior = await AsyncStorage.getItem('@ultima_ubicacion');
+      if (ubicacionAnterior) {
+        const anterior = JSON.parse(ubicacionAnterior);
+        const distancia = calcularDistancia(
+          ubicacion.latitude, ubicacion.longitude,
+          anterior.latitude, anterior.longitude
+        );
+        // Si la distancia es menor a 1 metro y la precisión es igual, es sospechoso
+        if (distancia < 1 && anterior.accuracy === ubicacion.accuracy) {
+          return { sospechoso: true, razon: 'Ubicación congelada (Fake GPS detectado)' };
+        }
+      }
+
+      // Guardar ubicación actual para próxima comparación
+      await AsyncStorage.setItem('@ultima_ubicacion', JSON.stringify({
+        latitude: ubicacion.latitude,
+        longitude: ubicacion.longitude,
+        accuracy: ubicacion.accuracy,
+        timestamp: new Date().toISOString()
+      }));
+
+      return { sospechoso: false };
+    } catch (error) {
+      console.error('Error verificando Fake GPS:', error);
+      return { sospechoso: false };
+    }
+  };
+
   const obtenerUbicacion = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -71,8 +133,24 @@ const AsistenciaScreen = ({ navigation }) => {
       }
 
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
+        maximumAge: 10000,
+        timeout: 15000,
       });
+
+      // 🔥 VERIFICAR FAKE GPS
+      const verificacion = await verificarFakeGps(location.coords);
+      if (verificacion.sospechoso) {
+        Alert.alert(
+          '⚠️ Fake GPS Detectado',
+          `${verificacion.razon}\n\nPor favor, desactiva cualquier aplicación de Fake GPS e intenta nuevamente.`,
+          [
+            { text: 'Entendido', style: 'default' },
+          ]
+        );
+        setFakeGpsDetectado(true);
+        return null;
+      }
 
       let address = null;
       try {
@@ -91,6 +169,7 @@ const AsistenciaScreen = ({ navigation }) => {
       return {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy,
         address: address || `Lat: ${location.coords.latitude.toFixed(6)}, Lng: ${location.coords.longitude.toFixed(6)}`,
       };
     } catch (error) {
@@ -100,13 +179,11 @@ const AsistenciaScreen = ({ navigation }) => {
   };
 
   const registrar = async (tipo) => {
-    // Si ya está completado, no permitir más registros
     if (completado) {
       Alert.alert('✅ Jornada Completada', 'Ya completaste tu jornada de hoy. ¡Excelente trabajo!');
       return;
     }
 
-    // Verificar que sea el paso correcto
     if (tipo !== siguientePaso) {
       Alert.alert('⚠️ Paso Incorrecto', `Debes registrar "${siguientePasoNombre}" primero.`);
       return;
@@ -114,7 +191,6 @@ const AsistenciaScreen = ({ navigation }) => {
 
     let ubicacionActual = null;
     
-    // Solo obtener ubicación para Entrada y Salida
     if (tipo === 'entrada' || tipo === 'salida') {
       ubicacionActual = await obtenerUbicacion();
       if (!ubicacionActual) return;
@@ -203,10 +279,15 @@ const AsistenciaScreen = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.title}>📍 Asistencia</Text>
         <Text style={styles.subtitle}>Registra tu jornada laboral</Text>
+        {fakeGpsDetectado && (
+          <View style={styles.fakeGpsWarning}>
+            <Ionicons name="warning" size={20} color="#FF6B6B" />
+            <Text style={styles.fakeGpsWarningText}>⚠️ Fake GPS Detectado</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Fecha y Estado */}
         <View style={styles.fechaContainer}>
           <Text style={styles.fechaText}>📅 {asistencia.fechaStr || new Date().toISOString().split('T')[0]}</Text>
           <View style={[styles.estadoBadge, { backgroundColor: completado ? '#00B894' : getEstadoColor(asistencia.estado) }]}>
@@ -217,7 +298,6 @@ const AsistenciaScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Progreso */}
         <View style={styles.progresoContainer}>
           <Text style={styles.progresoTitle}>📊 Progreso</Text>
           <View style={styles.progresoBarra}>
@@ -232,7 +312,6 @@ const AsistenciaScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Ubicaciones Permitidas */}
         <View style={styles.ubicacionesContainer}>
           <Text style={styles.ubicacionesTitle}>📍 Ubicaciones Permitidas (Entrada/Salida)</Text>
           {ubicacionesPermitidas.map((ub, index) => (
@@ -244,7 +323,6 @@ const AsistenciaScreen = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Ausencias Pendientes */}
         {ausenciasPendientes.length > 0 && (
           <View style={styles.ausenciasContainer}>
             <Text style={styles.ausenciasTitle}>📝 Ausencias Pendientes</Text>
@@ -263,11 +341,9 @@ const AsistenciaScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Botones de Registro - Secuenciales */}
         <View style={styles.botonesContainer}>
           <Text style={styles.botonesTitle}>⏰ Registrar</Text>
 
-          {/* Entrada */}
           <TouchableOpacity
             style={[
               styles.botonRegistro,
@@ -297,7 +373,6 @@ const AsistenciaScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          {/* Inicio Almuerzo */}
           <TouchableOpacity
             style={[
               styles.botonRegistro,
@@ -327,7 +402,6 @@ const AsistenciaScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          {/* Fin Almuerzo */}
           <TouchableOpacity
             style={[
               styles.botonRegistro,
@@ -357,7 +431,6 @@ const AsistenciaScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          {/* Salida */}
           <TouchableOpacity
             style={[
               styles.botonRegistro,
@@ -387,7 +460,6 @@ const AsistenciaScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          {/* Mensaje de completado */}
           {completado && (
             <View style={styles.completadoContainer}>
               <Ionicons name="trophy" size={40} color="#FDCB6E" />
@@ -402,6 +474,7 @@ const AsistenciaScreen = ({ navigation }) => {
           <Text style={styles.infoText}>• 📍 Entrada y Salida: Debes estar en una ubicación permitida</Text>
           <Text style={styles.infoText}>• 🍽️ Inicio y Fin de Almuerzo: Puedes registrar desde cualquier lugar</Text>
           <Text style={styles.infoText}>• 🔄 El registro es secuencial (Entrada → Inicio Almuerzo → Fin Almuerzo → Salida)</Text>
+          <Text style={styles.infoText}>• 🚫 Apps de Fake GPS están prohibidas y serán detectadas</Text>
           <Text style={styles.infoText}>• La hora se toma automáticamente del sistema</Text>
           <Text style={styles.infoText}>• Si no puedes registrar, usa "Pedir Ausencia"</Text>
         </View>
@@ -439,6 +512,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     opacity: 0.8,
     marginTop: 5,
+  },
+  fakeGpsWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,107,107,0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 8,
+    gap: 6,
+  },
+  fakeGpsWarningText: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   loadingContainer: {
     flex: 1,

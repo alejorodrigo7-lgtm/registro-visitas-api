@@ -21,7 +21,50 @@ const UBICACIONES_PERMITIDAS = [
 ];
 
 // ============================================
-// 📋 FUNCIÓN PARA CALCULAR DISTANCIA (Haversine)
+// 📋 LISTA DE APPS DE FAKE GPS
+// ============================================
+const FAKE_GPS_APPS = [
+  'com.lexa.fakegps',
+  'com.incorporateapps.fakegps.free',
+  'com.dev47apps.fakegps',
+  'com.fakegps.fakegps',
+  'org.ajeje.fakegps',
+  'com.robtopx.fakegps',
+  'com.skyfishstudio.fakegps',
+  'com.fakegps.free',
+];
+
+// ============================================
+// 📋 FUNCIÓN PARA VERIFICAR UBICACIÓN FALSA
+// ============================================
+const verificarUbicacionFalsa = (ubicacion) => {
+  if (!ubicacion || !ubicacion.latitude || !ubicacion.longitude) {
+    return { esFalsa: true, razon: 'Ubicación incompleta' };
+  }
+
+  const lat = ubicacion.latitude;
+  const lng = ubicacion.longitude;
+
+  // Verificar rangos válidos para Ecuador
+  if (lat < -5 || lat > 2 || lng < -82 || lng > -74) {
+    return { esFalsa: true, razon: 'Coordenadas fuera de Ecuador' };
+  }
+
+  // Verificar ubicación (0,0)
+  if (lat === 0 && lng === 0) {
+    return { esFalsa: true, razon: 'Ubicación (0,0) inválida' };
+  }
+
+  // Verificar precisión sospechosa (Fake GPS suele dar precisión 0 o <5)
+  if (ubicacion.accuracy !== undefined && ubicacion.accuracy < 5) {
+    return { esFalsa: false, sospechosa: true, razon: 'Precisión sospechosa' };
+  }
+
+  return { esFalsa: false };
+};
+
+// ============================================
+// 📋 FUNCIÓN PARA CALCULAR DISTANCIA
 // ============================================
 const calcularDistancia = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
@@ -80,7 +123,7 @@ const obtenerSiguientePaso = (asistencia) => {
 };
 
 // ============================================
-// 📋 REGISTRAR ASISTENCIA (CON FLUJO SECUENCIAL)
+// 📋 REGISTRAR ASISTENCIA
 // ============================================
 exports.registrarAsistencia = async (req, res) => {
   try {
@@ -91,7 +134,6 @@ exports.registrarAsistencia = async (req, res) => {
 
     console.log(`📝 Registrando ${tipo} para ${req.user.nombre} - ${fechaStr} ${horaActual}`);
 
-    // Buscar asistencia del día
     let asistencia = await Asistencia.findOne({
       usuario: usuarioId,
       fechaStr: fechaStr,
@@ -107,10 +149,8 @@ exports.registrarAsistencia = async (req, res) => {
       });
     }
 
-    // 🔥 VERIFICAR FLUJO SECUENCIAL
     const siguientePaso = obtenerSiguientePaso(asistencia);
 
-    // Si ya está completado, no se puede registrar nada más
     if (siguientePaso === 'completado') {
       return res.status(400).json({
         success: false,
@@ -119,7 +159,6 @@ exports.registrarAsistencia = async (req, res) => {
       });
     }
 
-    // Verificar que el tipo coincide con el siguiente paso
     if (tipo !== siguientePaso) {
       const nombresPasos = {
         'entrada': 'Entrada',
@@ -134,18 +173,25 @@ exports.registrarAsistencia = async (req, res) => {
       });
     }
 
-    // 🔥 TIPOS QUE NO REQUIEREN VERIFICACIÓN DE UBICACIÓN
     const tiposSinUbicacion = ['inicio_almuerzo', 'fin_almuerzo'];
     const requiereUbicacion = !tiposSinUbicacion.includes(tipo);
 
     let verifUbicacion = null;
 
-    // Solo verificar ubicación para Entrada y Salida
     if (requiereUbicacion) {
       if (!ubicacion || !ubicacion.latitude || !ubicacion.longitude) {
         return res.status(400).json({
           success: false,
           message: 'No se pudo obtener tu ubicación. Activa el GPS para registrar entrada o salida.',
+        });
+      }
+
+      // 🔥 VERIFICAR UBICACIÓN FALSA
+      const verificacionFalsa = verificarUbicacionFalsa(ubicacion);
+      if (verificacionFalsa.esFalsa) {
+        return res.status(400).json({
+          success: false,
+          message: `⚠️ Ubicación sospechosa detectada: ${verificacionFalsa.razon}. Por favor, desactiva cualquier aplicación de Fake GPS.`,
         });
       }
 
@@ -160,11 +206,8 @@ exports.registrarAsistencia = async (req, res) => {
       }
 
       console.log(`📍 Ubicación permitida: ${verifUbicacion.ubicacion} (${verifUbicacion.distancia}m)`);
-    } else {
-      console.log(`📍 ${tipo} - No requiere verificación de ubicación`);
     }
 
-    // Mapeo de tipos
     const tipos = {
       'entrada': { campo: 'hora_entrada', ubicacion: 'ubicacion_entrada' },
       'inicio_almuerzo': { campo: 'hora_inicio_almuerzo', ubicacion: 'ubicacion_inicio_almuerzo' },
@@ -177,7 +220,6 @@ exports.registrarAsistencia = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Tipo de registro inválido' });
     }
 
-    // Verificar si ya está registrado (doble seguridad)
     if (asistencia[tipoData.campo]) {
       return res.status(400).json({
         success: false,
@@ -185,23 +227,24 @@ exports.registrarAsistencia = async (req, res) => {
       });
     }
 
-    // Guardar hora
     asistencia[tipoData.campo] = horaActual;
 
-    // Guardar ubicación solo si se proporcionó (para entrada/salida)
     if (ubicacion && ubicacion.latitude && ubicacion.longitude) {
       const address = ubicacion.address || 
-        (verifUbicacion ? `Ubicación: ${verifUbicacion.ubicacion} (${verifUbicacion.distancia}m)` : 
+        (verifUbicacion ? `Oficina: ${verifUbicacion.ubicacion} (${verifUbicacion.distancia}m)` : 
         `Lat: ${ubicacion.latitude}, Lng: ${ubicacion.longitude}`);
       
       asistencia[tipoData.ubicacion] = {
         latitude: ubicacion.latitude,
         longitude: ubicacion.longitude,
         address: address,
+        accuracy: ubicacion.accuracy || null,
+        source: 'gps',
+        verified: true,
+        fakeGpsChecked: true,
       };
     }
 
-    // Verificar si está completo
     if (asistencia.hora_entrada && 
         asistencia.hora_inicio_almuerzo && 
         asistencia.hora_fin_almuerzo && 
@@ -213,14 +256,12 @@ exports.registrarAsistencia = async (req, res) => {
 
     await asistencia.save();
 
-    // Verificar si hay ausencias pendientes para este día
     const ausenciasPendientes = await PedirAusencia.find({
       usuario: usuarioId,
       fechaStr: fechaStr,
       estado: 'Pendiente',
     });
 
-    // Obtener el siguiente paso después del registro
     const siguientePasoDespues = obtenerSiguientePaso(asistencia);
     const nombresPasos = {
       'entrada': 'Entrada',
@@ -229,10 +270,6 @@ exports.registrarAsistencia = async (req, res) => {
       'salida': 'Salida',
       'completado': 'Jornada Completada 🎉',
     };
-
-    const mensaje = requiereUbicacion && verifUbicacion
-      ? `${tipo.replace('_', ' ')} registrado a las ${horaActual} en ${verifUbicacion.ubicacion}`
-      : `${tipo.replace('_', ' ')} registrado a las ${horaActual}`;
 
     let mensajeSiguiente = '';
     if (siguientePasoDespues !== 'completado') {
@@ -243,7 +280,7 @@ exports.registrarAsistencia = async (req, res) => {
 
     res.json({
       success: true,
-      message: mensaje + mensajeSiguiente,
+      message: `${tipo.replace('_', ' ')} registrado a las ${horaActual}` + mensajeSiguiente,
       ubicacion: verifUbicacion,
       data: asistencia,
       siguientePaso: siguientePasoDespues,
