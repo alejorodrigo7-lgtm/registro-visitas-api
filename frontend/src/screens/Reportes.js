@@ -37,6 +37,8 @@ const Reportes = ({ navigation }) => {
     { value: 'depositos', label: '🏦 Depósitos' },
     { value: 'usuarios', label: '👥 Usuarios' },
     { value: 'monserrath', label: '📋 Monserrath' },
+    { value: 'asistencia', label: '📍 Asistencia' },
+    { value: 'ausencias', label: '📝 Ausencias' },
   ];
 
   const zonas = ['TOLA', 'MAGDALENA', 'CHILIBULO'];
@@ -44,6 +46,7 @@ const Reportes = ({ navigation }) => {
   const estadosTransferencia = ['SUBIDA', 'CONFIRMADA', 'DENEGADA', 'INGRESADA', 'EN_REVISION'];
   const estadosServicio = ['TOMADO', 'EJECUTADO', 'PENDIENTE', 'RETROALIMENTADO'];
   const estadosMonserrath = ['Pendiente', 'Completado', 'Cancelado'];
+  const estadosAusencia = ['Pendiente', 'Aprobado', 'Rechazado'];
 
   const formatDate = (date) => {
     if (!date) return '';
@@ -72,6 +75,13 @@ const Reportes = ({ navigation }) => {
         url = `/monserrath/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtroEstado) url += `&estado=${filtroEstado}`;
         if (filtro) url += `&tecnico=${filtro}`;
+      } else if (tipoReporte === 'asistencia') {
+        url = `/asistencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        if (filtro) url += `&usuario=${filtro}`;
+      } else if (tipoReporte === 'ausencias') {
+        url = `/pedir-ausencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        if (filtro) url += `&usuario=${filtro}`;
+        if (filtroEstado) url += `&estado=${filtroEstado}`;
       } else {
         url = `/reportes/${tipoReporte}?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtro) url += `&${getFiltroParam()}=${filtro}`;
@@ -132,6 +142,8 @@ const Reportes = ({ navigation }) => {
       'depositos': 'zona',
       'usuarios': 'rol',
       'monserrath': 'tecnico',
+      'asistencia': 'usuario',
+      'ausencias': 'usuario',
     };
     return params[tipoReporte] || '';
   };
@@ -251,12 +263,27 @@ const Reportes = ({ navigation }) => {
       );
     }
 
-    return null;
-  };
+    if (tipoReporte === 'ausencias') {
+      return (
+        <View>
+          <Text style={styles.label}>Estado</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={filtroEstado}
+              onValueChange={setFiltroEstado}
+              style={styles.picker}
+            >
+              <Picker.Item label="Todos" value="" />
+              {estadosAusencia.map((e) => (
+                <Picker.Item key={e} label={e} value={e} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      );
+    }
 
-  // Botón para ir al reporte detallado de Monserrath
-  const irAReporteMonserrath = () => {
-    navigation.navigate('ReporteMonserrath');
+    return null;
   };
 
   return (
@@ -331,7 +358,7 @@ const Reportes = ({ navigation }) => {
           {tipoReporte === 'monserrath' && (
             <TouchableOpacity
               style={[styles.generarButton, styles.monserrathButton]}
-              onPress={irAReporteMonserrath}
+              onPress={() => navigation.navigate('ReporteMonserrath')}
             >
               <Text style={styles.generarButtonText}>📋 Ver Reporte Detallado</Text>
             </TouchableOpacity>

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -83,14 +84,11 @@ const GestionHorarios = ({ navigation }) => {
         setUsuarios(usuariosFiltrados);
       }
 
-      // ✅ CARGAR JEFES DESDE RUTA PÚBLICA
+      // Cargar jefes
       try {
         const responseJefes = await api.get('/auth/jefes');
         setJefes(responseJefes.data.data || []);
-        console.log('📋 Jefes cargados:', responseJefes.data.data?.length || 0);
       } catch (jefeError) {
-        console.log('⚠️ Error cargando jefes:', jefeError.message);
-        // Si falla, intentar con la ruta de usuarios (para Admin/Jefe)
         if (isAdminOrJefe) {
           const responseJefes2 = await api.get('/auth/usuarios');
           const jefesFiltrados = responseJefes2.data.data.filter(
@@ -347,7 +345,66 @@ const GestionHorarios = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* ============================================ */}
+        {/* 📍 ASISTENCIA - Coordinador y Técnico */}
+        {/* ============================================ */}
+        {isTecnicoOrCoordinador && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.asistenciaMenuItem]}
+            onPress={() => navigation.navigate('AsistenciaScreen')}
+          >
+            <View style={[styles.menuIconContainer, styles.greenIcon]}>
+              <Ionicons name="checkmark-circle-outline" size={24} color="#00B894" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, styles.asistenciaText]}>📍 Asistencia</Text>
+              <Text style={styles.menuDescription}>Registrar entrada, almuerzo y salida</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#B2BEC3" />
+          </TouchableOpacity>
+        )}
+
+        {/* ============================================ */}
+        {/* 📝 PEDIR AUSENCIA - Coordinador y Técnico */}
+        {/* ============================================ */}
+        {isTecnicoOrCoordinador && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.ausenciaMenuItem]}
+            onPress={() => navigation.navigate('PedirAusenciaScreen')}
+          >
+            <View style={[styles.menuIconContainer, styles.orangeIcon]}>
+              <Ionicons name="alert-circle-outline" size={24} color="#E17055" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, styles.ausenciaText]}>📝 Pedir Ausencia</Text>
+              <Text style={styles.menuDescription}>Solicitar justificación de ausencia</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#B2BEC3" />
+          </TouchableOpacity>
+        )}
+
+        {/* ============================================ */}
+        {/* GESTIONAR AUSENCIAS - Solo Admin/Jefe */}
+        {/* ============================================ */}
+        {isAdminOrJefe && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.gestionAusenciaMenuItem]}
+            onPress={() => navigation.navigate('GestionAusencias')}
+          >
+            <View style={[styles.menuIconContainer, styles.purpleIcon]}>
+              <Ionicons name="people-outline" size={24} color="#6C5CE7" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, styles.gestionAusenciaText]}>📋 Gestionar Ausencias</Text>
+              <Text style={styles.menuDescription}>Aprobar o rechazar solicitudes</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#B2BEC3" />
+          </TouchableOpacity>
+        )}
+
+        {/* ============================================ */}
         {/* MI HORARIO - Técnico/Coordinador */}
+        {/* ============================================ */}
         {isTecnicoOrCoordinador && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📋 Mi Horario</Text>
@@ -384,7 +441,9 @@ const GestionHorarios = ({ navigation }) => {
           </View>
         )}
 
+        {/* ============================================ */}
         {/* LISTA DE HORARIOS - Solo Admin/Jefe */}
+        {/* ============================================ */}
         {isAdminOrJefe && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -434,7 +493,9 @@ const GestionHorarios = ({ navigation }) => {
           </View>
         )}
 
+        {/* ============================================ */}
         {/* SOLICITUDES PENDIENTES - Solo Admin/Jefe */}
+        {/* ============================================ */}
         {isAdminOrJefe && solicitudes.filter(s => s.estado === 'PENDIENTE').length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📋 Solicitudes Pendientes</Text>
@@ -477,7 +538,9 @@ const GestionHorarios = ({ navigation }) => {
         )}
       </ScrollView>
 
+      {/* ============================================ */}
       {/* MODAL CREAR HORARIO */}
+      {/* ============================================ */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -604,7 +667,9 @@ const GestionHorarios = ({ navigation }) => {
         </View>
       </Modal>
 
+      {/* ============================================ */}
       {/* MODAL SOLICITUD PERMISO/RESESO */}
+      {/* ============================================ */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -714,7 +779,9 @@ const GestionHorarios = ({ navigation }) => {
         </View>
       </Modal>
 
+      {/* ============================================ */}
       {/* MODAL DETALLE HORARIO */}
+      {/* ============================================ */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -871,6 +938,73 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  menuIconContainer: {
+    width: 45,
+    height: 45,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  greenIcon: {
+    backgroundColor: '#E8F8F5',
+  },
+  orangeIcon: {
+    backgroundColor: '#FFF3E0',
+  },
+  purpleIcon: {
+    backgroundColor: '#F3E5F5',
+  },
+  menuTextContainer: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  menuDescription: {
+    fontSize: 13,
+    color: '#636E72',
+    marginTop: 2,
+  },
+  asistenciaMenuItem: {
+    backgroundColor: '#F0FFF4',
+    borderWidth: 1,
+    borderColor: '#00B894',
+  },
+  asistenciaText: {
+    color: '#00B894',
+  },
+  ausenciaMenuItem: {
+    backgroundColor: '#FFF5F0',
+    borderWidth: 1,
+    borderColor: '#E17055',
+  },
+  ausenciaText: {
+    color: '#E17055',
+  },
+  gestionAusenciaMenuItem: {
+    backgroundColor: '#F8F0FF',
+    borderWidth: 1,
+    borderColor: '#6C5CE7',
+  },
+  gestionAusenciaText: {
+    color: '#6C5CE7',
   },
   horarioCard: {
     backgroundColor: '#FFFFFF',
