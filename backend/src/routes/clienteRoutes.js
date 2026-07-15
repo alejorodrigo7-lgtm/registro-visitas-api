@@ -6,7 +6,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 
-// Configurar multer para archivos CSV (sin usar csv-parser)
+// Configurar multer para archivos CSV
 const upload = multer({ dest: 'uploads/' });
 
 // ============================================
@@ -133,59 +133,58 @@ router.post('/', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
     const { nombre, identificador, barrio, direccion, telefono } = req.body;
 
+    console.log('📝 [CLIENTE] Recibida solicitud POST /api/clientes');
+    console.log('📝 [CLIENTE] Body recibido:', JSON.stringify(req.body, null, 2));
+    console.log('📝 [CLIENTE] Usuario:', req.user?.email, 'Rol:', req.user?.rol);
+
+    // Validar campos obligatorios
     if (!nombre || !nombre.trim()) {
+      console.log('❌ [CLIENTE] Error: Nombre vacío');
       return res.status(400).json({
         success: false,
         message: 'El nombre es obligatorio'
       });
     }
     if (!identificador || !identificador.trim()) {
+      console.log('❌ [CLIENTE] Error: Identificador vacío');
       return res.status(400).json({
         success: false,
         message: 'El identificador es obligatorio'
       });
     }
-    if (!barrio || !barrio.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'El barrio es obligatorio'
-      });
-    }
-    if (!direccion || !direccion.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'La dirección es obligatoria'
-      });
-    }
-    if (!telefono || !telefono.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'El teléfono es obligatorio'
-      });
-    }
 
+    console.log(`🔍 [CLIENTE] Verificando si existe cliente con identificador: ${identificador.trim()}`);
+    
+    // Verificar si ya existe un cliente con ese identificador
     const existeCliente = await Cliente.findOne({ 
       identificador: identificador.trim() 
     });
     
     if (existeCliente) {
+      console.log(`❌ [CLIENTE] Cliente ya existe: ${existeCliente.nombre}`);
       return res.status(400).json({
         success: false,
         message: `Ya existe un cliente con el identificador ${identificador}`
       });
     }
 
+    console.log('📝 [CLIENTE] Creando nuevo cliente...');
+    
     const nuevoCliente = new Cliente({
       nombre: nombre.trim(),
       identificador: identificador.trim(),
-      barrio: barrio.trim(),
-      direccion: direccion.trim(),
-      telefono: telefono.trim(),
+      barrio: barrio?.trim() || '',
+      direccion: direccion?.trim() || '',
+      telefono: telefono?.trim() || '',
     });
 
-    await nuevoCliente.save();
+    console.log('📝 [CLIENTE] Cliente a guardar:', JSON.stringify(nuevoCliente, null, 2));
 
-    console.log(`✅ Nuevo cliente registrado: ${nuevoCliente.nombre} (${nuevoCliente.identificador})`);
+    console.log('💾 [CLIENTE] Guardando en MongoDB...');
+    await nuevoCliente.save();
+    
+    console.log(`✅ [CLIENTE] Nuevo cliente registrado: ${nuevoCliente.nombre} (${nuevoCliente.identificador})`);
+    console.log(`✅ [CLIENTE] ID: ${nuevoCliente._id}`);
 
     res.status(201).json({
       success: true,
@@ -194,7 +193,82 @@ router.post('/', protect, authorize('Admin', 'Jefe'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error al crear cliente:', error);
+    console.error('❌ [CLIENTE] Error al crear cliente:', error);
+    console.error('❌ [CLIENTE] Stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
+  }
+});
+
+// ============================================
+// 📤 CARGAR CLIENTES DESDE CSV (Admin)
+// ============================================
+router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se envió ningún archivo'
+      });
+    }
+
+    const resultados = [];
+    const errores = [];
+    let contador = 0;
+
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(req.file.path)
+        .pipe(csv())
+        .on('data', (data) => {
+          const nombre = data.nombre || data.Nombre || data.NOMBRE || '';
+          const identificador = data.identificador || data.Identificador || data.IDENTIFICADOR || data.cedula || data.Cedula || '';
+          const barrio = data.barrio || data.Barrio || data.BARRIO || '';
+          const direccion = data.direccion || data.Direccion || data.DIRECCION || '';
+          const telefono = data.telefono || data.Telefono || data.TELEFONO || '';
+
+          if (!nombre || !identificador) {
+            errores.push(`Fila ${contador + 1}: Faltan datos obligatorios (nombre o identificador)`);
+            contador++;
+            return;
+          }
+
+          resultados.push({ nombre, identificador, barrio, direccion, telefono });
+          contador++;
+        })
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    let guardados = 0;
+    for (const cliente of resultados) {
+      try {
+        const existe = await Cliente.findOne({ identificador: cliente.identificador });
+        if (!existe) {
+          await Cliente.create(cliente);
+          guardados++;
+        } else {
+          errores.push(`Identificador ${cliente.identificador} ya existe, omitido`);
+        }
+      } catch (error) {
+        errores.push(`Error guardando ${cliente.nombre}: ${error.message}`);
+      }
+    }
+
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      success: true,
+      message: `Se cargaron ${guardados} clientes correctamente`,
+      total: resultados.length,
+      guardados,
+      errores: errores.length > 0 ? errores : undefined,
+    });
+
+  } catch (error) {
+    console.error('❌ Error cargando CSV:', error);
     res.status(500).json({
       success: false,
       message: error.message
