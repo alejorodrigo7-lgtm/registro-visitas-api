@@ -285,6 +285,18 @@ const MenuPrincipal = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
+        {/* Usuario Nuevo - Solo Admin y Jefe */}
+        {isAdminOrJefe && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.usuarioNuevoMenuItem]}
+            onPress={() => navigation.navigate('UsuarioNuevoScreen')}
+          >
+            <Text style={[styles.menuItemText, styles.usuarioNuevoMenuItemText]}>
+              👤 Usuario Nuevo
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Cerrar Sesión - Siempre al final */}
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutButton]}
@@ -293,7 +305,7 @@ const MenuPrincipal = ({ navigation }) => {
           <Text style={[styles.menuItemText, styles.logoutText]}>🚪 Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        {/* Autoría - Abajo de Cerrar Sesión */}
+        {/* Autoría */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>© 2026 RA²P - Todos los derechos reservados</Text>
           <Text style={styles.footerSubText}>Desarrollado por: Alejandro Abril</Text>
@@ -462,6 +474,15 @@ const styles = StyleSheet.create({
   },
   bodegaMenuItemText: {
     color: '#0984E3',
+    fontWeight: '500',
+  },
+  usuarioNuevoMenuItem: {
+    backgroundColor: '#F0E6FF',
+    borderWidth: 1,
+    borderColor: '#6C5CE7',
+  },
+  usuarioNuevoMenuItemText: {
+    color: '#6C5CE7',
     fontWeight: '500',
   },
   logoutButton: {

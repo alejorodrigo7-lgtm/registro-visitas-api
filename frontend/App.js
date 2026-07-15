@@ -15,6 +15,7 @@ import RegistroVisita from './src/screens/RegistroVisita';
 import GestionUsuarios from './src/screens/GestionUsuarios';
 import GestionHorarios from './src/screens/GestionHorarios';
 import Alertas from './src/screens/Alertas';
+import UsuarioNuevoScreen from './src/screens/UsuarioNuevoScreen';
 
 // Transferencias
 import TransferenciasMenu from './src/screens/TransferenciasMenu';
@@ -184,6 +185,7 @@ export default function App() {
             <Stack.Screen name="GestionAusencias" component={GestionAusencias} options={{ title: 'Gestionar Ausencias' }} />
             <Stack.Screen name="ReporteAsistencia" component={ReporteAsistencia} options={{ title: 'Reporte Asistencia' }} />
             <Stack.Screen name="ReporteAusencias" component={ReporteAusencias} options={{ title: 'Reporte Ausencias' }} />
+            <Stack.Screen name="UsuarioNuevoScreen" component={UsuarioNuevoScreen} options={{ title: 'Usuario Nuevo' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppInitializer>
