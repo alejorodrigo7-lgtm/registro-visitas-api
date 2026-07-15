@@ -25,6 +25,9 @@ const AsistenciaScreen = ({ navigation }) => {
     estado: 'Pendiente',
     fechaStr: '',
   });
+  const [siguientePaso, setSiguientePaso] = useState('entrada');
+  const [siguientePasoNombre, setSiguientePasoNombre] = useState('Entrada');
+  const [completado, setCompletado] = useState(false);
   const [ubicacion, setUbicacion] = useState(null);
   const [ausenciasPendientes, setAusenciasPendientes] = useState([]);
   const [ubicacionesPermitidas, setUbicacionesPermitidas] = useState([]);
@@ -39,6 +42,9 @@ const AsistenciaScreen = ({ navigation }) => {
     try {
       const response = await api.get('/asistencia/hoy');
       setAsistencia(response.data.data);
+      setSiguientePaso(response.data.siguientePaso || 'entrada');
+      setSiguientePasoNombre(response.data.siguientePasoNombre || 'Entrada');
+      setCompletado(response.data.siguientePaso === 'completado');
       setAusenciasPendientes(response.data.ausenciasPendientes || []);
     } catch (error) {
       console.error('Error cargando asistencia:', error);
@@ -60,7 +66,7 @@ const AsistenciaScreen = ({ navigation }) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Necesitamos acceso a tu ubicación para registrar asistencia');
+        Alert.alert('Permiso denegado', 'Necesitamos acceso a tu ubicación para registrar entrada y salida');
         return null;
       }
 
@@ -94,8 +100,25 @@ const AsistenciaScreen = ({ navigation }) => {
   };
 
   const registrar = async (tipo) => {
-    const ubicacionActual = await obtenerUbicacion();
-    if (!ubicacionActual) return;
+    // Si ya está completado, no permitir más registros
+    if (completado) {
+      Alert.alert('✅ Jornada Completada', 'Ya completaste tu jornada de hoy. ¡Excelente trabajo!');
+      return;
+    }
+
+    // Verificar que sea el paso correcto
+    if (tipo !== siguientePaso) {
+      Alert.alert('⚠️ Paso Incorrecto', `Debes registrar "${siguientePasoNombre}" primero.`);
+      return;
+    }
+
+    let ubicacionActual = null;
+    
+    // Solo obtener ubicación para Entrada y Salida
+    if (tipo === 'entrada' || tipo === 'salida') {
+      ubicacionActual = await obtenerUbicacion();
+      if (!ubicacionActual) return;
+    }
 
     setLoading(true);
     try {
@@ -105,6 +128,11 @@ const AsistenciaScreen = ({ navigation }) => {
       });
 
       Alert.alert('✅ Éxito', response.data.message);
+
+      if (response.data.completado) {
+        setCompletado(true);
+        Alert.alert('🎉 Felicitaciones', '¡Has completado tu jornada de hoy!');
+      }
 
       if (response.data.ausenciasPendientes > 0) {
         Alert.alert(
@@ -141,6 +169,26 @@ const AsistenciaScreen = ({ navigation }) => {
     return hora !== null && hora !== undefined && hora !== '';
   };
 
+  const getPasoIcon = (paso) => {
+    const iconos = {
+      'entrada': 'enter-outline',
+      'inicio_almuerzo': 'restaurant-outline',
+      'fin_almuerzo': 'restaurant-outline',
+      'salida': 'exit-outline',
+    };
+    return iconos[paso] || 'time-outline';
+  };
+
+  const getPasoColor = (paso) => {
+    const colores = {
+      'entrada': '#00B894',
+      'inicio_almuerzo': '#FDCB6E',
+      'fin_almuerzo': '#FDCB6E',
+      'salida': '#E17055',
+    };
+    return colores[paso] || '#6C5CE7';
+  };
+
   if (loading && !asistencia.fechaStr) {
     return (
       <View style={styles.loadingContainer}>
@@ -161,15 +209,32 @@ const AsistenciaScreen = ({ navigation }) => {
         {/* Fecha y Estado */}
         <View style={styles.fechaContainer}>
           <Text style={styles.fechaText}>📅 {asistencia.fechaStr || new Date().toISOString().split('T')[0]}</Text>
-          <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(asistencia.estado) }]}>
-            <Ionicons name={getEstadoIcon(asistencia.estado)} size={16} color="#FFFFFF" />
-            <Text style={styles.estadoText}>{asistencia.estado || 'Pendiente'}</Text>
+          <View style={[styles.estadoBadge, { backgroundColor: completado ? '#00B894' : getEstadoColor(asistencia.estado) }]}>
+            <Ionicons name={completado ? 'checkmark-circle' : getEstadoIcon(asistencia.estado)} size={16} color="#FFFFFF" />
+            <Text style={styles.estadoText}>
+              {completado ? 'Completado 🎉' : (asistencia.estado || 'Pendiente')}
+            </Text>
           </View>
+        </View>
+
+        {/* Progreso */}
+        <View style={styles.progresoContainer}>
+          <Text style={styles.progresoTitle}>📊 Progreso</Text>
+          <View style={styles.progresoBarra}>
+            <View style={[styles.progresoFill, { 
+              width: `${
+                (Object.values(asistencia).filter(v => v !== null && v !== '' && typeof v === 'string' && v.includes(':')).length / 4) * 100
+              }%` 
+            }]} />
+          </View>
+          <Text style={styles.progresoText}>
+            Paso actual: <Text style={styles.progresoPaso}>{siguientePasoNombre}</Text>
+          </Text>
         </View>
 
         {/* Ubicaciones Permitidas */}
         <View style={styles.ubicacionesContainer}>
-          <Text style={styles.ubicacionesTitle}>📍 Ubicaciones Permitidas</Text>
+          <Text style={styles.ubicacionesTitle}>📍 Ubicaciones Permitidas (Entrada/Salida)</Text>
           {ubicacionesPermitidas.map((ub, index) => (
             <View key={index} style={styles.ubicacionItem}>
               <Ionicons name="location-outline" size={16} color="#0984E3" />
@@ -198,127 +263,145 @@ const AsistenciaScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Botones de Registro */}
+        {/* Botones de Registro - Secuenciales */}
         <View style={styles.botonesContainer}>
           <Text style={styles.botonesTitle}>⏰ Registrar</Text>
 
+          {/* Entrada */}
           <TouchableOpacity
             style={[
               styles.botonRegistro,
-              isRegistrado(asistencia.hora_entrada) ? styles.botonRegistrado : styles.botonPendiente,
+              isRegistrado(asistencia.hora_entrada) ? styles.botonRegistrado : 
+              (siguientePaso === 'entrada' && !completado ? styles.botonActivo : styles.botonBloqueado),
             ]}
             onPress={() => registrar('entrada')}
-            disabled={isRegistrado(asistencia.hora_entrada) || loading}
+            disabled={isRegistrado(asistencia.hora_entrada) || loading || completado || siguientePaso !== 'entrada'}
           >
-            <View style={styles.botonIconContainer}>
-              <Ionicons
-                name={isRegistrado(asistencia.hora_entrada) ? 'checkmark-circle' : 'enter-outline'}
-                size={24}
-                color={isRegistrado(asistencia.hora_entrada) ? '#00B894' : '#FFFFFF'}
-              />
+            <View style={[styles.botonIconContainer, { backgroundColor: isRegistrado(asistencia.hora_entrada) ? '#00B894' : getPasoColor('entrada') }]}>
+              <Ionicons name={isRegistrado(asistencia.hora_entrada) ? 'checkmark' : getPasoIcon('entrada')} size={20} color="#FFFFFF" />
             </View>
             <View style={styles.botonTextContainer}>
-              <Text style={styles.botonTitulo}>🟢 Entrada</Text>
+              <Text style={[styles.botonTitulo, isRegistrado(asistencia.hora_entrada) ? styles.textoRegistrado : styles.textoActivo]}>
+                🟢 Entrada
+              </Text>
               {isRegistrado(asistencia.hora_entrada) ? (
                 <Text style={styles.botonHora}>✅ {asistencia.hora_entrada}</Text>
               ) : (
-                <Text style={styles.botonSubTitulo}>Registrar hora de entrada</Text>
+                <Text style={styles.botonSubTitulo}>
+                  {siguientePaso === 'entrada' ? '👉 Registra tu entrada' : 'Esperando entrada'}
+                </Text>
               )}
             </View>
-            {!isRegistrado(asistencia.hora_entrada) && (
+            {!isRegistrado(asistencia.hora_entrada) && siguientePaso === 'entrada' && (
               <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
             )}
           </TouchableOpacity>
 
+          {/* Inicio Almuerzo */}
           <TouchableOpacity
             style={[
               styles.botonRegistro,
-              isRegistrado(asistencia.hora_inicio_almuerzo) ? styles.botonRegistrado : styles.botonPendiente,
+              isRegistrado(asistencia.hora_inicio_almuerzo) ? styles.botonRegistrado : 
+              (siguientePaso === 'inicio_almuerzo' && !completado ? styles.botonActivo : styles.botonBloqueado),
             ]}
             onPress={() => registrar('inicio_almuerzo')}
-            disabled={isRegistrado(asistencia.hora_inicio_almuerzo) || loading}
+            disabled={isRegistrado(asistencia.hora_inicio_almuerzo) || loading || completado || siguientePaso !== 'inicio_almuerzo'}
           >
-            <View style={styles.botonIconContainer}>
-              <Ionicons
-                name={isRegistrado(asistencia.hora_inicio_almuerzo) ? 'checkmark-circle' : 'restaurant-outline'}
-                size={24}
-                color={isRegistrado(asistencia.hora_inicio_almuerzo) ? '#00B894' : '#FFFFFF'}
-              />
+            <View style={[styles.botonIconContainer, { backgroundColor: isRegistrado(asistencia.hora_inicio_almuerzo) ? '#00B894' : getPasoColor('inicio_almuerzo') }]}>
+              <Ionicons name={isRegistrado(asistencia.hora_inicio_almuerzo) ? 'checkmark' : getPasoIcon('inicio_almuerzo')} size={20} color="#FFFFFF" />
             </View>
             <View style={styles.botonTextContainer}>
-              <Text style={styles.botonTitulo}>🍽️ Inicio Almuerzo</Text>
+              <Text style={[styles.botonTitulo, isRegistrado(asistencia.hora_inicio_almuerzo) ? styles.textoRegistrado : styles.textoActivo]}>
+                🍽️ Inicio Almuerzo
+              </Text>
               {isRegistrado(asistencia.hora_inicio_almuerzo) ? (
                 <Text style={styles.botonHora}>✅ {asistencia.hora_inicio_almuerzo}</Text>
               ) : (
-                <Text style={styles.botonSubTitulo}>Registrar inicio de almuerzo</Text>
+                <Text style={styles.botonSubTitulo}>
+                  {siguientePaso === 'inicio_almuerzo' ? '👉 Registra inicio de almuerzo' : 'Esperando inicio almuerzo'}
+                </Text>
               )}
             </View>
-            {!isRegistrado(asistencia.hora_inicio_almuerzo) && (
+            {!isRegistrado(asistencia.hora_inicio_almuerzo) && siguientePaso === 'inicio_almuerzo' && (
               <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
             )}
           </TouchableOpacity>
 
+          {/* Fin Almuerzo */}
           <TouchableOpacity
             style={[
               styles.botonRegistro,
-              isRegistrado(asistencia.hora_fin_almuerzo) ? styles.botonRegistrado : styles.botonPendiente,
+              isRegistrado(asistencia.hora_fin_almuerzo) ? styles.botonRegistrado : 
+              (siguientePaso === 'fin_almuerzo' && !completado ? styles.botonActivo : styles.botonBloqueado),
             ]}
             onPress={() => registrar('fin_almuerzo')}
-            disabled={isRegistrado(asistencia.hora_fin_almuerzo) || loading}
+            disabled={isRegistrado(asistencia.hora_fin_almuerzo) || loading || completado || siguientePaso !== 'fin_almuerzo'}
           >
-            <View style={styles.botonIconContainer}>
-              <Ionicons
-                name={isRegistrado(asistencia.hora_fin_almuerzo) ? 'checkmark-circle' : 'restaurant-outline'}
-                size={24}
-                color={isRegistrado(asistencia.hora_fin_almuerzo) ? '#00B894' : '#FFFFFF'}
-              />
+            <View style={[styles.botonIconContainer, { backgroundColor: isRegistrado(asistencia.hora_fin_almuerzo) ? '#00B894' : getPasoColor('fin_almuerzo') }]}>
+              <Ionicons name={isRegistrado(asistencia.hora_fin_almuerzo) ? 'checkmark' : getPasoIcon('fin_almuerzo')} size={20} color="#FFFFFF" />
             </View>
             <View style={styles.botonTextContainer}>
-              <Text style={styles.botonTitulo}>🍽️ Fin Almuerzo</Text>
+              <Text style={[styles.botonTitulo, isRegistrado(asistencia.hora_fin_almuerzo) ? styles.textoRegistrado : styles.textoActivo]}>
+                🍽️ Fin Almuerzo
+              </Text>
               {isRegistrado(asistencia.hora_fin_almuerzo) ? (
                 <Text style={styles.botonHora}>✅ {asistencia.hora_fin_almuerzo}</Text>
               ) : (
-                <Text style={styles.botonSubTitulo}>Registrar fin de almuerzo</Text>
+                <Text style={styles.botonSubTitulo}>
+                  {siguientePaso === 'fin_almuerzo' ? '👉 Registra fin de almuerzo' : 'Esperando fin almuerzo'}
+                </Text>
               )}
             </View>
-            {!isRegistrado(asistencia.hora_fin_almuerzo) && (
+            {!isRegistrado(asistencia.hora_fin_almuerzo) && siguientePaso === 'fin_almuerzo' && (
               <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
             )}
           </TouchableOpacity>
 
+          {/* Salida */}
           <TouchableOpacity
             style={[
               styles.botonRegistro,
-              isRegistrado(asistencia.hora_salida) ? styles.botonRegistrado : styles.botonPendiente,
+              isRegistrado(asistencia.hora_salida) ? styles.botonRegistrado : 
+              (siguientePaso === 'salida' && !completado ? styles.botonActivo : styles.botonBloqueado),
             ]}
             onPress={() => registrar('salida')}
-            disabled={isRegistrado(asistencia.hora_salida) || loading}
+            disabled={isRegistrado(asistencia.hora_salida) || loading || completado || siguientePaso !== 'salida'}
           >
-            <View style={styles.botonIconContainer}>
-              <Ionicons
-                name={isRegistrado(asistencia.hora_salida) ? 'checkmark-circle' : 'exit-outline'}
-                size={24}
-                color={isRegistrado(asistencia.hora_salida) ? '#00B894' : '#FFFFFF'}
-              />
+            <View style={[styles.botonIconContainer, { backgroundColor: isRegistrado(asistencia.hora_salida) ? '#00B894' : getPasoColor('salida') }]}>
+              <Ionicons name={isRegistrado(asistencia.hora_salida) ? 'checkmark' : getPasoIcon('salida')} size={20} color="#FFFFFF" />
             </View>
             <View style={styles.botonTextContainer}>
-              <Text style={styles.botonTitulo}>🔴 Salida</Text>
+              <Text style={[styles.botonTitulo, isRegistrado(asistencia.hora_salida) ? styles.textoRegistrado : styles.textoActivo]}>
+                🔴 Salida
+              </Text>
               {isRegistrado(asistencia.hora_salida) ? (
                 <Text style={styles.botonHora}>✅ {asistencia.hora_salida}</Text>
               ) : (
-                <Text style={styles.botonSubTitulo}>Registrar hora de salida</Text>
+                <Text style={styles.botonSubTitulo}>
+                  {siguientePaso === 'salida' ? '👉 Registra tu salida' : 'Esperando salida'}
+                </Text>
               )}
             </View>
-            {!isRegistrado(asistencia.hora_salida) && (
+            {!isRegistrado(asistencia.hora_salida) && siguientePaso === 'salida' && (
               <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
             )}
           </TouchableOpacity>
+
+          {/* Mensaje de completado */}
+          {completado && (
+            <View style={styles.completadoContainer}>
+              <Ionicons name="trophy" size={40} color="#FDCB6E" />
+              <Text style={styles.completadoText}>🎉 ¡Jornada Completada!</Text>
+              <Text style={styles.completadoSubText}>Excelente trabajo hoy. Descansa y mañana más.</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.infoContainer}>
           <Text style={styles.infoTitle}>ℹ️ Información</Text>
-          <Text style={styles.infoText}>• Solo puedes registrar cada evento una vez al día</Text>
-          <Text style={styles.infoText}>• Debes estar dentro del radio permitido (500m)</Text>
+          <Text style={styles.infoText}>• 📍 Entrada y Salida: Debes estar en una ubicación permitida</Text>
+          <Text style={styles.infoText}>• 🍽️ Inicio y Fin de Almuerzo: Puedes registrar desde cualquier lugar</Text>
+          <Text style={styles.infoText}>• 🔄 El registro es secuencial (Entrada → Inicio Almuerzo → Fin Almuerzo → Salida)</Text>
           <Text style={styles.infoText}>• La hora se toma automáticamente del sistema</Text>
           <Text style={styles.infoText}>• Si no puedes registrar, usa "Pedir Ausencia"</Text>
         </View>
@@ -401,6 +484,43 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  progresoContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  progresoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  progresoBarra: {
+    height: 8,
+    backgroundColor: '#DFE6E9',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progresoFill: {
+    height: '100%',
+    backgroundColor: '#6C5CE7',
+    borderRadius: 4,
+  },
+  progresoText: {
+    fontSize: 13,
+    color: '#636E72',
+    marginTop: 8,
+  },
+  progresoPaso: {
+    fontWeight: 'bold',
+    color: '#6C5CE7',
   },
   ubicacionesContainer: {
     backgroundColor: '#FFFFFF',
@@ -498,7 +618,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 12,
   },
-  botonPendiente: {
+  botonActivo: {
     backgroundColor: '#6C5CE7',
   },
   botonRegistrado: {
@@ -506,11 +626,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DFE6E9',
   },
+  botonBloqueado: {
+    backgroundColor: '#DFE6E9',
+    opacity: 0.6,
+  },
   botonIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -522,6 +645,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#FFFFFF',
   },
+  textoActivo: {
+    color: '#FFFFFF',
+  },
+  textoRegistrado: {
+    color: '#636E72',
+  },
   botonSubTitulo: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.8)',
@@ -530,6 +659,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#00B894',
+  },
+  completadoContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    backgroundColor: '#F0FFF4',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#00B894',
+  },
+  completadoText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#00B894',
+    marginTop: 10,
+  },
+  completadoSubText: {
+    fontSize: 14,
+    color: '#636E72',
+    marginTop: 5,
   },
   infoContainer: {
     backgroundColor: '#F8F9FA',

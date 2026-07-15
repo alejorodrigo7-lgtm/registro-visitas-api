@@ -10,7 +10,7 @@ const UBICACIONES_PERMITIDAS = [
     nombre: 'Oficina Principal',
     lat: -0.22635455220671702,
     lng: -78.50449436339233,
-    radio: 500, // metros
+    radio: 500,
   },
   {
     nombre: 'Oficina Secundaria',
@@ -24,7 +24,7 @@ const UBICACIONES_PERMITIDAS = [
 // 📋 FUNCIÓN PARA CALCULAR DISTANCIA (Haversine)
 // ============================================
 const calcularDistancia = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Radio de la Tierra en km
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = 
@@ -32,7 +32,7 @@ const calcularDistancia = (lat1, lon1, lat2, lon2) => {
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
     Math.sin(dLon/2) * Math.sin(dLon/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c * 1000; // Distancia en metros
+  return R * c * 1000;
 };
 
 // ============================================
@@ -69,36 +69,27 @@ const getHoraLocal = () => {
 };
 
 // ============================================
-// 📋 REGISTRAR ASISTENCIA
+// 📋 OBTENER EL SIGUIENTE PASO DISPONIBLE
+// ============================================
+const obtenerSiguientePaso = (asistencia) => {
+  if (!asistencia.hora_entrada) return 'entrada';
+  if (!asistencia.hora_inicio_almuerzo) return 'inicio_almuerzo';
+  if (!asistencia.hora_fin_almuerzo) return 'fin_almuerzo';
+  if (!asistencia.hora_salida) return 'salida';
+  return 'completado';
+};
+
+// ============================================
+// 📋 REGISTRAR ASISTENCIA (CON FLUJO SECUENCIAL)
 // ============================================
 exports.registrarAsistencia = async (req, res) => {
   try {
-    const { tipo, ubicacion } = req.body; // 'entrada', 'inicio_almuerzo', 'fin_almuerzo', 'salida'
+    const { tipo, ubicacion } = req.body;
     const usuarioId = req.user._id;
     const fechaStr = getFechaStr();
     const horaActual = getHoraLocal();
 
     console.log(`📝 Registrando ${tipo} para ${req.user.nombre} - ${fechaStr} ${horaActual}`);
-
-    // 🔥 VERIFICAR UBICACIÓN
-    if (!ubicacion || !ubicacion.latitude || !ubicacion.longitude) {
-      return res.status(400).json({
-        success: false,
-        message: 'No se pudo obtener tu ubicación. Activa el GPS.',
-      });
-    }
-
-    const verifUbicacion = verificarUbicacionPermitida(ubicacion.latitude, ubicacion.longitude);
-
-    if (!verifUbicacion.permitido) {
-      return res.status(400).json({
-        success: false,
-        message: `No estás en una ubicación permitida. Debes estar en una de las oficinas autorizadas.\nDistancia a la más cercana: ${verifUbicacion.distancia || 'N/A'} metros`,
-        ubicacionPermitida: false,
-      });
-    }
-
-    console.log(`📍 Ubicación permitida: ${verifUbicacion.ubicacion} (${verifUbicacion.distancia}m)`);
 
     // Buscar asistencia del día
     let asistencia = await Asistencia.findOne({
@@ -116,6 +107,63 @@ exports.registrarAsistencia = async (req, res) => {
       });
     }
 
+    // 🔥 VERIFICAR FLUJO SECUENCIAL
+    const siguientePaso = obtenerSiguientePaso(asistencia);
+
+    // Si ya está completado, no se puede registrar nada más
+    if (siguientePaso === 'completado') {
+      return res.status(400).json({
+        success: false,
+        message: '✅ Ya completaste tu jornada de hoy. ¡Excelente trabajo!',
+        completado: true,
+      });
+    }
+
+    // Verificar que el tipo coincide con el siguiente paso
+    if (tipo !== siguientePaso) {
+      const nombresPasos = {
+        'entrada': 'Entrada',
+        'inicio_almuerzo': 'Inicio de Almuerzo',
+        'fin_almuerzo': 'Fin de Almuerzo',
+        'salida': 'Salida',
+      };
+      return res.status(400).json({
+        success: false,
+        message: `⚠️ Debes registrar "${nombresPasos[siguientePaso]}" primero.`,
+        siguientePaso: siguientePaso,
+      });
+    }
+
+    // 🔥 TIPOS QUE NO REQUIEREN VERIFICACIÓN DE UBICACIÓN
+    const tiposSinUbicacion = ['inicio_almuerzo', 'fin_almuerzo'];
+    const requiereUbicacion = !tiposSinUbicacion.includes(tipo);
+
+    let verifUbicacion = null;
+
+    // Solo verificar ubicación para Entrada y Salida
+    if (requiereUbicacion) {
+      if (!ubicacion || !ubicacion.latitude || !ubicacion.longitude) {
+        return res.status(400).json({
+          success: false,
+          message: 'No se pudo obtener tu ubicación. Activa el GPS para registrar entrada o salida.',
+        });
+      }
+
+      verifUbicacion = verificarUbicacionPermitida(ubicacion.latitude, ubicacion.longitude);
+
+      if (!verifUbicacion.permitido) {
+        return res.status(400).json({
+          success: false,
+          message: `No estás en una ubicación permitida. Debes estar en una de las oficinas autorizadas para registrar entrada o salida.\nDistancia a la más cercana: ${verifUbicacion.distancia || 'N/A'} metros`,
+          ubicacionPermitida: false,
+        });
+      }
+
+      console.log(`📍 Ubicación permitida: ${verifUbicacion.ubicacion} (${verifUbicacion.distancia}m)`);
+    } else {
+      console.log(`📍 ${tipo} - No requiere verificación de ubicación`);
+    }
+
     // Mapeo de tipos
     const tipos = {
       'entrada': { campo: 'hora_entrada', ubicacion: 'ubicacion_entrada' },
@@ -129,7 +177,7 @@ exports.registrarAsistencia = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Tipo de registro inválido' });
     }
 
-    // Verificar si ya está registrado
+    // Verificar si ya está registrado (doble seguridad)
     if (asistencia[tipoData.campo]) {
       return res.status(400).json({
         success: false,
@@ -137,13 +185,21 @@ exports.registrarAsistencia = async (req, res) => {
       });
     }
 
-    // Guardar hora y ubicación
+    // Guardar hora
     asistencia[tipoData.campo] = horaActual;
-    asistencia[tipoData.ubicacion] = {
-      latitude: ubicacion.latitude,
-      longitude: ubicacion.longitude,
-      address: ubicacion.address || `Ubicación: ${verifUbicacion.ubicacion} (${verifUbicacion.distancia}m)`,
-    };
+
+    // Guardar ubicación solo si se proporcionó (para entrada/salida)
+    if (ubicacion && ubicacion.latitude && ubicacion.longitude) {
+      const address = ubicacion.address || 
+        (verifUbicacion ? `Ubicación: ${verifUbicacion.ubicacion} (${verifUbicacion.distancia}m)` : 
+        `Lat: ${ubicacion.latitude}, Lng: ${ubicacion.longitude}`);
+      
+      asistencia[tipoData.ubicacion] = {
+        latitude: ubicacion.latitude,
+        longitude: ubicacion.longitude,
+        address: address,
+      };
+    }
 
     // Verificar si está completo
     if (asistencia.hora_entrada && 
@@ -164,11 +220,34 @@ exports.registrarAsistencia = async (req, res) => {
       estado: 'Pendiente',
     });
 
+    // Obtener el siguiente paso después del registro
+    const siguientePasoDespues = obtenerSiguientePaso(asistencia);
+    const nombresPasos = {
+      'entrada': 'Entrada',
+      'inicio_almuerzo': 'Inicio de Almuerzo',
+      'fin_almuerzo': 'Fin de Almuerzo',
+      'salida': 'Salida',
+      'completado': 'Jornada Completada 🎉',
+    };
+
+    const mensaje = requiereUbicacion && verifUbicacion
+      ? `${tipo.replace('_', ' ')} registrado a las ${horaActual} en ${verifUbicacion.ubicacion}`
+      : `${tipo.replace('_', ' ')} registrado a las ${horaActual}`;
+
+    let mensajeSiguiente = '';
+    if (siguientePasoDespues !== 'completado') {
+      mensajeSiguiente = `\n\n📌 Siguiente paso: ${nombresPasos[siguientePasoDespues]}`;
+    } else {
+      mensajeSiguiente = '\n\n🎉 ¡Has completado tu jornada de hoy!';
+    }
+
     res.json({
       success: true,
-      message: `${tipo.replace('_', ' ')} registrado a las ${horaActual}`,
+      message: mensaje + mensajeSiguiente,
       ubicacion: verifUbicacion,
       data: asistencia,
+      siguientePaso: siguientePasoDespues,
+      completado: siguientePasoDespues === 'completado',
       ausenciasPendientes: ausenciasPendientes.length,
       ausencias: ausenciasPendientes,
     });
@@ -208,6 +287,15 @@ exports.obtenerAsistenciaHoy = async (req, res) => {
       };
     }
 
+    const siguientePaso = obtenerSiguientePaso(asistencia);
+    const nombresPasos = {
+      'entrada': 'Entrada',
+      'inicio_almuerzo': 'Inicio de Almuerzo',
+      'fin_almuerzo': 'Fin de Almuerzo',
+      'salida': 'Salida',
+      'completado': 'Jornada Completada 🎉',
+    };
+
     const ausenciasPendientes = await PedirAusencia.find({
       usuario: usuarioId,
       fechaStr: fechaStr,
@@ -217,6 +305,8 @@ exports.obtenerAsistenciaHoy = async (req, res) => {
     res.json({
       success: true,
       data: asistencia,
+      siguientePaso: siguientePaso,
+      siguientePasoNombre: nombresPasos[siguientePaso] || 'Completado',
       ausenciasPendientes: ausenciasPendientes,
       ubicacionesPermitidas: UBICACIONES_PERMITIDAS,
     });
