@@ -108,6 +108,7 @@ const MenuPrincipal = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <Text style={styles.appName}>RA²P</Text>
         <Text style={styles.welcomeText}>Bienvenido,</Text>
         <Text style={styles.userName}>{user?.nombre || 'Usuario'}</Text>
         <Text style={styles.userRole}>{user?.rol || ''}</Text>
@@ -129,6 +130,12 @@ const MenuPrincipal = ({ navigation }) => {
               📋 Clientes listos
             </Text>
           )}
+        </View>
+
+        {/* Autoría */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>© 2026 RA²P - Todos los derechos reservados</Text>
+          <Text style={styles.footerSubText}>Desarrollado por: Rodrigo Alejo</Text>
         </View>
       </View>
 
@@ -305,9 +312,18 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 30,
+    paddingBottom: 15,
     backgroundColor: '#6C5CE7',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+  },
+  appName: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
+    letterSpacing: 2,
   },
   welcomeText: {
     color: '#FFFFFF',
@@ -352,6 +368,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  footer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+  },
+  footerText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  footerSubText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
   },
   menuScrollView: {
     flex: 1,

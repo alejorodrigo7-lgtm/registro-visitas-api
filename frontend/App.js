@@ -59,12 +59,12 @@ import MapaKMZ from './src/screens/MapaKMZ';
 import MonserrathScreen from './src/screens/MonserrathScreen';
 import ReporteMonserrath from './src/screens/ReporteMonserrath';
 
+// Asistencia
 import AsistenciaScreen from './src/screens/AsistenciaScreen';
 import PedirAusenciaScreen from './src/screens/PedirAusenciaScreen';
 import GestionAusencias from './src/screens/GestionAusencias';
 import ReporteAsistencia from './src/screens/ReporteAsistencia';
 import ReporteAusencias from './src/screens/ReporteAusencias';
-
 
 const Stack = createStackNavigator();
 
@@ -130,11 +130,12 @@ export default function App() {
               headerStyle: { backgroundColor: '#6C5CE7' },
               headerTintColor: '#FFFFFF',
               headerTitleStyle: { fontWeight: 'bold' },
+              headerTitle: 'RA²P',
             }}
           >
             <Stack.Screen name="RoleSelection" component={RoleSelection} options={{ headerShown: false }} />
             <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
-            <Stack.Screen name="MenuPrincipal" component={MenuPrincipal} options={{ title: 'Menú Principal', headerLeft: null }} />
+            <Stack.Screen name="MenuPrincipal" component={MenuPrincipal} options={{ title: 'RA²P', headerLeft: null }} />
             <Stack.Screen name="RegistroVisita" component={RegistroVisita} options={{ title: 'Registrar Visita' }} />
             <Stack.Screen name="GestionUsuarios" component={GestionUsuarios} options={{ title: 'Gestión de Usuarios' }} />
             <Stack.Screen name="GestionHorarios" component={GestionHorarios} options={{ title: 'Horarios' }} />
@@ -176,6 +177,8 @@ export default function App() {
             {/* Monserrath */}
             <Stack.Screen name="MonserrathScreen" component={MonserrathScreen} options={{ title: 'Monserrath' }} />
             <Stack.Screen name="ReporteMonserrath" component={ReporteMonserrath} options={{ title: 'Reporte Monserrath' }} />
+            
+            {/* Asistencia */}
             <Stack.Screen name="AsistenciaScreen" component={AsistenciaScreen} options={{ title: 'Asistencia' }} />
             <Stack.Screen name="PedirAusenciaScreen" component={PedirAusenciaScreen} options={{ title: 'Pedir Ausencia' }} />
             <Stack.Screen name="GestionAusencias" component={GestionAusencias} options={{ title: 'Gestionar Ausencias' }} />
