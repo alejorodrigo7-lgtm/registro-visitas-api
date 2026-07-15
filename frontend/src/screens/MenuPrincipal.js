@@ -131,12 +131,6 @@ const MenuPrincipal = ({ navigation }) => {
             </Text>
           )}
         </View>
-
-        {/* Autoría */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2026 RA²P - Todos los derechos reservados</Text>
-          <Text style={styles.footerSubText}>Desarrollado por: Rodrigo Alejo</Text>
-        </View>
       </View>
 
       <ScrollView
@@ -299,7 +293,11 @@ const MenuPrincipal = ({ navigation }) => {
           <Text style={[styles.menuItemText, styles.logoutText]}>🚪 Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <View style={styles.footerSpacer} />
+        {/* Autoría - Abajo de Cerrar Sesión */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>© 2026 RA²P - Todos los derechos reservados</Text>
+          <Text style={styles.footerSubText}>Desarrollado por: Alejandro Abril</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -368,23 +366,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
-  },
-  footer: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-  },
-  footerText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  footerSubText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 10,
-    textAlign: 'center',
-    marginTop: 2,
   },
   menuScrollView: {
     flex: 1,
@@ -491,8 +472,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
   },
-  footerSpacer: {
-    height: 20,
+  footer: {
+    marginTop: 20,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#DFE6E9',
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  footerSubText: {
+    fontSize: 11,
+    color: '#B2BEC3',
+    marginTop: 4,
   },
   badgeSmall: {
     backgroundColor: '#FF6B6B',
