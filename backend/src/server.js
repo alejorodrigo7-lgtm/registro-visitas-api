@@ -20,6 +20,7 @@ const mapaRoutes = require('./routes/mapaRoutes');
 const monserrathRoutes = require('./routes/monserrathRoutes');
 const asistenciaRoutes = require('./routes/asistenciaRoutes');
 const pedirAusenciaRoutes = require('./routes/pedirAusenciaRoutes');
+const clienteRoutes = require('./routes/clienteRoutes');
 
 const app = express();
 
@@ -30,8 +31,9 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ============================================
-// 🔍 RUTA DE BÚSQUEDA DE CLIENTES
+// 🔍 RUTA DE BÚSQUEDA DE CLIENTES (DEPRECATED - USAR clienteRoutes)
 // ============================================
+// Nota: Esta ruta ya está en clienteRoutes, pero la mantenemos por compatibilidad
 app.get('/api/clientes/buscar/:identificador', async (req, res) => {
   try {
     const { identificador } = req.params;
@@ -61,7 +63,7 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
 });
 
 // ============================================
-// 📋 OBTENER TODOS LOS CLIENTES (SIN LÍMITE)
+// 📋 OBTENER TODOS LOS CLIENTES (DEPRECATED - USAR clienteRoutes)
 // ============================================
 app.get('/api/clientes/todos', protect, async (req, res) => {
   try {
@@ -115,6 +117,7 @@ app.use('/api/mapas', mapaRoutes);
 app.use('/api/monserrath', monserrathRoutes);
 app.use('/api/asistencia', asistenciaRoutes);
 app.use('/api/pedir-ausencia', pedirAusenciaRoutes);
+app.use('/api/clientes', clienteRoutes);
 
 // ============================================
 // 📲 RUTA DE PRUEBA PARA NOTIFICACIONES
@@ -191,8 +194,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log(`📡 Escuchando en todas las interfaces (0.0.0.0)`);
   console.log(`🕐 Zona horaria: ${process.env.TZ || 'UTC'}`);
+  console.log(`🕐 Hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
   console.log(`🔍 /api/clientes/buscar/:identificador`);
   console.log(`📋 /api/clientes/todos (SIN LÍMITE)`);
+  console.log(`👤 /api/clientes (POST - Crear cliente)`);
   console.log(`📤 /api/transferencias`);
   console.log(`🛠️ /api/servicios`);
   console.log(`💰 /api/cajas`);
@@ -202,5 +207,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📋 /api/horarios`);
   console.log(`🗺️ /api/mapas`);
   console.log(`📋 /api/monserrath`);
+  console.log(`📍 /api/asistencia`);
+  console.log(`📝 /api/pedir-ausencia`);
   console.log(`📲 /api/test-transferencia-push`);
 });
