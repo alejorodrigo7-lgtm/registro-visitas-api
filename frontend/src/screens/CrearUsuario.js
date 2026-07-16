@@ -18,7 +18,6 @@ const CrearUsuario = ({ navigation }) => {
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
-    password: '',
     rol: 'Tecnico',
     telefono: '',
     especialidad: '',
@@ -31,15 +30,20 @@ const CrearUsuario = ({ navigation }) => {
     { id: 'Tecnico', label: '🔧 Técnico', color: '#96CEB4' },
   ];
 
+  // Verificar si el usuario tiene permisos de Admin
+  if (user?.rol !== 'Admin') {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.noAccess}>⛔ Acceso Denegado</Text>
+        <Text style={styles.noAccessSub}>Solo Administradores</Text>
+      </View>
+    );
+  }
+
   const handleSubmit = async () => {
     // Validar campos obligatorios
-    if (!formData.nombre || !formData.email || !formData.password || !formData.rol) {
-      Alert.alert('Error', 'Nombre, Email, Contraseña y Rol son obligatorios');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+    if (!formData.nombre || !formData.email || !formData.rol) {
+      Alert.alert('Error', 'Nombre, Email y Rol son obligatorios');
       return;
     }
 
@@ -50,18 +54,18 @@ const CrearUsuario = ({ navigation }) => {
 
     setLoading(true);
     try {
+      // 🔥 NO enviamos password, el backend la genera automáticamente como "123456"
       const response = await api.post('/auth/register', {
         nombre: formData.nombre,
         email: formData.email,
-        password: formData.password,
         rol: formData.rol,
         telefono: formData.telefono || '',
         especialidad: formData.especialidad || '',
       });
 
       Alert.alert(
-        'Éxito',
-        `Usuario ${formData.nombre} creado correctamente con rol ${formData.rol}`,
+        '✅ Usuario Creado',
+        `Usuario: ${formData.email}\nContraseña: 123456\n\nEl usuario debe cambiar su contraseña al iniciar sesión.`,
         [
           {
             text: 'OK',
@@ -69,7 +73,6 @@ const CrearUsuario = ({ navigation }) => {
               setFormData({
                 nombre: '',
                 email: '',
-                password: '',
                 rol: 'Tecnico',
                 telefono: '',
                 especialidad: '',
@@ -90,7 +93,7 @@ const CrearUsuario = ({ navigation }) => {
     <ScrollView style={styles.container}>
       <View style={styles.form}>
         <Text style={styles.title}>👥 Crear Nuevo Usuario</Text>
-        <Text style={styles.subtitle}>Completa los datos del nuevo usuario</Text>
+        <Text style={styles.subtitle}>El usuario recibirá su contraseña por email</Text>
 
         <View style={styles.divider} />
 
@@ -113,17 +116,6 @@ const CrearUsuario = ({ navigation }) => {
           keyboardType="email-address"
           autoCapitalize="none"
         />
-
-        {/* Contraseña */}
-        <Text style={styles.label}>Contraseña *</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.password}
-          onChangeText={(text) => setFormData({ ...formData, password: text })}
-          placeholder="Mínimo 6 caracteres"
-          secureTextEntry
-        />
-        <Text style={styles.hint}>La contraseña debe tener al menos 6 caracteres</Text>
 
         {/* Selección de Rol */}
         <Text style={styles.label}>Rol *</Text>
@@ -172,6 +164,12 @@ const CrearUsuario = ({ navigation }) => {
             />
           </View>
         )}
+
+        {/* Información de contraseña */}
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoText}>🔑 La contraseña predeterminada será: <Text style={styles.infoBold}>123456</Text></Text>
+          <Text style={styles.infoSubText}>El usuario podrá cambiarla después de iniciar sesión.</Text>
+        </View>
 
         <TouchableOpacity
           style={styles.submitButton}
@@ -238,13 +236,6 @@ const styles = StyleSheet.create({
     borderColor: '#DFE6E9',
     marginBottom: 15,
   },
-  hint: {
-    fontSize: 12,
-    color: '#636E72',
-    marginTop: -10,
-    marginBottom: 15,
-    fontStyle: 'italic',
-  },
   rolesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -276,6 +267,29 @@ const styles = StyleSheet.create({
   rolButtonTextSelected: {
     color: '#FFFFFF',
   },
+  infoContainer: {
+    backgroundColor: '#E8F0FE',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#6C5CE7',
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#2D3436',
+    textAlign: 'center',
+  },
+  infoBold: {
+    fontWeight: 'bold',
+    color: '#6C5CE7',
+  },
+  infoSubText: {
+    fontSize: 12,
+    color: '#636E72',
+    textAlign: 'center',
+    marginTop: 4,
+  },
   submitButton: {
     backgroundColor: '#6C5CE7',
     padding: 18,
@@ -296,6 +310,22 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#636E72',
     fontSize: 16,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noAccess: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FF6B6B',
+  },
+  noAccessSub: {
+    fontSize: 16,
+    color: '#636E72',
+    marginTop: 10,
   },
 });
 
