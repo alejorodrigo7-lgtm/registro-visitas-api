@@ -20,7 +20,9 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "RA²P necesita tu ubicación para registrar asistencias y visitas",
         "NSLocationAlwaysUsageDescription": "RA²P necesita tu ubicación para registrar asistencias",
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -40,14 +42,15 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "tu-project-id-aqui"
-      }
-    },
     "plugins": [
       "expo-sqlite",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e135c1cd-81b1-43c2-a270-217b041f596b"
+      }
+    },
+    "owner": "alejorodrigo7"
   }
 }

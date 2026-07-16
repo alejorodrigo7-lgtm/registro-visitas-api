@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-// ✅ USA ESTA URL (la de tu servidor en Render)
+// ✅ USAR RENDER (SERVIDOR EN LA NUBE)
 const API_URL = 'https://registro-visitas-api-v9tn.onrender.com/api';
 
 const api = axios.create({
