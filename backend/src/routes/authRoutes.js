@@ -116,7 +116,7 @@ router.post('/reset-password', async (req, res) => {
 // ============================================
 router.post('/register', protect, authorize('Admin'), async (req, res) => {
   try {
-    const { nombre, email, rol, telefono } = req.body;
+    const { nombre, email, rol, telefono, especialidad } = req.body;
 
     if (!nombre || !email) {
       return res.status(400).json({
@@ -141,6 +141,7 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
       password: hash,
       rol: rol || 'Tecnico',
       telefono: telefono || '',
+      especialidad: especialidad || '',
       activo: true,
       createdAt: new Date()
     });
@@ -211,11 +212,52 @@ router.get('/jefes', protect, async (req, res) => {
 });
 
 // ============================================
+// 🗑️ ELIMINAR USUARIO (Admin)
+// ============================================
+router.delete('/usuarios/:id', protect, authorize('Admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verificar que no se elimine a sí mismo
+    if (id === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'No puedes eliminar tu propio usuario'
+      });
+    }
+    
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+    
+    await user.deleteOne();
+    
+    console.log(`🗑️ Usuario eliminado: ${user.email} (${user.rol})`);
+    
+    res.json({
+      success: true,
+      message: 'Usuario eliminado correctamente'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en eliminar usuario:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ============================================
 // 🔄 ACTUALIZAR USUARIO (Admin/Jefe)
 // ============================================
-router.put('/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
+router.put('/usuarios/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
-    const { nombre, rol, telefono, activo } = req.body;
+    const { nombre, rol, telefono, especialidad, activo } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -228,6 +270,7 @@ router.put('/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
     if (nombre) user.nombre = nombre.trim();
     if (rol) user.rol = rol;
     if (telefono !== undefined) user.telefono = telefono;
+    if (especialidad !== undefined) user.especialidad = especialidad;
     if (activo !== undefined) user.activo = activo;
 
     await user.save();
@@ -254,11 +297,21 @@ router.put('/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
 });
 
 // ============================================
-// 🗑️ ELIMINAR USUARIO (Admin)
+// 🔄 ACTIVAR/DESACTIVAR USUARIO (Admin)
 // ============================================
-router.delete('/:id', protect, authorize('Admin'), async (req, res) => {
+router.put('/usuarios/:id/toggle', protect, authorize('Admin'), async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const { id } = req.params;
+    const { activo } = req.body;
+
+    if (id === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'No puedes desactivar tu propio usuario'
+      });
+    }
+
+    const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -266,15 +319,24 @@ router.delete('/:id', protect, authorize('Admin'), async (req, res) => {
       });
     }
 
-    await user.deleteOne();
+    user.activo = activo;
+    await user.save();
+
+    console.log(`🔄 Usuario ${activo ? 'activado' : 'desactivado'}: ${user.email}`);
 
     res.json({
       success: true,
-      message: 'Usuario eliminado correctamente'
+      message: `Usuario ${activo ? 'activado' : 'desactivado'} correctamente`,
+      data: {
+        id: user._id,
+        nombre: user.nombre,
+        email: user.email,
+        activo: user.activo
+      }
     });
 
   } catch (error) {
-    console.error('❌ Error en eliminar usuario:', error);
+    console.error('❌ Error en toggle usuario:', error);
     res.status(500).json({
       success: false,
       message: error.message
