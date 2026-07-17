@@ -5,8 +5,8 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// 🔥 HASH FIJO PARA "123456" - ESTE HASH FUNCIONA SIEMPRE
-const HASH_123456 = '$2a$10$N9qo8uLOickgx2ZMRZoMy.Mr/.FZ5FZ5FZ5FZ5FZ5FZ5FZ5FZ5F';
+// 🔥 USAR EL HASH GENERADO EN SERVER.JS
+const HASH_123456 = global.HASH_123456 || '$2a$10$N9qo8uLOickgx2ZMRZoMy.Mr/.FZ5FZ5FZ5FZ5FZ5FZ5FZ5FZ5F';
 
 // ============================================
 // 📋 LOGIN

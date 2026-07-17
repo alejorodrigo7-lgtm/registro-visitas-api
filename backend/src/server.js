@@ -6,6 +6,12 @@ const cors = require('cors');
 const connectDB = require('./config/database');
 const { protect, authorize } = require('./middleware/auth');
 const User = require('./models/User');
+const bcrypt = require('bcrypt');
+
+// 🔥 GENERAR HASH PARA 123456 AL INICIAR EL SERVIDOR
+const HASH_123456 = bcrypt.hashSync('123456', 10);
+console.log('🔑 Hash generado para 123456:', HASH_123456);
+global.HASH_123456 = HASH_123456;
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
@@ -33,7 +39,6 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // ============================================
 // 🔍 RUTA DE BÚSQUEDA DE CLIENTES (DEPRECATED - USAR clienteRoutes)
 // ============================================
-// Nota: Esta ruta ya está en clienteRoutes, pero la mantenemos por compatibilidad
 app.get('/api/clientes/buscar/:identificador', async (req, res) => {
   try {
     const { identificador } = req.params;
