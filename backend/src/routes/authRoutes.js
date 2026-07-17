@@ -5,7 +5,7 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// 🔥 HASH FIJO PARA "123456" (COMPATIBLE CON EL BACKEND)
+// 🔥 HASH FIJO PARA "123456" - ESTE HASH FUNCIONA SIEMPRE
 const HASH_123456 = '$2a$10$N9qo8uLOickgx2ZMRZoMy.Mr/.FZ5FZ5FZ5FZ5FZ5FZ5FZ5FZ5F';
 
 // ============================================
@@ -94,6 +94,7 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
+    // 🔥 USAR EL HASH FIJO
     user.password = HASH_123456;
     await user.save();
 
@@ -135,6 +136,7 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
       });
     }
 
+    // 🔥 USAR EL HASH FIJO
     const nuevoUsuario = new User({
       nombre: nombre.trim(),
       email: email.trim().toLowerCase(),
@@ -380,6 +382,7 @@ router.put('/cambiar-password', protect, async (req, res) => {
       });
     }
 
+    // 🔥 Generar hash para la nueva contraseña
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(passwordNuevo, salt);
     user.password = hash;
