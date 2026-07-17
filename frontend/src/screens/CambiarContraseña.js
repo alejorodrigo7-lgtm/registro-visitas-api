@@ -45,25 +45,30 @@ const CambiarContraseña = ({ navigation }) => {
         passwordNuevo: formData.passwordNuevo,
       });
 
-      Alert.alert(
-        '✅ Éxito',
-        'Contraseña actualizada correctamente',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setFormData({
-                passwordActual: '',
-                passwordNuevo: '',
-                confirmarPassword: '',
-              });
-              navigation.goBack();
+      if (response.data.success) {
+        Alert.alert(
+          '✅ Éxito',
+          'Contraseña actualizada correctamente',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setFormData({
+                  passwordActual: '',
+                  passwordNuevo: '',
+                  confirmarPassword: '',
+                });
+                navigation.goBack();
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Error al cambiar contraseña');
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Error al cambiar la contraseña'
+      );
     } finally {
       setLoading(false);
     }

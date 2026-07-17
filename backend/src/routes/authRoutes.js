@@ -133,7 +133,6 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
       });
     }
 
-    // 🔥 SIEMPRE usar contraseña 123456
     const hash = bcrypt.hashSync('123456', 10);
 
     const nuevoUsuario = new User({
@@ -373,7 +372,6 @@ router.put('/cambiar-password', protect, async (req, res) => {
       });
     }
 
-    // Verificar contraseña actual
     const isMatch = await bcrypt.compare(passwordActual, user.password);
     if (!isMatch) {
       return res.status(401).json({
@@ -382,7 +380,6 @@ router.put('/cambiar-password', protect, async (req, res) => {
       });
     }
 
-    // Actualizar contraseña
     const hash = bcrypt.hashSync(passwordNuevo, 10);
     user.password = hash;
     await user.save();
@@ -396,6 +393,47 @@ router.put('/cambiar-password', protect, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error en cambiar-password:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ============================================
+// 📱 REGISTRAR TOKEN PUSH
+// ============================================
+router.post('/registrar-push-token', protect, async (req, res) => {
+  try {
+    const { userId, token } = req.body;
+
+    if (!userId || !token) {
+      return res.status(400).json({
+        success: false,
+        message: 'UserId y token son obligatorios'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    user.expoPushToken = token;
+    await user.save();
+
+    console.log(`📱 Token push registrado para ${user.email}`);
+
+    res.json({
+      success: true,
+      message: 'Token push registrado correctamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error en registrar-push-token:', error);
     res.status(500).json({
       success: false,
       message: error.message

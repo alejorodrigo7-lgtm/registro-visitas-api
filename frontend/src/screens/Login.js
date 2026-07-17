@@ -115,7 +115,6 @@ const Login = ({ navigation, route }) => {
           )}
         </TouchableOpacity>
 
-        {/* 🔥 BOTÓN PARA RECUPERAR CONTRASEÑA */}
         <TouchableOpacity
           style={styles.forgotButton}
           onPress={() => setModalVisible(true)}
@@ -127,7 +126,6 @@ const Login = ({ navigation, route }) => {
           <Text style={styles.backText}>← Volver</Text>
         </TouchableOpacity>
 
-        {/* Modal Restablecer Contraseña */}
         <Modal
           animationType="slide"
           transparent={true}
