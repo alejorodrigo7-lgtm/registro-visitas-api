@@ -5,8 +5,8 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// 🔥 USAR EL HASH GENERADO EN SERVER.JS
-const HASH_123456 = global.HASH_123456 || '$2a$10$N9qo8uLOickgx2ZMRZoMy.Mr/.FZ5FZ5FZ5FZ5FZ5FZ5FZ5FZ5F';
+// 🔥 USAR EL HASH GENERADO
+const HASH_123456 = '$2b$10$EJuGX69IeNtO9gB2YdOymOp3DSj/YGlNL7PP2605iWKwQnauJ/i/m';
 
 // ============================================
 // 📋 LOGIN
