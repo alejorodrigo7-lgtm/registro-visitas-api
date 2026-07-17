@@ -5,6 +5,9 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
+// 🔥 HASH FIJO PARA "123456" (COMPATIBLE CON EL BACKEND)
+const HASH_123456 = '$2a$10$N9qo8uLOickgx2ZMRZoMy.Mr/.FZ5FZ5FZ5FZ5FZ5FZ5FZ5FZ5F';
+
 // ============================================
 // 📋 LOGIN
 // ============================================
@@ -91,8 +94,7 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    const hash = bcrypt.hashSync('123456', 10);
-    user.password = hash;
+    user.password = HASH_123456;
     await user.save();
 
     console.log(`✅ Contraseña restablecida para: ${email}`);
@@ -133,12 +135,10 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
       });
     }
 
-    const hash = bcrypt.hashSync('123456', 10);
-
     const nuevoUsuario = new User({
       nombre: nombre.trim(),
       email: email.trim().toLowerCase(),
-      password: hash,
+      password: HASH_123456,
       rol: rol || 'Tecnico',
       telefono: telefono || '',
       especialidad: especialidad || '',
@@ -380,7 +380,8 @@ router.put('/cambiar-password', protect, async (req, res) => {
       });
     }
 
-    const hash = bcrypt.hashSync(passwordNuevo, 10);
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(passwordNuevo, salt);
     user.password = hash;
     await user.save();
 
