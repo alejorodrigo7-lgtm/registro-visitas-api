@@ -446,3 +446,15 @@ router.post('/registrar-push-token', protect, async (req, res) => {
 });
 
 module.exports = router;
+
+// ============================================
+// 🔧 RUTA TEMPORAL PARA VER EL HASH DE 123456
+// ============================================
+router.get('/test-hash', (req, res) => {
+  const bcrypt = require('bcrypt');
+  const hash = bcrypt.hashSync('123456', 10);
+  res.json({
+    hash: hash,
+    message: 'Este es el hash que genera Render para 123456'
+  });
+});
