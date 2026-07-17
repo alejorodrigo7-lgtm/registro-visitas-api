@@ -6,50 +6,61 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 // 🔥 USAR EL HASH QUE GENERA RENDER
-const HASH_123456 = '$2b$10$93ndZkSXWkvFrUpnvOa./OGIkkffhV0bHjPg9kaUlA54Yx7ZxF9R2';
+const HASH_123456 = '$2b$10$8xEPR6eUwdK9CfO8Y9gi..EFmoJ.TPBrt2hhhSP/R/Ay84ftkL6.u';
 
 // ============================================
-// 📋 LOGIN
+// 📋 LOGIN CON LOGS DETALLADOS
 // ============================================
 router.post('/login', async (req, res) => {
   try {
+    console.log('🔍 [LOGIN] Solicitud recibida');
+    console.log('🔍 [LOGIN] Body:', req.body);
+
     const { email, password } = req.body;
 
     if (!email || !password) {
+      console.log('❌ [LOGIN] Email o contraseña faltantes');
       return res.status(400).json({
         success: false,
         message: 'Email y contraseña son obligatorios'
       });
     }
 
+    console.log(`🔍 [LOGIN] Buscando usuario: ${email}`);
     const user = await User.findOne({ email: email.trim().toLowerCase() });
+    
     if (!user) {
+      console.log(`❌ [LOGIN] Usuario no encontrado: ${email}`);
       return res.status(401).json({
         success: false,
         message: 'Usuario no encontrado'
       });
     }
 
-    if (!user.activo) {
-      return res.status(401).json({
-        success: false,
-        message: 'Usuario inactivo'
-      });
-    }
+    console.log(`✅ [LOGIN] Usuario encontrado: ${user.email} (${user.rol})`);
+    console.log(`🔍 [LOGIN] Hash en DB: ${user.password}`);
+    console.log(`🔍 [LOGIN] Comparando con: ${password}`);
 
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log(`🔍 [LOGIN] Resultado de comparación: ${isMatch}`);
+
     if (!isMatch) {
+      console.log('❌ [LOGIN] Contraseña incorrecta');
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
       });
     }
 
+    console.log('✅ [LOGIN] Contraseña correcta, generando token...');
+
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET || 'mi_clave_secreta',
       { expiresIn: '7d' }
     );
+
+    console.log(`✅ [LOGIN] Login exitoso para: ${user.email}`);
 
     res.json({
       success: true,
@@ -64,7 +75,7 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error en login:', error);
+    console.error('❌ [LOGIN] Error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -94,7 +105,6 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // 🔥 USAR EL HASH FIJO
     user.password = HASH_123456;
     await user.save();
 
@@ -136,7 +146,6 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
       });
     }
 
-    // 🔥 USAR EL HASH FIJO
     const nuevoUsuario = new User({
       nombre: nombre.trim(),
       email: email.trim().toLowerCase(),
@@ -382,7 +391,6 @@ router.put('/cambiar-password', protect, async (req, res) => {
       });
     }
 
-    // 🔥 Generar hash para la nueva contraseña
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(passwordNuevo, salt);
     user.password = hash;
@@ -445,8 +453,6 @@ router.post('/registrar-push-token', protect, async (req, res) => {
   }
 });
 
-module.exports = router;
-
 // ============================================
 // 🔧 RUTA TEMPORAL PARA VER EL HASH DE 123456
 // ============================================
@@ -458,3 +464,5 @@ router.get('/test-hash', (req, res) => {
     message: 'Este es el hash que genera Render para 123456'
   });
 });
+
+module.exports = router;
