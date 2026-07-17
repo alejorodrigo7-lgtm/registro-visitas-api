@@ -297,6 +297,16 @@ const MenuPrincipal = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
+        {/* Cambiar Contraseña - Todos los usuarios */}
+<TouchableOpacity
+  style={[styles.menuItem, styles.passwordMenuItem]}
+  onPress={() => navigation.navigate('CambiarContraseña')}
+>
+  <Text style={[styles.menuItemText, styles.passwordMenuItemText]}>
+    🔒 Cambiar Contraseña
+  </Text>
+</TouchableOpacity>
+
         {/* Cerrar Sesión - Siempre al final */}
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutButton]}
@@ -528,6 +538,15 @@ const styles = StyleSheet.create({
   badgeWhiteText: {
     color: '#FFFFFF',
   },
+  passwordMenuItem: {
+  backgroundColor: '#E8F0FE',
+  borderWidth: 1,
+  borderColor: '#0984E3',
+},
+passwordMenuItemText: {
+  color: '#0984E3',
+  fontWeight: '500',
+},
 });
 
 export default MenuPrincipal;

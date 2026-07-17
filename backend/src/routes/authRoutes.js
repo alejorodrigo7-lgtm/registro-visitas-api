@@ -344,4 +344,63 @@ router.put('/usuarios/:id', protect, authorize('Admin', 'Jefe'), async (req, res
   }
 });
 
+// ============================================
+// 🔒 CAMBIAR CONTRASEÑA (Usuario autenticado)
+// ============================================
+router.put('/cambiar-password', protect, async (req, res) => {
+  try {
+    const { passwordActual, passwordNuevo } = req.body;
+
+    if (!passwordActual || !passwordNuevo) {
+      return res.status(400).json({
+        success: false,
+        message: 'Contraseña actual y nueva son obligatorias'
+      });
+    }
+
+    if (passwordNuevo.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'La nueva contraseña debe tener al menos 6 caracteres'
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    // Verificar contraseña actual
+    const isMatch = await bcrypt.compare(passwordActual, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Contraseña actual incorrecta'
+      });
+    }
+
+    // Actualizar contraseña
+    const hash = bcrypt.hashSync(passwordNuevo, 10);
+    user.password = hash;
+    await user.save();
+
+    console.log(`🔒 Contraseña actualizada para: ${user.email}`);
+
+    res.json({
+      success: true,
+      message: 'Contraseña actualizada correctamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error en cambiar-password:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

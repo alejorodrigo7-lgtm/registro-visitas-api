@@ -67,6 +67,8 @@ import GestionAusencias from './src/screens/GestionAusencias';
 import ReporteAsistencia from './src/screens/ReporteAsistencia';
 import ReporteAusencias from './src/screens/ReporteAusencias';
 
+import CambiarContraseña from './src/screens/CambiarContraseña';
+
 const Stack = createStackNavigator();
 
 // ============================================
@@ -186,6 +188,7 @@ export default function App() {
             <Stack.Screen name="ReporteAsistencia" component={ReporteAsistencia} options={{ title: 'Reporte Asistencia' }} />
             <Stack.Screen name="ReporteAusencias" component={ReporteAusencias} options={{ title: 'Reporte Ausencias' }} />
             <Stack.Screen name="UsuarioNuevoScreen" component={UsuarioNuevoScreen} options={{ title: 'Usuario Nuevo' }} />
+            <Stack.Screen name="CambiarContraseña" component={CambiarContraseña} options={{ title: 'Cambiar Contraseña' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </AppInitializer>
