@@ -115,6 +115,7 @@ const Login = ({ navigation, route }) => {
           )}
         </TouchableOpacity>
 
+        {/* 🔥 BOTÓN PARA RECUPERAR CONTRASEÑA */}
         <TouchableOpacity
           style={styles.forgotButton}
           onPress={() => setModalVisible(true)}

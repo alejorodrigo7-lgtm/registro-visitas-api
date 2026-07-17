@@ -30,7 +30,6 @@ const CrearUsuario = ({ navigation }) => {
     { id: 'Tecnico', label: '🔧 Técnico', color: '#96CEB4' },
   ];
 
-  // Verificar si el usuario tiene permisos de Admin
   if (user?.rol !== 'Admin') {
     return (
       <View style={styles.centered}>
@@ -41,7 +40,6 @@ const CrearUsuario = ({ navigation }) => {
   }
 
   const handleSubmit = async () => {
-    // Validar campos obligatorios
     if (!formData.nombre || !formData.email || !formData.rol) {
       Alert.alert('Error', 'Nombre, Email y Rol son obligatorios');
       return;
@@ -54,7 +52,7 @@ const CrearUsuario = ({ navigation }) => {
 
     setLoading(true);
     try {
-      // 🔥 NO enviamos password, el backend la genera automáticamente como "123456"
+      // 🔥 NO enviamos password, el backend la genera automáticamente como 123456
       const response = await api.post('/auth/register', {
         nombre: formData.nombre,
         email: formData.email,
@@ -97,7 +95,6 @@ const CrearUsuario = ({ navigation }) => {
 
         <View style={styles.divider} />
 
-        {/* Nombre */}
         <Text style={styles.label}>Nombre completo *</Text>
         <TextInput
           style={styles.input}
@@ -106,7 +103,6 @@ const CrearUsuario = ({ navigation }) => {
           placeholder="Ej: Juan Pérez"
         />
 
-        {/* Email */}
         <Text style={styles.label}>Correo electrónico *</Text>
         <TextInput
           style={styles.input}
@@ -117,7 +113,6 @@ const CrearUsuario = ({ navigation }) => {
           autoCapitalize="none"
         />
 
-        {/* Selección de Rol */}
         <Text style={styles.label}>Rol *</Text>
         <View style={styles.rolesContainer}>
           {roles.map((rol) => (
@@ -142,7 +137,6 @@ const CrearUsuario = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Teléfono (opcional) */}
         <Text style={styles.label}>Teléfono (opcional)</Text>
         <TextInput
           style={styles.input}
@@ -152,7 +146,6 @@ const CrearUsuario = ({ navigation }) => {
           keyboardType="phone-pad"
         />
 
-        {/* Especialidad (solo para Técnicos) */}
         {formData.rol === 'Tecnico' && (
           <View>
             <Text style={styles.label}>Especialidad (opcional)</Text>
@@ -165,7 +158,6 @@ const CrearUsuario = ({ navigation }) => {
           </View>
         )}
 
-        {/* Información de contraseña */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>🔑 La contraseña predeterminada será: <Text style={styles.infoBold}>123456</Text></Text>
           <Text style={styles.infoSubText}>El usuario podrá cambiarla después de iniciar sesión.</Text>

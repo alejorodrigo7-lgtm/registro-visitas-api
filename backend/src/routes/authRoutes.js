@@ -133,6 +133,7 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
       });
     }
 
+    // 🔥 SIEMPRE usar contraseña 123456
     const hash = bcrypt.hashSync('123456', 10);
 
     const nuevoUsuario = new User({
@@ -148,7 +149,7 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
 
     await nuevoUsuario.save();
 
-    console.log(`✅ Nuevo usuario creado: ${email} (${rol || 'Tecnico'})`);
+    console.log(`✅ Nuevo usuario creado: ${email} (${rol || 'Tecnico'}) - Contraseña: 123456`);
 
     res.status(201).json({
       success: true,
@@ -218,7 +219,6 @@ router.delete('/usuarios/:id', protect, authorize('Admin'), async (req, res) => 
   try {
     const { id } = req.params;
     
-    // Verificar que no se elimine a sí mismo
     if (id === req.user._id.toString()) {
       return res.status(400).json({
         success: false,
@@ -245,50 +245,6 @@ router.delete('/usuarios/:id', protect, authorize('Admin'), async (req, res) => 
     
   } catch (error) {
     console.error('❌ Error en eliminar usuario:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// ============================================
-// 🔄 ACTUALIZAR USUARIO (Admin/Jefe)
-// ============================================
-router.put('/usuarios/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
-  try {
-    const { nombre, rol, telefono, especialidad, activo } = req.body;
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
-    }
-
-    if (nombre) user.nombre = nombre.trim();
-    if (rol) user.rol = rol;
-    if (telefono !== undefined) user.telefono = telefono;
-    if (especialidad !== undefined) user.especialidad = especialidad;
-    if (activo !== undefined) user.activo = activo;
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: 'Usuario actualizado correctamente',
-      data: {
-        id: user._id,
-        nombre: user.nombre,
-        email: user.email,
-        rol: user.rol,
-        activo: user.activo
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error en actualizar usuario:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -337,6 +293,50 @@ router.put('/usuarios/:id/toggle', protect, authorize('Admin'), async (req, res)
 
   } catch (error) {
     console.error('❌ Error en toggle usuario:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ============================================
+// 🔄 ACTUALIZAR USUARIO (Admin/Jefe)
+// ============================================
+router.put('/usuarios/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
+  try {
+    const { nombre, rol, telefono, especialidad, activo } = req.body;
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    if (nombre) user.nombre = nombre.trim();
+    if (rol) user.rol = rol;
+    if (telefono !== undefined) user.telefono = telefono;
+    if (especialidad !== undefined) user.especialidad = especialidad;
+    if (activo !== undefined) user.activo = activo;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Usuario actualizado correctamente',
+      data: {
+        id: user._id,
+        nombre: user.nombre,
+        email: user.email,
+        rol: user.rol,
+        activo: user.activo
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error en actualizar usuario:', error);
     res.status(500).json({
       success: false,
       message: error.message
