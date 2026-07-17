@@ -5,7 +5,7 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// 🔥 USAR EL HASH QUE GENERA RENDER
+// 🔥 HASH CORRECTO PARA "123456" (generado en Render)
 const HASH_123456 = '$2b$10$8xEPR6eUwdK9CfO8Y9gi..EFmoJ.TPBrt2hhhSP/R/Ay84ftkL6.u';
 
 // ============================================
@@ -76,6 +76,82 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error('❌ [LOGIN] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ============================================
+// 🔒 CAMBIAR CONTRASEÑA (Usuario autenticado)
+// ============================================
+router.put('/cambiar-password', protect, async (req, res) => {
+  try {
+    console.log('🔒 [CAMBIAR] Solicitud recibida');
+    console.log('🔒 [CAMBIAR] Body:', req.body);
+
+    const { passwordActual, passwordNuevo } = req.body;
+
+    if (!passwordActual || !passwordNuevo) {
+      console.log('❌ [CAMBIAR] Faltan campos');
+      return res.status(400).json({
+        success: false,
+        message: 'Contraseña actual y nueva son obligatorias'
+      });
+    }
+
+    if (passwordNuevo.length < 6) {
+      console.log('❌ [CAMBIAR] Contraseña muy corta');
+      return res.status(400).json({
+        success: false,
+        message: 'La nueva contraseña debe tener al menos 6 caracteres'
+      });
+    }
+
+    console.log(`🔒 [CAMBIAR] Usuario ID: ${req.user._id}`);
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      console.log('❌ [CAMBIAR] Usuario no encontrado');
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    console.log(`🔒 [CAMBIAR] Usuario: ${user.email}`);
+    console.log(`🔒 [CAMBIAR] Hash actual en DB: ${user.password}`);
+    console.log(`🔒 [CAMBIAR] Comparando contraseña actual: ${passwordActual}`);
+
+    const isMatch = await bcrypt.compare(passwordActual, user.password);
+    console.log(`🔒 [CAMBIAR] Resultado comparación: ${isMatch}`);
+
+    if (!isMatch) {
+      console.log('❌ [CAMBIAR] Contraseña actual incorrecta');
+      return res.status(401).json({
+        success: false,
+        message: 'Contraseña actual incorrecta'
+      });
+    }
+
+    console.log(`🔒 [CAMBIAR] Generando hash para: ${passwordNuevo}`);
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(passwordNuevo, salt);
+    console.log(`🔒 [CAMBIAR] Hash generado: ${hash}`);
+
+    user.password = hash;
+    await user.save();
+
+    console.log(`✅ [CAMBIAR] Contraseña actualizada para: ${user.email}`);
+    console.log(`✅ [CAMBIAR] Nuevo hash guardado: ${hash}`);
+
+    res.json({
+      success: true,
+      message: 'Contraseña actualizada correctamente'
+    });
+
+  } catch (error) {
+    console.error('❌ [CAMBIAR] Error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -347,64 +423,6 @@ router.put('/usuarios/:id', protect, authorize('Admin', 'Jefe'), async (req, res
 
   } catch (error) {
     console.error('❌ Error en actualizar usuario:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// ============================================
-// 🔒 CAMBIAR CONTRASEÑA (Usuario autenticado)
-// ============================================
-router.put('/cambiar-password', protect, async (req, res) => {
-  try {
-    const { passwordActual, passwordNuevo } = req.body;
-
-    if (!passwordActual || !passwordNuevo) {
-      return res.status(400).json({
-        success: false,
-        message: 'Contraseña actual y nueva son obligatorias'
-      });
-    }
-
-    if (passwordNuevo.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'La nueva contraseña debe tener al menos 6 caracteres'
-      });
-    }
-
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
-    }
-
-    const isMatch = await bcrypt.compare(passwordActual, user.password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Contraseña actual incorrecta'
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(passwordNuevo, salt);
-    user.password = hash;
-    await user.save();
-
-    console.log(`🔒 Contraseña actualizada para: ${user.email}`);
-
-    res.json({
-      success: true,
-      message: 'Contraseña actualizada correctamente'
-    });
-
-  } catch (error) {
-    console.error('❌ Error en cambiar-password:', error);
     res.status(500).json({
       success: false,
       message: error.message
