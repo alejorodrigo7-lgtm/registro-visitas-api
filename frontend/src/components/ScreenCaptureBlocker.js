@@ -1,14 +1,20 @@
 import React, { useEffect } from 'react';
-import * as ScreenCapture from 'expo-screen-capture';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
+
+// Importar dinámicamente para evitar errores en Expo Go
+let ScreenCapture;
+try {
+  ScreenCapture = require('expo-screen-capture');
+} catch (error) {
+  console.log('📸 expo-screen-capture no disponible');
+  ScreenCapture = null;
+}
 
 const ScreenCaptureBlocker = ({ children }) => {
   useEffect(() => {
     // Solo ejecutar en dispositivo real (no en Expo Go)
-    const isExpoGo = !__DEV__ || !Platform.OS;
-    
-    if (isExpoGo) {
-      console.log('📸 Expo Go detectado - bloqueo de capturas no disponible');
+    if (!ScreenCapture) {
+      console.log('📸 Bloqueo de capturas no disponible en este entorno');
       return;
     }
 
@@ -16,42 +22,27 @@ const ScreenCaptureBlocker = ({ children }) => {
 
     const preventScreenCapture = async () => {
       try {
-        await ScreenCapture.preventScreenCaptureAsync();
-        console.log('📸 Capturas de pantalla bloqueadas');
+        if (isMounted) {
+          await ScreenCapture.preventScreenCaptureAsync();
+          console.log('📸 Capturas de pantalla bloqueadas');
+        }
       } catch (error) {
         console.log('⚠️ Error bloqueando capturas:', error);
       }
     };
 
-    // Activar bloqueo al montar
+    // Bloquear capturas
     preventScreenCapture();
-
-    // Detectar intentos de captura (solo en dispositivos reales)
-    let subscription = null;
-    try {
-      if (typeof ScreenCapture.addScreenCaptureListener === 'function') {
-        subscription = ScreenCapture.addScreenCaptureListener(() => {
-          if (isMounted) {
-            Alert.alert(
-              '⚠️ Captura de Pantalla Detectada',
-              'No está permitido tomar capturas de pantalla en esta aplicación por razones de seguridad.',
-              [{ text: 'Entendido', style: 'default' }]
-            );
-            setTimeout(preventScreenCapture, 500);
-          }
-        });
-        console.log('📸 Listener de capturas configurado');
-      }
-    } catch (error) {
-      console.log('⚠️ Error configurando listener:', error);
-    }
 
     return () => {
       isMounted = false;
-      if (subscription) {
-        subscription.remove();
+      // Liberar el bloqueo al desmontar
+      try {
+        ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+        console.log('📸 Capturas de pantalla permitidas nuevamente');
+      } catch (error) {
+        // Ignorar
       }
-      ScreenCapture.allowScreenCaptureAsync().catch(() => {});
     };
   }, []);
 
