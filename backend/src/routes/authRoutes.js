@@ -5,7 +5,7 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// 🔥 HASH FIJO QUE FUNCIONA (generado en Render y verificado)
+// 🔥 HASH FIJO QUE FUNCIONA
 const HASH_123456 = '$2b$10$8xEPR6eUwdK9CfO8Y9gi..EFmoJ.TPBrt2hhhSP/R/Ay84ftkL6.u';
 
 // ============================================
@@ -129,7 +129,7 @@ router.put('/cambiar-password', protect, async (req, res) => {
 });
 
 // ============================================
-// 🔑 RESTABLECER CONTRASEÑA (USA HASH FIJO)
+// 🔑 RESTABLECER CONTRASEÑA (FORZADO CON UPDATEONE)
 // ============================================
 router.post('/reset-password', async (req, res) => {
   try {
@@ -142,6 +142,7 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
+    // 🔥 BUSCAR EL USUARIO
     const user = await User.findOne({ email: email.trim().toLowerCase() });
     if (!user) {
       return res.status(404).json({
@@ -150,11 +151,14 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // 🔥 USA EL HASH FIJO QUE SABEMOS QUE FUNCIONA
-    user.password = HASH_123456;
-    await user.save();
+    // 🔥 FORZAR LA ACTUALIZACIÓN CON UPDATEONE
+    const result = await User.updateOne(
+      { email: email.trim().toLowerCase() },
+      { $set: { password: HASH_123456 } }
+    );
 
-    console.log(`✅ Contraseña restablecida para: ${email} usando hash fijo`);
+    console.log(`✅ Contraseña restablecida para: ${email}`);
+    console.log(`✅ Documentos modificados: ${result.modifiedCount}`);
 
     res.json({
       success: true,
@@ -171,7 +175,7 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // ============================================
-// 👤 REGISTRAR USUARIO (USA HASH FIJO)
+// 👤 REGISTRAR USUARIO
 // ============================================
 router.post('/register', protect, authorize('Admin'), async (req, res) => {
   try {
@@ -192,7 +196,6 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
       });
     }
 
-    // 🔥 USA EL HASH FIJO
     const nuevoUsuario = new User({
       nombre: nombre.trim(),
       email: email.trim().toLowerCase(),
@@ -419,16 +422,6 @@ router.post('/registrar-push-token', protect, async (req, res) => {
       message: error.message
     });
   }
-});
-
-// ============================================
-// 🔧 RUTA PARA VERIFICAR HASH
-// ============================================
-router.get('/test-hash', (req, res) => {
-  res.json({
-    hash: HASH_123456,
-    message: 'Este es el hash fijo para 123456 que debe usarse'
-  });
 });
 
 module.exports = router;
