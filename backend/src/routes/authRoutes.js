@@ -5,59 +5,51 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
+// 🔥 HASH FIJO QUE FUNCIONA (generado en Render y verificado)
+const HASH_123456 = '$2b$10$8xEPR6eUwdK9CfO8Y9gi..EFmoJ.TPBrt2hhhSP/R/Ay84ftkL6.u';
+
 // ============================================
-// 📋 LOGIN CON LOGS DETALLADOS
+// 📋 LOGIN
 // ============================================
 router.post('/login', async (req, res) => {
   try {
-    console.log('🔍 [LOGIN] Solicitud recibida');
-    console.log('🔍 [LOGIN] Body:', req.body);
-
     const { email, password } = req.body;
 
     if (!email || !password) {
-      console.log('❌ [LOGIN] Email o contraseña faltantes');
       return res.status(400).json({
         success: false,
         message: 'Email y contraseña son obligatorios'
       });
     }
 
-    console.log(`🔍 [LOGIN] Buscando usuario: ${email}`);
     const user = await User.findOne({ email: email.trim().toLowerCase() });
-    
     if (!user) {
-      console.log(`❌ [LOGIN] Usuario no encontrado: ${email}`);
       return res.status(401).json({
         success: false,
         message: 'Usuario no encontrado'
       });
     }
 
-    console.log(`✅ [LOGIN] Usuario encontrado: ${user.email} (${user.rol})`);
-    console.log(`🔍 [LOGIN] Hash en DB: ${user.password}`);
-    console.log(`🔍 [LOGIN] Comparando con: ${password}`);
+    if (!user.activo) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario inactivo'
+      });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log(`🔍 [LOGIN] Resultado de comparación: ${isMatch}`);
-
     if (!isMatch) {
-      console.log('❌ [LOGIN] Contraseña incorrecta');
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
       });
     }
 
-    console.log('✅ [LOGIN] Contraseña correcta, generando token...');
-
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET || 'mi_clave_secreta',
       { expiresIn: '7d' }
     );
-
-    console.log(`✅ [LOGIN] Login exitoso para: ${user.email}`);
 
     res.json({
       success: true,
@@ -72,7 +64,7 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ [LOGIN] Error:', error);
+    console.error('❌ Error en login:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -81,17 +73,13 @@ router.post('/login', async (req, res) => {
 });
 
 // ============================================
-// 🔒 CAMBIAR CONTRASEÑA (Usuario autenticado)
+// 🔒 CAMBIAR CONTRASEÑA
 // ============================================
 router.put('/cambiar-password', protect, async (req, res) => {
   try {
-    console.log('🔒 [CAMBIAR] Solicitud recibida');
-    console.log('🔒 [CAMBIAR] Body:', req.body);
-
     const { passwordActual, passwordNuevo } = req.body;
 
     if (!passwordActual || !passwordNuevo) {
-      console.log('❌ [CAMBIAR] Faltan campos');
       return res.status(400).json({
         success: false,
         message: 'Contraseña actual y nueva son obligatorias'
@@ -99,48 +87,32 @@ router.put('/cambiar-password', protect, async (req, res) => {
     }
 
     if (passwordNuevo.length < 6) {
-      console.log('❌ [CAMBIAR] Contraseña muy corta');
       return res.status(400).json({
         success: false,
         message: 'La nueva contraseña debe tener al menos 6 caracteres'
       });
     }
 
-    console.log(`🔒 [CAMBIAR] Usuario ID: ${req.user._id}`);
     const user = await User.findById(req.user._id);
     if (!user) {
-      console.log('❌ [CAMBIAR] Usuario no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Usuario no encontrado'
       });
     }
 
-    console.log(`🔒 [CAMBIAR] Usuario: ${user.email}`);
-    console.log(`🔒 [CAMBIAR] Hash actual en DB: ${user.password}`);
-    console.log(`🔒 [CAMBIAR] Comparando contraseña actual: ${passwordActual}`);
-
     const isMatch = await bcrypt.compare(passwordActual, user.password);
-    console.log(`🔒 [CAMBIAR] Resultado comparación: ${isMatch}`);
-
     if (!isMatch) {
-      console.log('❌ [CAMBIAR] Contraseña actual incorrecta');
       return res.status(401).json({
         success: false,
         message: 'Contraseña actual incorrecta'
       });
     }
 
-    console.log(`🔒 [CAMBIAR] Generando hash para: ${passwordNuevo}`);
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(passwordNuevo, salt);
-    console.log(`🔒 [CAMBIAR] Hash generado: ${hash}`);
-
     user.password = hash;
     await user.save();
-
-    console.log(`✅ [CAMBIAR] Contraseña actualizada para: ${user.email}`);
-    console.log(`✅ [CAMBIAR] Nuevo hash guardado: ${hash}`);
 
     res.json({
       success: true,
@@ -148,7 +120,7 @@ router.put('/cambiar-password', protect, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ [CAMBIAR] Error:', error);
+    console.error('❌ Error en cambiar-password:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -157,7 +129,7 @@ router.put('/cambiar-password', protect, async (req, res) => {
 });
 
 // ============================================
-// 🔑 RESTABLECER CONTRASEÑA (Olvidé mi contraseña)
+// 🔑 RESTABLECER CONTRASEÑA (USA HASH FIJO)
 // ============================================
 router.post('/reset-password', async (req, res) => {
   try {
@@ -178,14 +150,11 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // 🔥 GENERAR HASH CORRECTO PARA 123456
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash('123456', salt);
-    user.password = hash;
+    // 🔥 USA EL HASH FIJO QUE SABEMOS QUE FUNCIONA
+    user.password = HASH_123456;
     await user.save();
 
-    console.log(`✅ Contraseña restablecida para: ${email}`);
-    console.log(`🔑 Hash generado: ${hash}`);
+    console.log(`✅ Contraseña restablecida para: ${email} usando hash fijo`);
 
     res.json({
       success: true,
@@ -202,7 +171,7 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // ============================================
-// 👤 REGISTRAR NUEVO USUARIO (Admin)
+// 👤 REGISTRAR USUARIO (USA HASH FIJO)
 // ============================================
 router.post('/register', protect, authorize('Admin'), async (req, res) => {
   try {
@@ -223,14 +192,11 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
       });
     }
 
-    // 🔥 GENERAR HASH CORRECTO PARA 123456
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash('123456', salt);
-
+    // 🔥 USA EL HASH FIJO
     const nuevoUsuario = new User({
       nombre: nombre.trim(),
       email: email.trim().toLowerCase(),
-      password: hash,
+      password: HASH_123456,
       rol: rol || 'Tecnico',
       telefono: telefono || '',
       especialidad: especialidad || '',
@@ -239,9 +205,6 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
     });
 
     await nuevoUsuario.save();
-
-    console.log(`✅ Nuevo usuario creado: ${email} (${rol || 'Tecnico'}) - Contraseña: 123456`);
-    console.log(`🔑 Hash generado: ${hash}`);
 
     res.status(201).json({
       success: true,
@@ -264,7 +227,7 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
 });
 
 // ============================================
-// 📋 OBTENER TODOS LOS USUARIOS (Admin/Jefe)
+// 📋 OBTENER TODOS LOS USUARIOS
 // ============================================
 router.get('/usuarios', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
@@ -283,7 +246,7 @@ router.get('/usuarios', protect, authorize('Admin', 'Jefe'), async (req, res) =>
 });
 
 // ============================================
-// 📋 OBTENER JEFES (para solicitudes de ausencia)
+// 📋 OBTENER JEFES
 // ============================================
 router.get('/jefes', protect, async (req, res) => {
   try {
@@ -305,7 +268,7 @@ router.get('/jefes', protect, async (req, res) => {
 });
 
 // ============================================
-// 🗑️ ELIMINAR USUARIO (Admin)
+// 🗑️ ELIMINAR USUARIO
 // ============================================
 router.delete('/usuarios/:id', protect, authorize('Admin'), async (req, res) => {
   try {
@@ -328,8 +291,6 @@ router.delete('/usuarios/:id', protect, authorize('Admin'), async (req, res) => 
     
     await user.deleteOne();
     
-    console.log(`🗑️ Usuario eliminado: ${user.email} (${user.rol})`);
-    
     res.json({
       success: true,
       message: 'Usuario eliminado correctamente'
@@ -345,7 +306,7 @@ router.delete('/usuarios/:id', protect, authorize('Admin'), async (req, res) => 
 });
 
 // ============================================
-// 🔄 ACTIVAR/DESACTIVAR USUARIO (Admin)
+// 🔄 ACTIVAR/DESACTIVAR USUARIO
 // ============================================
 router.put('/usuarios/:id/toggle', protect, authorize('Admin'), async (req, res) => {
   try {
@@ -370,17 +331,9 @@ router.put('/usuarios/:id/toggle', protect, authorize('Admin'), async (req, res)
     user.activo = activo;
     await user.save();
 
-    console.log(`🔄 Usuario ${activo ? 'activado' : 'desactivado'}: ${user.email}`);
-
     res.json({
       success: true,
-      message: `Usuario ${activo ? 'activado' : 'desactivado'} correctamente`,
-      data: {
-        id: user._id,
-        nombre: user.nombre,
-        email: user.email,
-        activo: user.activo
-      }
+      message: `Usuario ${activo ? 'activado' : 'desactivado'} correctamente`
     });
 
   } catch (error) {
@@ -393,7 +346,7 @@ router.put('/usuarios/:id/toggle', protect, authorize('Admin'), async (req, res)
 });
 
 // ============================================
-// 🔄 ACTUALIZAR USUARIO (Admin/Jefe)
+// 🔄 ACTUALIZAR USUARIO
 // ============================================
 router.put('/usuarios/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
@@ -417,14 +370,7 @@ router.put('/usuarios/:id', protect, authorize('Admin', 'Jefe'), async (req, res
 
     res.json({
       success: true,
-      message: 'Usuario actualizado correctamente',
-      data: {
-        id: user._id,
-        nombre: user.nombre,
-        email: user.email,
-        rol: user.rol,
-        activo: user.activo
-      }
+      message: 'Usuario actualizado correctamente'
     });
 
   } catch (error) {
@@ -461,8 +407,6 @@ router.post('/registrar-push-token', protect, async (req, res) => {
     user.expoPushToken = token;
     await user.save();
 
-    console.log(`📱 Token push registrado para ${user.email}`);
-
     res.json({
       success: true,
       message: 'Token push registrado correctamente'
@@ -478,15 +422,12 @@ router.post('/registrar-push-token', protect, async (req, res) => {
 });
 
 // ============================================
-// 🔧 RUTA TEMPORAL PARA VER EL HASH DE 123456
+// 🔧 RUTA PARA VERIFICAR HASH
 // ============================================
 router.get('/test-hash', (req, res) => {
-  const bcrypt = require('bcrypt');
-  const salt = bcrypt.genSaltSync(10);
-  const hash = bcrypt.hashSync('123456', salt);
   res.json({
-    hash: hash,
-    message: 'Este es el hash que genera Render para 123456'
+    hash: HASH_123456,
+    message: 'Este es el hash fijo para 123456 que debe usarse'
   });
 });
 
