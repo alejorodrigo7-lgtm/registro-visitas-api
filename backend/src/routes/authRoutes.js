@@ -5,9 +5,6 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// 🔥 HASH CORRECTO PARA "123456" (generado en Render)
-const HASH_123456 = '$2b$10$8xEPR6eUwdK9CfO8Y9gi..EFmoJ.TPBrt2hhhSP/R/Ay84ftkL6.u';
-
 // ============================================
 // 📋 LOGIN CON LOGS DETALLADOS
 // ============================================
@@ -181,10 +178,14 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    user.password = HASH_123456;
+    // 🔥 GENERAR HASH CORRECTO PARA 123456
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash('123456', salt);
+    user.password = hash;
     await user.save();
 
     console.log(`✅ Contraseña restablecida para: ${email}`);
+    console.log(`🔑 Hash generado: ${hash}`);
 
     res.json({
       success: true,
@@ -222,10 +223,14 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
       });
     }
 
+    // 🔥 GENERAR HASH CORRECTO PARA 123456
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash('123456', salt);
+
     const nuevoUsuario = new User({
       nombre: nombre.trim(),
       email: email.trim().toLowerCase(),
-      password: HASH_123456,
+      password: hash,
       rol: rol || 'Tecnico',
       telefono: telefono || '',
       especialidad: especialidad || '',
@@ -236,6 +241,7 @@ router.post('/register', protect, authorize('Admin'), async (req, res) => {
     await nuevoUsuario.save();
 
     console.log(`✅ Nuevo usuario creado: ${email} (${rol || 'Tecnico'}) - Contraseña: 123456`);
+    console.log(`🔑 Hash generado: ${hash}`);
 
     res.status(201).json({
       success: true,
@@ -476,7 +482,8 @@ router.post('/registrar-push-token', protect, async (req, res) => {
 // ============================================
 router.get('/test-hash', (req, res) => {
   const bcrypt = require('bcrypt');
-  const hash = bcrypt.hashSync('123456', 10);
+  const salt = bcrypt.genSaltSync(10);
+  const hash = bcrypt.hashSync('123456', salt);
   res.json({
     hash: hash,
     message: 'Este es el hash que genera Render para 123456'
