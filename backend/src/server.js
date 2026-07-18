@@ -3,6 +3,7 @@ process.env.TZ = 'America/Guayaquil';
 
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
 const connectDB = require('./config/database');
 const { protect, authorize } = require('./middleware/auth');
 const User = require('./models/User');
@@ -30,7 +31,12 @@ const clienteRoutes = require('./routes/clienteRoutes');
 
 const app = express();
 
+// Conectar a MongoDB
 connectDB();
+
+// Después de conectar, mostrar información de la base de datos
+console.log(`📡 Base de datos conectada: ${mongoose.connection.name}`);
+console.log(`📡 Host: ${mongoose.connection.host}`);
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
