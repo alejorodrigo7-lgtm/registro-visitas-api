@@ -6,6 +6,8 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { setupNotificationListeners } from './src/services/notificationService';
 import { initDatabase } from './src/services/database';
 import { iniciarSincronizacionAutomatica, detenerSincronizacionAutomatica } from './src/services/syncService';
+import * as ScreenCapture from 'expo-screen-capture';
+import { Alert } from 'react-native';
 
 // Pantallas principales
 import RoleSelection from './src/screens/RoleSelection';
@@ -15,7 +17,6 @@ import RegistroVisita from './src/screens/RegistroVisita';
 import GestionUsuarios from './src/screens/GestionUsuarios';
 import GestionHorarios from './src/screens/GestionHorarios';
 import Alertas from './src/screens/Alertas';
-import UsuarioNuevoScreen from './src/screens/UsuarioNuevoScreen';
 
 // Transferencias
 import TransferenciasMenu from './src/screens/TransferenciasMenu';
@@ -67,9 +68,53 @@ import GestionAusencias from './src/screens/GestionAusencias';
 import ReporteAsistencia from './src/screens/ReporteAsistencia';
 import ReporteAusencias from './src/screens/ReporteAusencias';
 
+// Usuarios
+import CrearUsuario from './src/screens/CrearUsuario';
 import CambiarContraseña from './src/screens/CambiarContraseña';
 
 const Stack = createStackNavigator();
+
+// ============================================
+// 📸 BLOQUEADOR DE CAPTURAS DE PANTALLA
+// ============================================
+const ScreenCaptureBlocker = ({ children }) => {
+  useEffect(() => {
+    let isMounted = true;
+
+    const preventScreenCapture = async () => {
+      try {
+        await ScreenCapture.preventScreenCaptureAsync();
+        console.log('📸 Capturas de pantalla bloqueadas');
+      } catch (error) {
+        console.log('⚠️ Error bloqueando capturas:', error);
+      }
+    };
+
+    const subscription = ScreenCapture.addListener(
+      ScreenCapture.ScreenCaptureEvent,
+      (event) => {
+        if (isMounted) {
+          Alert.alert(
+            '⚠️ Captura de Pantalla Detectada',
+            'No está permitido tomar capturas de pantalla en esta aplicación por razones de seguridad.',
+            [{ text: 'Entendido', style: 'default' }]
+          );
+          setTimeout(preventScreenCapture, 500);
+        }
+      }
+    );
+
+    preventScreenCapture();
+
+    return () => {
+      isMounted = false;
+      subscription?.remove();
+      ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+    };
+  }, []);
+
+  return children;
+};
 
 // ============================================
 // 🚀 INICIALIZADOR DE APP CON SINCRONIZACIÓN
@@ -126,71 +171,72 @@ export default function App() {
     <AuthProvider>
       <StatusBar style="auto" />
       <AppInitializer>
-        <NavigationContainer>
-          <Stack.Navigator
-            initialRouteName="RoleSelection"
-            screenOptions={{
-              headerStyle: { backgroundColor: '#6C5CE7' },
-              headerTintColor: '#FFFFFF',
-              headerTitleStyle: { fontWeight: 'bold' },
-              headerTitle: 'RA²P',
-            }}
-          >
-            <Stack.Screen name="RoleSelection" component={RoleSelection} options={{ headerShown: false }} />
-            <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
-            <Stack.Screen name="MenuPrincipal" component={MenuPrincipal} options={{ title: 'RA²P', headerLeft: null }} />
-            <Stack.Screen name="RegistroVisita" component={RegistroVisita} options={{ title: 'Registrar Visita' }} />
-            <Stack.Screen name="GestionUsuarios" component={GestionUsuarios} options={{ title: 'Gestión de Usuarios' }} />
-            <Stack.Screen name="GestionHorarios" component={GestionHorarios} options={{ title: 'Horarios' }} />
-            <Stack.Screen name="Alertas" component={Alertas} options={{ title: 'Alertas' }} />
+        <ScreenCaptureBlocker>
+          <NavigationContainer>
+            <Stack.Navigator
+              initialRouteName="RoleSelection"
+              screenOptions={{
+                headerStyle: { backgroundColor: '#6C5CE7' },
+                headerTintColor: '#FFFFFF',
+                headerTitleStyle: { fontWeight: 'bold' },
+                headerTitle: 'RA²P',
+              }}
+            >
+              <Stack.Screen name="RoleSelection" component={RoleSelection} options={{ headerShown: false }} />
+              <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
+              <Stack.Screen name="MenuPrincipal" component={MenuPrincipal} options={{ title: 'RA²P', headerLeft: null }} />
+              <Stack.Screen name="RegistroVisita" component={RegistroVisita} options={{ title: 'Registrar Visita' }} />
+              <Stack.Screen name="GestionUsuarios" component={GestionUsuarios} options={{ title: 'Gestión de Usuarios' }} />
+              <Stack.Screen name="GestionHorarios" component={GestionHorarios} options={{ title: 'Horarios' }} />
+              <Stack.Screen name="Alertas" component={Alertas} options={{ title: 'Alertas' }} />
 
-            <Stack.Screen name="TransferenciasMenu" component={TransferenciasMenu} options={{ title: 'Transferencias' }} />
-            <Stack.Screen name="SubirTransferencia" component={SubirTransferencia} options={{ title: 'Subir Transferencia' }} />
-            <Stack.Screen name="ConfirmacionTransferencias" component={ConfirmacionTransferencias} options={{ title: 'Confirmación' }} />
-            <Stack.Screen name="IngresoTransferencias" component={IngresoTransferencias} options={{ title: 'Ingreso Transferencias' }} />
-            <Stack.Screen name="RevisionTransferencias" component={RevisionTransferencias} options={{ title: 'Revisar Transferencias' }} />
+              <Stack.Screen name="TransferenciasMenu" component={TransferenciasMenu} options={{ title: 'Transferencias' }} />
+              <Stack.Screen name="SubirTransferencia" component={SubirTransferencia} options={{ title: 'Subir Transferencia' }} />
+              <Stack.Screen name="ConfirmacionTransferencias" component={ConfirmacionTransferencias} options={{ title: 'Confirmación' }} />
+              <Stack.Screen name="IngresoTransferencias" component={IngresoTransferencias} options={{ title: 'Ingreso Transferencias' }} />
+              <Stack.Screen name="RevisionTransferencias" component={RevisionTransferencias} options={{ title: 'Revisar Transferencias' }} />
 
-            <Stack.Screen name="ServiciosMenu" component={ServiciosMenu} options={{ title: 'Servicios' }} />
-            <Stack.Screen name="TomarServicio" component={TomarServicio} options={{ title: 'Tomar Servicio' }} />
-            <Stack.Screen name="EjecucionServicio" component={EjecucionServicio} options={{ title: 'Ejecución' }} />
-            <Stack.Screen name="RetroalimentacionServicio" component={RetroalimentacionServicio} options={{ title: 'Retroalimentación' }} />
-            <Stack.Screen name="RevisionServicios" component={RevisionServicios} options={{ title: 'Revisar Servicios' }} />
+              <Stack.Screen name="ServiciosMenu" component={ServiciosMenu} options={{ title: 'Servicios' }} />
+              <Stack.Screen name="TomarServicio" component={TomarServicio} options={{ title: 'Tomar Servicio' }} />
+              <Stack.Screen name="EjecucionServicio" component={EjecucionServicio} options={{ title: 'Ejecución' }} />
+              <Stack.Screen name="RetroalimentacionServicio" component={RetroalimentacionServicio} options={{ title: 'Retroalimentación' }} />
+              <Stack.Screen name="RevisionServicios" component={RevisionServicios} options={{ title: 'Revisar Servicios' }} />
 
-            <Stack.Screen name="CajasMenu" component={CajasMenu} options={{ title: 'Cajas' }} />
-            <Stack.Screen name="IngresoCaja" component={IngresoCaja} options={{ title: 'Ingreso de Caja' }} />
-            <Stack.Screen name="SaldosDisponibles" component={SaldosDisponibles} options={{ title: 'Saldos' }} />
-            <Stack.Screen name="DetalleSaldo" component={DetalleSaldo} options={{ title: 'Detalle Saldo' }} />
-            <Stack.Screen name="EdicionCajas" component={EdicionCajas} options={{ title: 'Edición Cajas' }} />
-            <Stack.Screen name="DepositosMenu" component={DepositosMenu} options={{ title: 'Depósitos' }} />
-            <Stack.Screen name="SubirDeposito" component={SubirDeposito} options={{ title: 'Subir Depósito' }} />
-            <Stack.Screen name="RevisarDepositos" component={RevisarDepositos} options={{ title: 'Revisar Depósitos' }} />
+              <Stack.Screen name="CajasMenu" component={CajasMenu} options={{ title: 'Cajas' }} />
+              <Stack.Screen name="IngresoCaja" component={IngresoCaja} options={{ title: 'Ingreso de Caja' }} />
+              <Stack.Screen name="SaldosDisponibles" component={SaldosDisponibles} options={{ title: 'Saldos' }} />
+              <Stack.Screen name="DetalleSaldo" component={DetalleSaldo} options={{ title: 'Detalle Saldo' }} />
+              <Stack.Screen name="EdicionCajas" component={EdicionCajas} options={{ title: 'Edición Cajas' }} />
+              <Stack.Screen name="DepositosMenu" component={DepositosMenu} options={{ title: 'Depósitos' }} />
+              <Stack.Screen name="SubirDeposito" component={SubirDeposito} options={{ title: 'Subir Depósito' }} />
+              <Stack.Screen name="RevisarDepositos" component={RevisarDepositos} options={{ title: 'Revisar Depósitos' }} />
 
-            <Stack.Screen name="Reportes" component={Reportes} options={{ title: 'Reportes' }} />
+              <Stack.Screen name="Reportes" component={Reportes} options={{ title: 'Reportes' }} />
 
-            <Stack.Screen name="BodegaMenu" component={BodegaMenu} options={{ title: 'Bodegas' }} />
-            <Stack.Screen name="CrearBodega" component={CrearBodega} options={{ title: 'Crear Bodega' }} />
-            <Stack.Screen name="AsignarMaterial" component={AsignarMaterial} options={{ title: 'Asignar Material' }} />
-            <Stack.Screen name="RevisionBodegas" component={RevisionBodegas} options={{ title: 'Revisar Bodegas' }} />
+              <Stack.Screen name="BodegaMenu" component={BodegaMenu} options={{ title: 'Bodegas' }} />
+              <Stack.Screen name="CrearBodega" component={CrearBodega} options={{ title: 'Crear Bodega' }} />
+              <Stack.Screen name="AsignarMaterial" component={AsignarMaterial} options={{ title: 'Asignar Material' }} />
+              <Stack.Screen name="RevisionBodegas" component={RevisionBodegas} options={{ title: 'Revisar Bodegas' }} />
 
-            <Stack.Screen name="MapasMenu" component={MapasMenu} options={{ title: 'Mapas' }} />
-            <Stack.Screen name="MapaAnalisis" component={MapaAnalisis} options={{ title: 'Mapa Análisis' }} />
-            <Stack.Screen name="MapaReal" component={MapaReal} options={{ title: 'Mapa Real' }} />
-            <Stack.Screen name="MapaKMZ" component={MapaKMZ} options={{ title: 'KMZ' }} />
+              <Stack.Screen name="MapasMenu" component={MapasMenu} options={{ title: 'Mapas' }} />
+              <Stack.Screen name="MapaAnalisis" component={MapaAnalisis} options={{ title: 'Mapa Análisis' }} />
+              <Stack.Screen name="MapaReal" component={MapaReal} options={{ title: 'Mapa Real' }} />
+              <Stack.Screen name="MapaKMZ" component={MapaKMZ} options={{ title: 'KMZ' }} />
 
-            {/* Monserrath */}
-            <Stack.Screen name="MonserrathScreen" component={MonserrathScreen} options={{ title: 'Monserrath' }} />
-            <Stack.Screen name="ReporteMonserrath" component={ReporteMonserrath} options={{ title: 'Reporte Monserrath' }} />
-            
-            {/* Asistencia */}
-            <Stack.Screen name="AsistenciaScreen" component={AsistenciaScreen} options={{ title: 'Asistencia' }} />
-            <Stack.Screen name="PedirAusenciaScreen" component={PedirAusenciaScreen} options={{ title: 'Pedir Ausencia' }} />
-            <Stack.Screen name="GestionAusencias" component={GestionAusencias} options={{ title: 'Gestionar Ausencias' }} />
-            <Stack.Screen name="ReporteAsistencia" component={ReporteAsistencia} options={{ title: 'Reporte Asistencia' }} />
-            <Stack.Screen name="ReporteAusencias" component={ReporteAusencias} options={{ title: 'Reporte Ausencias' }} />
-            <Stack.Screen name="UsuarioNuevoScreen" component={UsuarioNuevoScreen} options={{ title: 'Usuario Nuevo' }} />
-            <Stack.Screen name="CambiarContraseña" component={CambiarContraseña} options={{ title: 'Cambiar Contraseña' }} />
-          </Stack.Navigator>
-        </NavigationContainer>
+              <Stack.Screen name="MonserrathScreen" component={MonserrathScreen} options={{ title: 'Monserrath' }} />
+              <Stack.Screen name="ReporteMonserrath" component={ReporteMonserrath} options={{ title: 'Reporte Monserrath' }} />
+              
+              <Stack.Screen name="AsistenciaScreen" component={AsistenciaScreen} options={{ title: 'Asistencia' }} />
+              <Stack.Screen name="PedirAusenciaScreen" component={PedirAusenciaScreen} options={{ title: 'Pedir Ausencia' }} />
+              <Stack.Screen name="GestionAusencias" component={GestionAusencias} options={{ title: 'Gestionar Ausencias' }} />
+              <Stack.Screen name="ReporteAsistencia" component={ReporteAsistencia} options={{ title: 'Reporte Asistencia' }} />
+              <Stack.Screen name="ReporteAusencias" component={ReporteAusencias} options={{ title: 'Reporte Ausencias' }} />
+
+              <Stack.Screen name="CrearUsuario" component={CrearUsuario} options={{ title: 'Crear Usuario' }} />
+              <Stack.Screen name="CambiarContraseña" component={CambiarContraseña} options={{ title: 'Cambiar Contraseña' }} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </ScreenCaptureBlocker>
       </AppInitializer>
     </AuthProvider>
   );
