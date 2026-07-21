@@ -1,5 +1,7 @@
 const Visita = require('../models/Visita');
 const Ubicacion = require('../models/Ubicacion');
+const logger = require('../config/logger');
+const { notificarVisitaRegistrada } = require('../services/notificationService');
 
 // ============================================
 // 📋 CREAR VISITA
@@ -8,6 +10,13 @@ exports.crearVisita = async (req, res) => {
   console.log('📝 1. CrearVisita - Inicio');
   console.log('📝 2. Body recibido:', req.body);
   console.log('📝 3. Usuario:', req.user);
+
+  logger.info('Registro de visita', {
+    tecnico: req.user?.email,
+    cliente: req.body.cliente,
+    tipo: req.body.tipo,
+    ubicacion: req.body.ubicacion
+  });
 
   try {
     const {
@@ -99,6 +108,7 @@ exports.crearVisita = async (req, res) => {
       foto: foto || '',
       estado: 'Pendiente',
       tecnico: tecnicoId,
+      tecnicoNombre: req.user.nombre,
       fecha: new Date(),
     };
 
@@ -115,6 +125,13 @@ exports.crearVisita = async (req, res) => {
     await visita.save();
 
     console.log('✅ Visita guardada con ID:', visita._id);
+
+    logger.audit('VISITA_REGISTRADA', req.user, {
+      visitaId: visita._id,
+      cliente: visita.cliente,
+      tipo: visita.tipo,
+      identificador: visita.identificador
+    });
 
     // 📍 GUARDAR UBICACIÓN EN COLECCIÓN UBICACION
     if (ubicacion && ubicacion.latitude && ubicacion.longitude) {
@@ -140,8 +157,24 @@ exports.crearVisita = async (req, res) => {
         await nuevaUbicacion.save();
         console.log(`📍 Ubicación guardada para visita ${visita._id}`);
       } catch (ubiError) {
+        logger.errorWithContext('Error al guardar ubicación', ubiError, {
+          visitaId: visita._id,
+          cliente: cliente
+        });
         console.error('❌ Error al guardar ubicación:', ubiError);
       }
+    }
+
+    // ✅ ENVIAR NOTIFICACIÓN PUSH
+    try {
+      await notificarVisitaRegistrada(visita);
+      console.log(`📱 Notificación push enviada por visita ${visita._id}`);
+    } catch (notifError) {
+      logger.errorWithContext('Error enviando notificación de visita', notifError, {
+        visitaId: visita._id,
+        cliente: visita.cliente
+      });
+      // No bloqueamos la respuesta si la notificación falla
     }
 
     res.status(201).json({
@@ -151,6 +184,10 @@ exports.crearVisita = async (req, res) => {
     });
 
   } catch (error) {
+    logger.errorWithContext('Error en crearVisita', error, {
+      usuario: req.user?.email,
+      cliente: req.body.cliente
+    });
     console.error('❌ Error en crearVisita:', error);
     
     if (error.name === 'ValidationError') {
@@ -173,6 +210,7 @@ exports.crearVisita = async (req, res) => {
 // ============================================
 exports.obtenerVisitas = async (req, res) => {
   try {
+    const start = Date.now();
     const { estado, tecnico, fechaInicio, fechaFin } = req.query;
     let query = {};
 
@@ -195,6 +233,13 @@ exports.obtenerVisitas = async (req, res) => {
       .populate('tecnico', 'nombre email')
       .sort({ fecha: -1 });
 
+    const duration = Date.now() - start;
+    logger.performance('obtenerVisitas', duration, {
+      count: visitas.length,
+      query: req.query,
+      user: req.user?.email
+    });
+
     res.json({
       success: true,
       count: visitas.length,
@@ -202,6 +247,9 @@ exports.obtenerVisitas = async (req, res) => {
     });
 
   } catch (error) {
+    logger.errorWithContext('Error en obtenerVisitas', error, {
+      usuario: req.user?.email
+    });
     console.error('❌ Error en obtenerVisitas:', error);
     res.status(500).json({
       success: false,
@@ -238,6 +286,10 @@ exports.obtenerVisita = async (req, res) => {
     });
 
   } catch (error) {
+    logger.errorWithContext('Error en obtenerVisita', error, {
+      visitaId: req.params.id,
+      usuario: req.user?.email
+    });
     console.error('❌ Error en obtenerVisita:', error);
     res.status(500).json({
       success: false,
@@ -285,6 +337,12 @@ exports.actualizarVisita = async (req, res) => {
 
     await visita.save();
 
+    logger.audit('VISITA_ACTUALIZADA', req.user, {
+      visitaId: visita._id,
+      cliente: visita.cliente,
+      cambios: { estado, observaciones }
+    });
+
     res.json({
       success: true,
       message: 'Visita actualizada correctamente',
@@ -292,6 +350,10 @@ exports.actualizarVisita = async (req, res) => {
     });
 
   } catch (error) {
+    logger.errorWithContext('Error en actualizarVisita', error, {
+      visitaId: req.params.id,
+      usuario: req.user?.email
+    });
     console.error('❌ Error en actualizarVisita:', error);
     res.status(500).json({
       success: false,
@@ -316,12 +378,21 @@ exports.eliminarVisita = async (req, res) => {
 
     await visita.deleteOne();
 
+    logger.audit('VISITA_ELIMINADA', req.user, {
+      visitaId: visita._id,
+      cliente: visita.cliente,
+      tipo: visita.tipo
+    });
+
     res.json({
       success: true,
       message: 'Visita eliminada correctamente',
     });
 
   } catch (error) {
+    logger.errorWithContext('Error en eliminarVisita', error, {
+      visitaId: req.params.id
+    });
     console.error('❌ Error en eliminarVisita:', error);
     res.status(500).json({
       success: false,

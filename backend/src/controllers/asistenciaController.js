@@ -1,6 +1,7 @@
 const Asistencia = require('../models/Asistencia');
 const PedirAusencia = require('../models/PedirAusencia');
 const ExcelJS = require('exceljs');
+const logger = require('../config/logger');
 
 // ============================================
 // 📍 COORDENADAS PERMITIDAS (500 metros de radio)
@@ -133,6 +134,14 @@ exports.registrarAsistencia = async (req, res) => {
     const horaActual = getHoraLocal();
 
     console.log(`📝 Registrando ${tipo} para ${req.user.nombre} - ${fechaStr} ${horaActual}`);
+    
+    logger.info('Registro de asistencia', {
+      usuario: req.user.email,
+      tipo,
+      fecha: fechaStr,
+      ubicacion: ubicacion?.address,
+      hora: horaActual
+    });
 
     let asistencia = await Asistencia.findOne({
       usuario: usuarioId,
@@ -189,6 +198,11 @@ exports.registrarAsistencia = async (req, res) => {
       // 🔥 VERIFICAR UBICACIÓN FALSA
       const verificacionFalsa = verificarUbicacionFalsa(ubicacion);
       if (verificacionFalsa.esFalsa) {
+        logger.warn('Intento de asistencia con ubicación falsa', {
+          usuario: req.user.email,
+          ubicacion: ubicacion,
+          razon: verificacionFalsa.razon
+        });
         return res.status(400).json({
           success: false,
           message: `⚠️ Ubicación sospechosa detectada: ${verificacionFalsa.razon}. Por favor, desactiva cualquier aplicación de Fake GPS.`,
@@ -198,6 +212,11 @@ exports.registrarAsistencia = async (req, res) => {
       verifUbicacion = verificarUbicacionPermitida(ubicacion.latitude, ubicacion.longitude);
 
       if (!verifUbicacion.permitido) {
+        logger.warn('Intento de asistencia fuera de ubicación permitida', {
+          usuario: req.user.email,
+          ubicacion: ubicacion,
+          distancia: verifUbicacion.distancia
+        });
         return res.status(400).json({
           success: false,
           message: `No estás en una ubicación permitida. Debes estar en una de las oficinas autorizadas para registrar entrada o salida.\nDistancia a la más cercana: ${verifUbicacion.distancia || 'N/A'} metros`,
@@ -256,6 +275,12 @@ exports.registrarAsistencia = async (req, res) => {
 
     await asistencia.save();
 
+    logger.audit(`ASISTENCIA_${tipo.toUpperCase()}`, req.user, {
+      hora: horaActual,
+      ubicacion: ubicacion?.address || 'Sin ubicación',
+      fecha: fechaStr
+    });
+
     const ausenciasPendientes = await PedirAusencia.find({
       usuario: usuarioId,
       fechaStr: fechaStr,
@@ -290,6 +315,10 @@ exports.registrarAsistencia = async (req, res) => {
     });
 
   } catch (error) {
+    logger.errorWithContext('Error en registrarAsistencia', error, {
+      usuario: req.user?.email,
+      tipo: req.body.tipo
+    });
     console.error('❌ Error en registrarAsistencia:', error);
     res.status(500).json({ success: false, message: error.message });
   }
@@ -349,6 +378,9 @@ exports.obtenerAsistenciaHoy = async (req, res) => {
     });
 
   } catch (error) {
+    logger.errorWithContext('Error en obtenerAsistenciaHoy', error, {
+      usuario: req.user?.email
+    });
     console.error('❌ Error en obtenerAsistenciaHoy:', error);
     res.status(500).json({ success: false, message: error.message });
   }
@@ -379,6 +411,7 @@ exports.obtenerAsistenciaPorFechas = async (req, res) => {
     });
 
   } catch (error) {
+    logger.errorWithContext('Error en obtenerAsistenciaPorFechas', error);
     console.error('❌ Error en obtenerAsistenciaPorFechas:', error);
     res.status(500).json({ success: false, message: error.message });
   }
@@ -446,6 +479,7 @@ exports.generarReporteExcel = async (req, res) => {
     res.send(buffer);
 
   } catch (error) {
+    logger.errorWithContext('Error en generarReporteExcel', error);
     console.error('❌ Error en generarReporteExcel:', error);
     res.status(500).json({ success: false, message: error.message });
   }

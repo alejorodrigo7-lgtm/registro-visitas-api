@@ -1,0 +1,189 @@
+2026-07-21 13:31:17 [INFO]: 🚀 Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📊 Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 🌍 Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 🕐 Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 🕐 Hora actual: 21/7/2026, 13:31:17 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📡 Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 🔍 /api/clientes/buscar/:identificador {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📋 /api/clientes/todos (SIN LÍMITE) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 👤 /api/clientes (POST - Crear cliente) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📤 /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 🛠️ /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 💰 /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📊 /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📋 /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 🏪 /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📋 /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 🗺️ /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📋 /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📍 /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📝 /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📲 /api/test-transferencia-push {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📱 /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:31:17 [INFO]: 📊 /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 🚀 Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📊 Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 🌍 Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 🕐 Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 🕐 Hora actual: 21/7/2026, 13:33:38 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📡 Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 🔍 /api/clientes/buscar/:identificador {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📋 /api/clientes/todos (SIN LÍMITE) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 👤 /api/clientes (POST - Crear cliente) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📤 /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 🛠️ /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 💰 /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📊 /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📋 /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 🏪 /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📋 /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 🗺️ /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📋 /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📍 /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📝 /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📲 /api/test-transferencia-push {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📱 /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:38 [INFO]: 📊 /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 🚀 Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📊 Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 🌍 Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 🕐 Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 🕐 Hora actual: 21/7/2026, 13:33:56 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📡 Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 🔍 /api/clientes/buscar/:identificador {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📋 /api/clientes/todos (SIN LÍMITE) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 👤 /api/clientes (POST - Crear cliente) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📤 /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 🛠️ /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 💰 /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📊 /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📋 /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 🏪 /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📋 /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 🗺️ /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📋 /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📍 /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📝 /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📲 /api/test-transferencia-push {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📱 /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:33:56 [INFO]: 📊 /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 🚀 Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📊 Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 🌍 Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 🕐 Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 🕐 Hora actual: 21/7/2026, 13:41:06 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📡 Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 🔍 /api/clientes/buscar/:identificador {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📋 /api/clientes/todos (SIN LÍMITE) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 👤 /api/clientes (POST - Crear cliente) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📤 /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 🛠️ /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 💰 /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📊 /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📋 /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 🏪 /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📋 /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 🗺️ /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📋 /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📍 /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📝 /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📲 /api/test-transferencia-push {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📱 /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:41:06 [INFO]: 📊 /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:53 [INFO]: 🚀 Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:53 [INFO]: 📊 Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:53 [INFO]: 🌍 Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:53 [INFO]: 🕐 Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:53 [INFO]: 🕐 Hora actual: 21/7/2026, 13:42:53 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:53 [INFO]: 📡 Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 🔍 /api/clientes/buscar/:identificador {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📋 /api/clientes/todos (SIN LÍMITE) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 👤 /api/clientes (POST - Crear cliente) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📤 /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 🛠️ /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 💰 /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📊 /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📋 /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 🏪 /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📋 /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 🗺️ /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📋 /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📍 /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📝 /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📲 /api/test-transferencia-push {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📱 /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:42:54 [INFO]: 📊 /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:54 [INFO]: 🚀 Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:54 [INFO]: 📊 Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:54 [INFO]: 🌍 Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:54 [INFO]: 🕐 Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 🕐 Hora actual: 21/7/2026, 13:59:54 {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📡 Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 🔍 /api/clientes/buscar/:identificador {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📋 /api/clientes/todos (SIN LÍMITE) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 👤 /api/clientes (POST - Crear cliente) {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📤 /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 🛠️ /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 💰 /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📊 /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📋 /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 🏪 /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📋 /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 🗺️ /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📋 /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📍 /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📝 /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📲 /api/test-transferencia-push {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📱 /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-07-21 13:59:55 [INFO]: 📊 /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 🚀 Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📊 Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 🌍 Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 🕐 Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 🕐 Hora actual: 21/7/2026, 14:01:18 {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📡 Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 🔍 /api/clientes/buscar/:identificador {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📋 /api/clientes/todos (SIN LÍMITE) {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 👤 /api/clientes (POST - Crear cliente) {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📤 /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 🛠️ /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 💰 /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📊 /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📋 /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 🏪 /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📋 /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 🗺️ /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📋 /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📍 /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📝 /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📲 /api/test-transferencia-push {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📱 /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:18 [INFO]: 📊 /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:01:50 [INFO]: 📥 Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 🚀 Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📊 Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 🌍 Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 🕐 Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 🕐 Hora actual: 21/7/2026, 14:02:06 {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📡 Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 🔍 /api/clientes/buscar/:identificador {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📋 /api/clientes/todos (SIN LÍMITE) {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 👤 /api/clientes (POST - Crear cliente) {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📤 /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 🛠️ /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 💰 /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📊 /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📋 /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 🏪 /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📋 /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 🗺️ /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📋 /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📍 /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📝 /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📲 /api/test-transferencia-push {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📱 /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:06 [INFO]: 📊 /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-07-21 14:02:23 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"146ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-07-21 14:03:17 [INFO]: 📊 Dashboard solicitado {"service":"ra2p-api","environment":"development","usuario":"admin@visitas.com","rol":"Admin"}
+2026-07-21 14:03:17 [INFO]: PERFORMANCE: dashboard {"service":"ra2p-api","environment":"development","duration":"86ms","usuario":"admin@visitas.com","visitas":0,"asistencias":0}
+2026-07-21 14:03:17 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"GET","url":"/","status":200,"duration":"104ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a4932d02745796b0596e69f","userEmail":"admin@visitas.com"}

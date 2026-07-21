@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "C:\\Users\\MARYLUZ CORDOBA\\Desktop\\registro-visitas-app\\backend\\logs\\.383da2e90afeeeec34d9f8b0496aad5803890297-audit.json",
+    "files": [
+        {
+            "date": 1784581342999,
+            "name": "C:\\Users\\MARYLUZ CORDOBA\\Desktop\\registro-visitas-app\\backend\\logs\\error-2026-07-20.log",
+            "hash": "11b55c62ad3dd1571535a2eec82fe65b53d9eca5bdd58fa11b17e3d83d26370b"
+        },
+        {
+            "date": 1784658675891,
+            "name": "C:\\Users\\MARYLUZ CORDOBA\\Desktop\\registro-visitas-app\\backend\\logs\\error-2026-07-21.log",
+            "hash": "d609d5367aaca9a40005b109d5261e0e727bb320c0d36289b004e0e5c5a70b7e"
+        }
+    ],
+    "hashType": "sha256"
+}

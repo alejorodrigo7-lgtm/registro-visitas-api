@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const logger = require('../config/logger');
 
 // ============================================
 // 📋 REGISTRAR USUARIO (SOLO ADMIN)
@@ -9,9 +10,16 @@ exports.register = async (req, res) => {
   try {
     const { nombre, email, password, rol, telefono, especialidad } = req.body;
 
+    logger.info('Intento de creación de usuario', { 
+      email, 
+      rol, 
+      admin: req.user?.email 
+    });
+
     // Verificar si el usuario ya existe
     const userExists = await User.findOne({ email });
     if (userExists) {
+      logger.warn('Creación fallida - email ya existe', { email });
       return res.status(400).json({
         success: false,
         message: 'El usuario ya existe'
@@ -32,6 +40,12 @@ exports.register = async (req, res) => {
       activo: true,
     });
 
+    logger.audit('USUARIO_CREADO', req.user, {
+      usuarioCreado: email,
+      rolCreado: rol || 'Tecnico',
+      admin: req.user?.email
+    });
+
     res.status(201).json({
       success: true,
       message: 'Usuario creado correctamente',
@@ -43,6 +57,9 @@ exports.register = async (req, res) => {
       },
     });
   } catch (error) {
+    logger.errorWithContext('Error en register', error, {
+      email: req.body.email
+    });
     console.error('Error en register:', error);
     res.status(500).json({
       success: false,
@@ -58,9 +75,12 @@ exports.login = async (req, res) => {
   try {
     const { email, password, rol } = req.body;
 
+    logger.info('Intento de login', { email, rol, ip: req.ip });
+
     // Buscar usuario
     const user = await User.findOne({ email });
     if (!user) {
+      logger.warn('Login fallido - usuario no encontrado', { email });
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
@@ -69,6 +89,11 @@ exports.login = async (req, res) => {
 
     // Verificar rol (opcional)
     if (rol && user.rol !== rol) {
+      logger.warn('Login fallido - rol incorrecto', { 
+        email, 
+        rolEsperado: rol, 
+        rolReal: user.rol 
+      });
       return res.status(401).json({
         success: false,
         message: 'Rol incorrecto'
@@ -77,6 +102,10 @@ exports.login = async (req, res) => {
 
     // Verificar si está activo
     if (user.activo === false) {
+      logger.warn('Login fallido - usuario inactivo', { 
+        email, 
+        userId: user._id 
+      });
       return res.status(401).json({
         success: false,
         message: 'Usuario desactivado'
@@ -86,6 +115,10 @@ exports.login = async (req, res) => {
     // Verificar contraseña
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      logger.warn('Login fallido - contraseña incorrecta', { 
+        email, 
+        userId: user._id 
+      });
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
@@ -98,6 +131,11 @@ exports.login = async (req, res) => {
       process.env.JWT_SECRET || 'secret',
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
+
+    logger.audit('LOGIN_EXITOSO', user, {
+      ip: req.ip,
+      userAgent: req.get('user-agent')
+    });
 
     res.json({
       success: true,
@@ -114,6 +152,9 @@ exports.login = async (req, res) => {
       },
     });
   } catch (error) {
+    logger.errorWithContext('Error en login', error, {
+      email: req.body.email
+    });
     console.error('Error en login:', error);
     res.status(500).json({
       success: false,
@@ -134,6 +175,7 @@ exports.getUsuarios = async (req, res) => {
       data: usuarios,
     });
   } catch (error) {
+    logger.errorWithContext('Error en getUsuarios', error);
     console.error('Error en getUsuarios:', error);
     res.status(500).json({
       success: false,
@@ -159,6 +201,9 @@ exports.getUsuario = async (req, res) => {
       data: usuario,
     });
   } catch (error) {
+    logger.errorWithContext('Error en getUsuario', error, {
+      usuarioId: req.params.id
+    });
     console.error('Error en getUsuario:', error);
     res.status(500).json({
       success: false,
@@ -199,12 +244,20 @@ exports.updateUsuario = async (req, res) => {
 
     await usuario.save();
 
+    logger.audit('USUARIO_ACTUALIZADO', req.user, {
+      usuarioActualizado: usuario.email,
+      cambios: { nombre, telefono, especialidad, rol, activo }
+    });
+
     res.json({
       success: true,
       message: 'Usuario actualizado correctamente',
       data: usuario,
     });
   } catch (error) {
+    logger.errorWithContext('Error en updateUsuario', error, {
+      usuarioId: req.params.id
+    });
     console.error('Error en updateUsuario:', error);
     res.status(500).json({
       success: false,
@@ -238,11 +291,19 @@ exports.deleteUsuario = async (req, res) => {
 
     await usuario.deleteOne();
 
+    logger.audit('USUARIO_ELIMINADO', req.user, {
+      usuarioEliminado: usuario.email,
+      rolEliminado: usuario.rol
+    });
+
     res.json({
       success: true,
       message: 'Usuario eliminado correctamente',
     });
   } catch (error) {
+    logger.errorWithContext('Error en deleteUsuario', error, {
+      usuarioId: req.params.id
+    });
     console.error('Error en deleteUsuario:', error);
     res.status(500).json({
       success: false,
@@ -278,12 +339,20 @@ exports.toggleUsuario = async (req, res) => {
     usuario.activo = activo;
     await usuario.save();
 
+    logger.audit(`USUARIO_${activo ? 'ACTIVADO' : 'DESACTIVADO'}`, req.user, {
+      usuario: usuario.email,
+      estado: activo ? 'Activo' : 'Inactivo'
+    });
+
     res.json({
       success: true,
       message: `Usuario ${activo ? 'activado' : 'desactivado'} correctamente`,
       data: usuario,
     });
   } catch (error) {
+    logger.errorWithContext('Error en toggleUsuario', error, {
+      usuarioId: req.params.id
+    });
     console.error('Error en toggleUsuario:', error);
     res.status(500).json({
       success: false,
@@ -330,11 +399,19 @@ exports.changePassword = async (req, res) => {
     usuario.password = await bcrypt.hash(newPassword, 10);
     await usuario.save();
 
+    logger.audit('CONTRASEÑA_CAMBIADA', req.user, {
+      usuario: usuario.email,
+      cambiadoPor: req.user.email
+    });
+
     res.json({
       success: true,
       message: 'Contraseña actualizada correctamente',
     });
   } catch (error) {
+    logger.errorWithContext('Error en changePassword', error, {
+      usuarioId: req.params.id
+    });
     console.error('Error en changePassword:', error);
     res.status(500).json({
       success: false,
@@ -368,6 +445,10 @@ exports.registrarPushToken = async (req, res) => {
     user.expoPushToken = token;
     await user.save();
 
+    logger.info(`Token push registrado para ${user.email}`, {
+      usuario: user.email,
+      userId: user._id
+    });
     console.log(`✅ Token push registrado para ${user.email}`);
 
     res.json({
@@ -375,6 +456,9 @@ exports.registrarPushToken = async (req, res) => {
       message: 'Token push registrado correctamente',
     });
   } catch (error) {
+    logger.errorWithContext('Error registrando token push', error, {
+      userId: req.body.userId
+    });
     console.error('❌ Error registrando token push:', error);
     res.status(500).json({
       success: false,
@@ -397,6 +481,7 @@ exports.getJefes = async (req, res) => {
       data: jefes,
     });
   } catch (error) {
+    logger.errorWithContext('Error en getJefes', error);
     console.error('Error en getJefes:', error);
     res.status(500).json({
       success: false,

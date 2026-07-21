@@ -8,6 +8,23 @@ const connectDB = require('./config/database');
 const { protect, authorize } = require('./middleware/auth');
 const User = require('./models/User');
 const bcrypt = require('bcrypt');
+// ============================================
+// 🔒 RATE LIMITING
+// ============================================
+const {
+  generalLimiter,
+  loginLimiter,
+  registerLimiter,
+  visitasLimiter,
+  asistenciaLimiter,
+  notificacionesLimiter,
+} = require('./config/rateLimit');
+
+// ============================================
+// 📊 LOGGER
+// ============================================
+const logger = require('./config/logger');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 // 🔥 GENERAR HASH PARA 123456 AL INICIAR EL SERVIDOR
 const HASH_123456 = bcrypt.hashSync('123456', 10);
@@ -28,6 +45,8 @@ const monserrathRoutes = require('./routes/monserrathRoutes');
 const asistenciaRoutes = require('./routes/asistenciaRoutes');
 const pedirAusenciaRoutes = require('./routes/pedirAusenciaRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
+const notificationRoutes = require('./routes/notificacionroutes'); // ✅ CORREGIDO
+const dashboardRoutes = require('./routes/dashboardRoutes'); // ✅ NUEVA
 
 const app = express();
 
@@ -41,6 +60,11 @@ console.log(`📡 Host: ${mongoose.connection.host}`);
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// ============================================
+// 📊 MIDDLEWARE DE LOGGING
+// ============================================
+app.use(logger.middleware);
 
 // ============================================
 // 🔍 RUTA DE BÚSQUEDA DE CLIENTES (DEPRECATED - USAR clienteRoutes)
@@ -68,6 +92,9 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
       }
     });
   } catch (error) {
+    logger.errorWithContext('Error al buscar cliente', error, {
+      identificador: req.params.identificador
+    });
     console.error('❌ Error al buscar cliente:', error);
     res.status(500).json({ success: false, message: error.message });
   }
@@ -105,6 +132,9 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
       data: clientes,
     });
   } catch (error) {
+    logger.errorWithContext('Error en /todos', error, {
+      usuario: req.user?.email
+    });
     console.error('❌ Error en /todos:', error);
     res.status(500).json({
       success: false,
@@ -129,6 +159,17 @@ app.use('/api/monserrath', monserrathRoutes);
 app.use('/api/asistencia', asistenciaRoutes);
 app.use('/api/pedir-ausencia', pedirAusenciaRoutes);
 app.use('/api/clientes', clienteRoutes);
+app.use('/api/notificaciones', notificationRoutes); // ✅ REGISTRADA
+app.use('/api/dashboard', dashboardRoutes); // ✅ NUEVA
+// Aplicar límite general a todas las rutas API
+app.use('/api', generalLimiter);
+
+// Aplicar límites específicos
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/register', registerLimiter);
+app.use('/api/visitas', visitasLimiter);
+app.use('/api/asistencia', asistenciaLimiter);
+app.use('/api/notificaciones', notificacionesLimiter);
 
 // ============================================
 // 📲 RUTA DE PRUEBA PARA NOTIFICACIONES
@@ -177,6 +218,10 @@ app.post('/api/test-transferencia-push', protect, async (req, res) => {
       tickets.push(ticketChunk);
     }
     
+    logger.info(`Push de prueba enviado a ${user.email}`, {
+      usuario: user.email,
+      userId: user._id
+    });
     console.log(`📲 Push de prueba enviado a ${user.email}`);
     
     res.json({
@@ -185,6 +230,9 @@ app.post('/api/test-transferencia-push', protect, async (req, res) => {
       tickets,
     });
   } catch (error) {
+    logger.errorWithContext('Error en test push', error, {
+      userId: req.body.userId
+    });
     console.error('❌ Error en test push:', error);
     res.status(500).json({
       success: false,
@@ -200,25 +248,71 @@ app.get('/api/test', (req, res) => {
   res.json({ success: true, message: 'Servidor funcionando correctamente' });
 });
 
+// ============================================
+// 📊 MANEJO DE ERRORES
+// ============================================
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// ============================================
+// 🚀 INICIAR SERVIDOR
+// ============================================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`📡 Escuchando en todas las interfaces (0.0.0.0)`);
-  console.log(`🕐 Zona horaria: ${process.env.TZ || 'UTC'}`);
-  console.log(`🕐 Hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
-  console.log(`🔍 /api/clientes/buscar/:identificador`);
-  console.log(`📋 /api/clientes/todos (SIN LÍMITE)`);
-  console.log(`👤 /api/clientes (POST - Crear cliente)`);
-  console.log(`📤 /api/transferencias`);
-  console.log(`🛠️ /api/servicios`);
-  console.log(`💰 /api/cajas`);
-  console.log(`📊 /api/reportes`);
-  console.log(`📋 /api/visitas`);
-  console.log(`🏪 /api/bodegas`);
-  console.log(`📋 /api/horarios`);
-  console.log(`🗺️ /api/mapas`);
-  console.log(`📋 /api/monserrath`);
-  console.log(`📍 /api/asistencia`);
-  console.log(`📝 /api/pedir-ausencia`);
-  console.log(`📲 /api/test-transferencia-push`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`🚀 Servidor iniciado en puerto ${PORT}`);
+  logger.info(`📊 Logs guardados en: ${__dirname}/../logs`);
+  logger.info(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🕐 Zona horaria: ${process.env.TZ || 'UTC'}`);
+  logger.info(`🕐 Hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
+  logger.info(`📡 Escuchando en todas las interfaces (0.0.0.0)`);
+  logger.info(`🔍 /api/clientes/buscar/:identificador`);
+  logger.info(`📋 /api/clientes/todos (SIN LÍMITE)`);
+  logger.info(`👤 /api/clientes (POST - Crear cliente)`);
+  logger.info(`📤 /api/transferencias`);
+  logger.info(`🛠️ /api/servicios`);
+  logger.info(`💰 /api/cajas`);
+  logger.info(`📊 /api/reportes`);
+  logger.info(`📋 /api/visitas`);
+  logger.info(`🏪 /api/bodegas`);
+  logger.info(`📋 /api/horarios`);
+  logger.info(`🗺️ /api/mapas`);
+  logger.info(`📋 /api/monserrath`);
+  logger.info(`📍 /api/asistencia`);
+  logger.info(`📝 /api/pedir-ausencia`);
+  logger.info(`📲 /api/test-transferencia-push`);
+  logger.info(`📱 /api/notificaciones`);
+  logger.info(`📊 /api/dashboard`);
+});
+
+// ============================================
+// 📊 MANEJO DE SEÑALES
+// ============================================
+const gracefulShutdown = (signal) => {
+  logger.info(`📥 Recibida señal ${signal}, cerrando servidor...`);
+  server.close(() => {
+    logger.info('✅ Servidor cerrado correctamente');
+    process.exit(0);
+  });
+  
+  // Forzar cierre después de 10 segundos
+  setTimeout(() => {
+    logger.error('⚠️ Forzando cierre del servidor');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Manejo de errores no capturados
+process.on('uncaughtException', (error) => {
+  logger.errorWithContext('Error no capturado', error);
+  // No cerrar el proceso, pero loggear
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Promesa rechazada no manejada', {
+    reason: reason?.message || reason,
+    stack: reason?.stack
+  });
 });
