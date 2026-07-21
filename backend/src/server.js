@@ -45,7 +45,7 @@ const monserrathRoutes = require('./routes/monserrathRoutes');
 const asistenciaRoutes = require('./routes/asistenciaRoutes');
 const pedirAusenciaRoutes = require('./routes/pedirAusenciaRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
-const notificationRoutes = require('./routes/notificacionroutes'); // ✅ CORREGIDO
+const notificationRoutes = require('./routes/notificacionRoutes'); // ✅ CORREGIDO
 const dashboardRoutes = require('./routes/dashboardRoutes'); // ✅ NUEVA
 
 const app = express();
