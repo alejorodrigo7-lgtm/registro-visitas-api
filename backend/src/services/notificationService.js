@@ -378,6 +378,100 @@ const notificarAsistencia = async (asistencia, tipo) => {
 };
 
 // ============================================
+// 📱 ENVIAR NOTIFICACIÓN DE NUEVO DEPÓSITO
+// ============================================
+const notificarNuevoDeposito = async (deposito, jefesSeleccionados) => {
+  try {
+    const titulo = '💰 Nuevo Depósito Registrado';
+    const mensaje = `${deposito.usuarioNombre} realizó un depósito de $${deposito.valor} en la cuenta ${deposito.cuenta}`;
+    const datos = {
+      depositoId: deposito._id.toString(),
+      usuario: deposito.usuarioNombre,
+      valor: deposito.valor,
+      cuenta: deposito.cuenta,
+      banco: deposito.banco,
+      fecha: deposito.fecha,
+    };
+
+    // Enviar notificaciones a los jefes seleccionados
+    const userIds = jefesSeleccionados.map(j => j._id || j);
+    const resultado = await enviarNotificacionMultiple(
+      userIds,
+      titulo,
+      mensaje,
+      datos,
+      'deposito'
+    );
+
+    logger.info('📱 Notificación de depósito enviada a jefes', {
+      depositoId: deposito._id,
+      jefes: userIds.length,
+      enviadas: resultado.enviadas || 0
+    });
+
+    return resultado;
+  } catch (error) {
+    logger.errorWithContext('Error notificando nuevo depósito', error);
+    return { success: false, message: error.message };
+  }
+};
+
+// ============================================
+// 📱 ENVIAR NOTIFICACIÓN DE ESTADO DE DEPÓSITO
+// ============================================
+const notificarEstadoDeposito = async (deposito, estado, observaciones = '') => {
+  try {
+    const estadosMap = {
+      'APROBADO': { 
+        titulo: '✅ Depósito Aprobado', 
+        emoji: '✅',
+        mensaje: `Tu depósito de $${deposito.valor} ha sido APROBADO`
+      },
+      'RECHAZADO': { 
+        titulo: '❌ Depósito Rechazado', 
+        emoji: '❌',
+        mensaje: `Tu depósito de $${deposito.valor} ha sido RECHAZADO`
+      }
+    };
+
+    const info = estadosMap[estado];
+    if (!info) return { success: false, message: 'Estado no válido' };
+
+    const titulo = info.titulo;
+    const mensaje = observaciones 
+      ? `${info.mensaje}. Motivo: ${observaciones}`
+      : info.mensaje;
+
+    const datos = {
+      depositoId: deposito._id.toString(),
+      estado: estado,
+      valor: deposito.valor,
+      observaciones: observaciones,
+    };
+
+    // Enviar notificación al usuario que subió el depósito
+    const resultado = await enviarNotificacion(
+      deposito.usuarioId,
+      titulo,
+      mensaje,
+      datos,
+      'deposito'
+    );
+
+    logger.info('📱 Notificación de estado de depósito enviada', {
+      depositoId: deposito._id,
+      estado,
+      usuario: deposito.usuarioId
+    });
+
+    return resultado;
+  } catch (error) {
+    logger.errorWithContext('Error notificando estado de depósito', error);
+    return { success: false, message: error.message };
+  }
+};
+
+// ============================================
 // 📱 EXPORTAR FUNCIONES
 // ============================================
 module.exports = {
@@ -387,4 +481,6 @@ module.exports = {
   guardarNotificacion,
   notificarVisitaRegistrada,
   notificarAsistencia,
+  notificarNuevoDeposito,
+  notificarEstadoDeposito,
 };

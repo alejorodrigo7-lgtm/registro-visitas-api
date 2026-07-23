@@ -1,55 +1,68 @@
 const mongoose = require('mongoose');
 
-const depositoSchema = new mongoose.Schema({
-  zona: {
+const DepositoSchema = new mongoose.Schema({
+  usuarioId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  usuarioNombre: {
     type: String,
-    enum: ['TOLA', 'MAGDALENA', 'CHILIBULO'],
-    required: true,
+    required: true
   },
   fecha: {
     type: Date,
-    required: true,
-    default: Date.now,
+    default: Date.now
   },
-  nombre: {
-    type: String,
-    required: true,
+  valor: {
+    type: Number,
+    required: true
   },
   cuenta: {
     type: String,
-    enum: ['4738408100 MARY CORDOBA', '27230428 ISABELA CORDOBA', '27212641 ISABELA CORDOBA', 'OTROS'],
-    required: true,
+    required: true
+  },
+  nombreCuenta: {
+    type: String,
+    required: true
+  },
+  banco: {
+    type: String,
+    required: true
+  },
+  // Para cuentas "OTRO"
+  cuentaPersonalizada: {
+    numero: String,
+    nombre: String,
+    banco: String
+  },
+  esCuentaPersonalizada: {
+    type: Boolean,
+    default: false
+  },
+  // Imagen comprobante
+  imagenComprobante: {
+    type: String,
+    required: true
+  },
+  // Jefes seleccionados para notificación
+  jefesSeleccionados: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  estado: {
+    type: String,
+    enum: ['PENDIENTE', 'APROBADO', 'RECHAZADO'],
+    default: 'PENDIENTE'
   },
   observaciones: {
     type: String,
-    default: '',
-  },
-  imagen: {
-    type: String,
-    default: '',
-  },
-  creadoPor: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  estado: {
-    type: String,
-    enum: ['SUBIDO', 'REVISADO'],
-    default: 'SUBIDO',
+    default: ''
   },
   createdAt: {
     type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
+    default: Date.now
+  }
 });
 
-depositoSchema.index({ zona: 1, fecha: 1 });
-depositoSchema.index({ fecha: 1 });
-depositoSchema.index({ cuenta: 1 });
-
-module.exports = mongoose.model('Deposito', depositoSchema);
+module.exports = mongoose.model('Deposito', DepositoSchema);
