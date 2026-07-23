@@ -187,3 +187,26 @@
 2026-07-21 14:03:17 [INFO]: 📊 Dashboard solicitado {"service":"ra2p-api","environment":"development","usuario":"admin@visitas.com","rol":"Admin"}
 2026-07-21 14:03:17 [INFO]: PERFORMANCE: dashboard {"service":"ra2p-api","environment":"development","duration":"86ms","usuario":"admin@visitas.com","visitas":0,"asistencias":0}
 2026-07-21 14:03:17 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"GET","url":"/","status":200,"duration":"104ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a4932d02745796b0596e69f","userEmail":"admin@visitas.com"}
+2026-07-21 15:16:13 [INFO]: 🚀 Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📊 Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 🌍 Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 🕐 Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 🕐 Hora actual: 21/7/2026, 15:16:13 {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📡 Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 🔍 /api/clientes/buscar/:identificador {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📋 /api/clientes/todos (SIN LÍMITE) {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 👤 /api/clientes (POST - Crear cliente) {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📤 /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 🛠️ /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 💰 /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📊 /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📋 /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 🏪 /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📋 /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 🗺️ /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📋 /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📍 /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📝 /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📲 /api/test-transferencia-push {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📱 /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-07-21 15:16:13 [INFO]: 📊 /api/dashboard {"service":"ra2p-api","environment":"development"}

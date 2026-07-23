@@ -4,7 +4,7 @@
   "description": "API para registro de visitas con sistema de logs en producción",
   "main": "src/server.js",
   "scripts": {
-    "start": "node backend/src/server.js"
+    "start": "node backend/src/server.js",
     "dev": "nodemon src/server.js",
     "analyze-logs": "node scripts/analyze-logs.js",
     "monitor": "node scripts/monitor-logs.js"
@@ -21,6 +21,7 @@
     "express-rate-limit": "^8.6.0",
     "express-validator": "^7.0.1",
     "jsonwebtoken": "^9.0.2",
+    "moment-timezone": "^0.6.3",
     "mongoose": "^7.5.0",
     "morgan": "^1.11.0",
     "multer": "^1.4.5-lts.1",

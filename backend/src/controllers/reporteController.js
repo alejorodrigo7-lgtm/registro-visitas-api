@@ -5,6 +5,7 @@ const Servicio = require('../models/Servicio');
 const Caja = require('../models/Caja');
 const Deposito = require('../models/Deposito');
 const User = require('../models/User');
+const { createDateRangeQuery } = require('../utils/dateHelper');
 
 // ============================================
 // GENERAR REPORTE DE VISITAS (ACTUALIZADO)
@@ -17,16 +18,10 @@ exports.generarReporteVisitas = async (req, res) => {
     const { fechaInicio, fechaFin, tecnico, estado, tipo } = req.query;
 
     let query = {};
-    if (fechaInicio && fechaFin) {
-      const inicio = new Date(fechaInicio);
-      inicio.setHours(0, 0, 0, 0);
-      const fin = new Date(fechaFin);
-      fin.setHours(23, 59, 59, 999);
-      query.fecha = { $gte: inicio, $lte: fin };
-      console.log('📊 Fechas:', inicio, 'a', fin);
-    } else {
-      console.log('⚠️ No se proporcionaron fechas');
-    }
+    
+    // ✅ USAR EL HELPER DE FECHAS
+    const dateQuery = createDateRangeQuery(fechaInicio, fechaFin, 'fecha');
+    query = { ...query, ...dateQuery };
     
     if (tecnico) query.tecnico = tecnico;
     if (estado) query.estado = estado;
@@ -111,16 +106,10 @@ exports.generarReporteTransferencias = async (req, res) => {
     const { fechaInicio, fechaFin, estado, zona } = req.query;
 
     let query = {};
-    if (fechaInicio && fechaFin) {
-      const inicio = new Date(fechaInicio);
-      inicio.setHours(0, 0, 0, 0);
-      const fin = new Date(fechaFin);
-      fin.setHours(23, 59, 59, 999);
-      query.fechaTransferencia = { $gte: inicio, $lte: fin };
-      console.log('📊 Fechas:', inicio, 'a', fin);
-    } else {
-      console.log('⚠️ No se proporcionaron fechas');
-    }
+    
+    // ✅ USAR EL HELPER DE FECHAS
+    const dateQuery = createDateRangeQuery(fechaInicio, fechaFin, 'fechaTransferencia');
+    query = { ...query, ...dateQuery };
     
     if (estado) query.estado = estado;
     if (zona) query.zonaSector = zona;
@@ -238,16 +227,10 @@ exports.generarReporteServicios = async (req, res) => {
     const { fechaInicio, fechaFin, estado, tecnico } = req.query;
 
     let query = {};
-    if (fechaInicio && fechaFin) {
-      const inicio = new Date(fechaInicio);
-      inicio.setHours(0, 0, 0, 0);
-      const fin = new Date(fechaFin);
-      fin.setHours(23, 59, 59, 999);
-      query.createdAt = { $gte: inicio, $lte: fin };
-      console.log('📊 Fechas:', inicio, 'a', fin);
-    } else {
-      console.log('⚠️ No se proporcionaron fechas');
-    }
+    
+    // ✅ USAR EL HELPER DE FECHAS
+    const dateQuery = createDateRangeQuery(fechaInicio, fechaFin, 'createdAt');
+    query = { ...query, ...dateQuery };
     
     if (estado) query.estado = estado;
     if (tecnico) query.tecnicoAsignado = tecnico;
@@ -260,10 +243,6 @@ exports.generarReporteServicios = async (req, res) => {
       .sort({ createdAt: -1 });
 
     console.log(`📊 Servicios encontrados: ${servicios.length}`);
-
-    if (servicios.length === 0) {
-      console.log('⚠️ No se encontraron servicios');
-    }
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Servicios');
@@ -323,16 +302,10 @@ exports.generarReporteCajas = async (req, res) => {
     const { fechaInicio, fechaFin, zona } = req.query;
 
     let query = {};
-    if (fechaInicio && fechaFin) {
-      const inicio = new Date(fechaInicio);
-      inicio.setHours(0, 0, 0, 0);
-      const fin = new Date(fechaFin);
-      fin.setHours(23, 59, 59, 999);
-      query.fecha = { $gte: inicio, $lte: fin };
-      console.log('📊 Fechas:', inicio, 'a', fin);
-    } else {
-      console.log('⚠️ No se proporcionaron fechas');
-    }
+    
+    // ✅ USAR EL HELPER DE FECHAS
+    const dateQuery = createDateRangeQuery(fechaInicio, fechaFin, 'fecha');
+    query = { ...query, ...dateQuery };
     
     if (zona) query.zona = zona;
 
@@ -343,10 +316,6 @@ exports.generarReporteCajas = async (req, res) => {
       .sort({ fecha: 1 });
 
     console.log(`📊 Cajas encontradas: ${cajas.length}`);
-
-    if (cajas.length === 0) {
-      console.log('⚠️ No se encontraron cajas');
-    }
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Cajas');
@@ -399,16 +368,10 @@ exports.generarReporteDepositos = async (req, res) => {
     const { fechaInicio, fechaFin, cuenta, zona } = req.query;
 
     let query = {};
-    if (fechaInicio && fechaFin) {
-      const inicio = new Date(fechaInicio);
-      inicio.setHours(0, 0, 0, 0);
-      const fin = new Date(fechaFin);
-      fin.setHours(23, 59, 59, 999);
-      query.fecha = { $gte: inicio, $lte: fin };
-      console.log('📊 Fechas:', inicio, 'a', fin);
-    } else {
-      console.log('⚠️ No se proporcionaron fechas');
-    }
+    
+    // ✅ USAR EL HELPER DE FECHAS
+    const dateQuery = createDateRangeQuery(fechaInicio, fechaFin, 'fecha');
+    query = { ...query, ...dateQuery };
     
     if (cuenta) query.cuenta = cuenta;
     if (zona) query.zona = zona;
@@ -420,10 +383,6 @@ exports.generarReporteDepositos = async (req, res) => {
       .sort({ fecha: -1 });
 
     console.log(`📊 Depósitos encontrados: ${depositos.length}`);
-
-    if (depositos.length === 0) {
-      console.log('⚠️ No se encontraron depósitos');
-    }
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Depositos');
