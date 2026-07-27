@@ -24,6 +24,7 @@ const protect = async (req, res, next) => {
   }
 };
 
+// ✅ AUTHORIZE - PERMITE MÚLTIPLES ROLES
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.rol)) {

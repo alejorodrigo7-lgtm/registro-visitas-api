@@ -3,10 +3,19 @@ const User = require('../models/User');
 const { enviarNotificacionPush } = require('../services/pushService');
 
 // ============================================
-// TOMAR SERVICIO
+// TOMAR SERVICIO - PERMITIR A COORDINADOR
 // ============================================
 exports.tomarServicio = async (req, res) => {
   try {
+    // ✅ PERMITIR A ADMIN, JEFE Y COORDINADOR
+    const rolesPermitidos = ['Admin', 'Jefe', 'Coordinador'];
+    if (!rolesPermitidos.includes(req.user.rol)) {
+      return res.status(403).json({
+        success: false,
+        message: `Rol ${req.user.rol} no autorizado para tomar servicios`
+      });
+    }
+
     const {
       cliente,
       codigoIdentificador,
