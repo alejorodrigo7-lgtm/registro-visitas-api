@@ -45,8 +45,8 @@ const monserrathRoutes = require('./routes/monserrathRoutes');
 const asistenciaRoutes = require('./routes/asistenciaRoutes');
 const pedirAusenciaRoutes = require('./routes/pedirAusenciaRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
-const notificationRoutes = require('./routes/notificacionRoutes'); // ✅ CORREGIDO
-const dashboardRoutes = require('./routes/dashboardRoutes'); // ✅ NUEVA
+const notificationRoutes = require('./routes/notificacionRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 
@@ -159,8 +159,8 @@ app.use('/api/monserrath', monserrathRoutes);
 app.use('/api/asistencia', asistenciaRoutes);
 app.use('/api/pedir-ausencia', pedirAusenciaRoutes);
 app.use('/api/clientes', clienteRoutes);
-app.use('/api/notificaciones', notificationRoutes); // ✅ REGISTRADA
-app.use('/api/dashboard', dashboardRoutes); // ✅ NUEVA
+app.use('/api/notificaciones', notificationRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 // Aplicar límite general a todas las rutas API
 app.use('/api', generalLimiter);
 
@@ -246,6 +246,50 @@ app.post('/api/test-transferencia-push', protect, async (req, res) => {
 // ============================================
 app.get('/api/test', (req, res) => {
   res.json({ success: true, message: 'Servidor funcionando correctamente' });
+});
+
+// ============================================
+// 📦 RUTA PARA OBTENER MATERIALES DEL TÉCNICO
+// ============================================
+app.get('/api/mis-materiales', protect, async (req, res) => {
+  try {
+    console.log('📦 === OBTENIENDO MATERIALES DEL TÉCNICO ===');
+    console.log('📦 Usuario ID:', req.user._id);
+    console.log('📦 Email:', req.user.email);
+    console.log('📦 Rol:', req.user.rol);
+    
+    const Bodega = require('./models/Bodega');
+    
+    let bodega = await Bodega.findOne({ usuario: req.user._id });
+    
+    if (!bodega) {
+      console.log('📦 Bodega no encontrada, creando una vacía...');
+      bodega = new Bodega({
+        usuario: req.user._id,
+        usuarioNombre: req.user.nombre || req.user.email,
+        nombre: `Bodega de ${req.user.nombre || req.user.email}`,
+        materiales: [],
+        estado: 'ACTIVA',
+        creadoPor: req.user._id,
+      });
+      await bodega.save();
+      console.log('✅ Bodega creada para técnico:', req.user._id);
+    }
+    
+    console.log(`📦 Materiales en bodega: ${bodega.materiales?.length || 0}`);
+    
+    res.json({
+      success: true,
+      data: bodega,
+    });
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo materiales del técnico:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 });
 
 // ============================================
