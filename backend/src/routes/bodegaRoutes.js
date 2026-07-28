@@ -26,32 +26,10 @@ router.route('/')
   .get(obtenerBodegas);
 
 // ============================================
-// ASIGNAR MATERIAL - ADMIN Y JEFE
-// ============================================
-router.post('/:id/asignar-material', authorize('Admin', 'Jefe'), asignarMaterial);
-
-// ============================================
-// RESTAR MATERIAL - DUEÑO DE BODEGA, ADMIN O JEFE
-// ============================================
-router.post('/:id/restar-material', restarMaterial);
-
-// ============================================
-// RUTAS ESPECÍFICAS
-// ============================================
-router.route('/:id')
-  .get(obtenerBodega)
-  .delete(authorize('Admin'), eliminarBodega);
-
-// ============================================
-// CAMBIAR ESTADO - SOLO ADMIN
-// ============================================
-router.put('/:id/estado', authorize('Admin'), cambiarEstadoBodega);
-
-// ============================================
-// ✅ RUTA - OBTENER MATERIALES DEL TÉCNICO AUTENTICADO
+// ✅ RUTAS ESPECÍFICAS - DEBEN IR ANTES DE /:id
 // ============================================
 
-// GET /api/bodega/mis-materiales - Obtener materiales de la bodega del técnico autenticado
+// GET /api/bodegas/mis-materiales
 router.get('/mis-materiales', async (req, res) => {
   try {
     console.log('📦 === OBTENIENDO MATERIALES DEL TÉCNICO ===');
@@ -61,13 +39,10 @@ router.get('/mis-materiales', async (req, res) => {
     
     const Bodega = require('../models/Bodega');
     
-    // ✅ CORREGIDO: Buscar por 'usuario' en lugar de 'tecnicoId'
     let bodega = await Bodega.findOne({ usuario: req.user._id });
     
     if (!bodega) {
       console.log('📦 Bodega no encontrada, creando una vacía...');
-      
-      // Crear una bodega vacía para el técnico
       bodega = new Bodega({
         usuario: req.user._id,
         usuarioNombre: req.user.nombre || req.user.email,
@@ -76,23 +51,15 @@ router.get('/mis-materiales', async (req, res) => {
         estado: 'ACTIVA',
         creadoPor: req.user._id,
       });
-      
       await bodega.save();
       console.log('✅ Bodega creada para técnico:', req.user._id);
     }
     
     console.log(`📦 Materiales en bodega: ${bodega.materiales?.length || 0}`);
     
-    if (bodega.materiales && bodega.materiales.length > 0) {
-      console.log('📋 Materiales disponibles:');
-      bodega.materiales.forEach((m, i) => {
-        console.log(`  ${i+1}. ${m.nombre}: ${m.cantidad} ${m.unidad || 'uds'}`);
-      });
-    }
-    
     res.json({
       success: true,
-      data: bodega.materiales || []
+      data: bodega,
     });
     
   } catch (error) {
@@ -104,11 +71,7 @@ router.get('/mis-materiales', async (req, res) => {
   }
 });
 
-// ============================================
-// ✅ RUTA - AGREGAR MATERIAL A BODEGA DEL TÉCNICO
-// ============================================
-
-// POST /api/bodega/mis-materiales - Agregar material a la bodega del técnico
+// POST /api/bodegas/mis-materiales
 router.post('/mis-materiales', async (req, res) => {
   try {
     const { nombre, cantidad, unidad } = req.body;
@@ -124,8 +87,6 @@ router.post('/mis-materiales', async (req, res) => {
     console.log(`📦 Material: ${nombre}, Cantidad: ${cantidad}, Unidad: ${unidad || 'uds'}`);
     
     const Bodega = require('../models/Bodega');
-    
-    // ✅ CORREGIDO: Buscar por 'usuario' en lugar de 'tecnicoId'
     let bodega = await Bodega.findOne({ usuario: req.user._id });
     
     if (!bodega) {
@@ -139,7 +100,6 @@ router.post('/mis-materiales', async (req, res) => {
       });
     }
     
-    // Verificar si el material ya existe
     const materialExistente = bodega.materiales.find(m => m.nombre === nombre);
     if (materialExistente) {
       materialExistente.cantidad = (materialExistente.cantidad || 0) + cantidad;
@@ -169,5 +129,27 @@ router.post('/mis-materiales', async (req, res) => {
     });
   }
 });
+
+// ============================================
+// ASIGNAR MATERIAL - ADMIN Y JEFE
+// ============================================
+router.post('/:id/asignar-material', authorize('Admin', 'Jefe'), asignarMaterial);
+
+// ============================================
+// RESTAR MATERIAL - DUEÑO DE BODEGA, ADMIN O JEFE
+// ============================================
+router.post('/:id/restar-material', restarMaterial);
+
+// ============================================
+// RUTAS CON PARÁMETRO - DEBEN IR AL FINAL
+// ============================================
+router.route('/:id')
+  .get(obtenerBodega)
+  .delete(authorize('Admin'), eliminarBodega);
+
+// ============================================
+// CAMBIAR ESTADO - SOLO ADMIN
+// ============================================
+router.put('/:id/estado', authorize('Admin'), cambiarEstadoBodega);
 
 module.exports = router;
