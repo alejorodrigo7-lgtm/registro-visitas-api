@@ -131,6 +131,73 @@ router.post('/mis-materiales', async (req, res) => {
 });
 
 // ============================================
+// 📦 RESTAR MATERIALES DE BODEGA (NUEVO ENDPOINT)
+// ============================================
+router.post('/restar-materiales-bodega', async (req, res) => {
+  try {
+    const { materiales } = req.body;
+    const usuarioId = req.user._id;
+    
+    console.log('📦 Restando materiales de bodega...');
+    console.log('📦 Usuario:', usuarioId);
+    console.log('📦 Materiales a restar:', JSON.stringify(materiales, null, 2));
+    
+    const Bodega = require('../models/Bodega');
+    
+    // Buscar la bodega del técnico
+    let bodega = await Bodega.findOne({ usuario: usuarioId });
+    
+    if (!bodega) {
+      return res.status(404).json({
+        success: false,
+        message: 'No se encontró bodega para este técnico'
+      });
+    }
+    
+    // Restar cada material
+    for (const material of materiales) {
+      const materialEnBodega = bodega.materiales.find(
+        m => m.nombre === material.nombre
+      );
+      
+      if (materialEnBodega) {
+        // Restar cantidad
+        const cantidadAnterior = materialEnBodega.cantidad;
+        materialEnBodega.cantidad -= material.cantidad;
+        
+        // Si queda en negativo, poner 0
+        if (materialEnBodega.cantidad < 0) {
+          materialEnBodega.cantidad = 0;
+        }
+        
+        console.log(`📦 ${material.nombre}: ${cantidadAnterior} → ${materialEnBodega.cantidad} restantes`);
+      } else {
+        console.log(`⚠️ Material ${material.nombre} no encontrado en bodega`);
+      }
+    }
+    
+    // Guardar cambios
+    await bodega.save();
+    
+    console.log('✅ Materiales restados correctamente');
+    
+    res.json({
+      success: true,
+      message: 'Materiales restados correctamente',
+      data: bodega
+    });
+    
+  } catch (error) {
+    console.error('❌ Error restando materiales:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al restar materiales',
+      error: error.message
+    });
+  }
+});
+
+// ============================================
 // ASIGNAR MATERIAL - ADMIN Y JEFE
 // ============================================
 router.post('/:id/asignar-material', authorize('Admin', 'Jefe'), asignarMaterial);

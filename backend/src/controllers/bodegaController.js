@@ -75,24 +75,41 @@ module.exports = {
   },
 
   // ============================================
-  // 📋 OBTENER TODAS LAS BODEGAS
+  // 📋 OBTENER TODAS LAS BODEGAS (CORREGIDO)
   // ============================================
   obtenerBodegas: async (req, res) => {
     try {
       const { estado, usuario } = req.query;
       let query = {};
 
-      if (estado) query.estado = estado;
-      if (usuario) query.usuario = usuario;
+      console.log('📦 === OBTENIENDO BODEGAS ===');
+      console.log('📦 Estado filtro:', estado);
+      console.log('📦 Usuario filtro:', usuario);
+      console.log('📦 Usuario autenticado:', req.user._id);
+      console.log('📦 Rol:', req.user.rol);
 
+      if (estado) query.estado = estado;
+      
+      // ✅ CORREGIDO: Si se pasa usuario por query, filtrar por ese usuario
+      if (usuario) {
+        query.usuario = usuario;
+        console.log('📦 Filtrando por usuario específico:', usuario);
+      }
+
+      // ✅ CORREGIDO: Si es Técnico, forzar filtro por su ID
       if (req.user.rol === 'Tecnico') {
         query.usuario = req.user._id;
+        console.log('📦 Técnico, filtrando por su ID:', req.user._id);
       }
+
+      console.log('📦 Query final:', JSON.stringify(query));
 
       const bodegas = await Bodega.find(query)
         .populate('usuario', 'nombre email rol')
         .populate('creadoPor', 'nombre')
         .sort({ nombre: 1 });
+
+      console.log(`✅ Bodegas encontradas: ${bodegas.length}`);
 
       res.json({
         success: true,
@@ -101,7 +118,7 @@ module.exports = {
       });
 
     } catch (error) {
-      console.error('Error en obtenerBodegas:', error);
+      console.error('❌ Error en obtenerBodegas:', error);
       res.status(500).json({
         success: false,
         message: error.message,
@@ -222,7 +239,7 @@ module.exports = {
   },
 
   // ============================================
-  // 📋 RESTAR MATERIAL DE BODEGA (CON ALERTAS PUSH A TODOS)
+  // 📋 RESTAR MATERIAL DE BODEGA
   // ============================================
   restarMaterial: async (req, res) => {
     try {
@@ -244,6 +261,7 @@ module.exports = {
         });
       }
 
+      // ✅ Verificar que el técnico solo puede restar de su propia bodega
       if (req.user.rol === 'Tecnico' && bodega.usuario._id.toString() !== req.user._id.toString()) {
         return res.status(403).json({
           success: false,
@@ -298,20 +316,15 @@ module.exports = {
 
       await bodega.save();
 
-      // ============================================
-      // 📲 ENVIAR ALERTAS PUSH A TODOS LOS USUARIOS CON TOKEN
-      // ============================================
+      // Enviar alertas push si hay stock bajo
       if (materialesAlertas.length > 0) {
         try {
           const { Expo } = require('expo-server-sdk');
           const expo = new Expo();
 
-          // ✅ OBTENER TODOS LOS USUARIOS CON TOKEN REGISTRADO
           const usuariosNotificar = await User.find({
             expoPushToken: { $ne: null, $exists: true }
           });
-
-          console.log(`📲 Usuarios a notificar: ${usuariosNotificar.length}`);
 
           if (usuariosNotificar.length > 0) {
             const messages = usuariosNotificar.map(user => ({
@@ -331,13 +344,9 @@ module.exports = {
             for (const chunk of chunks) {
               await expo.sendPushNotificationsAsync(chunk);
             }
-            console.log(`📲 Alertas push enviadas a ${usuariosNotificar.length} usuarios`);
-          } else {
-            console.log('⚠️ No hay usuarios con token push registrado');
           }
-
         } catch (pushError) {
-          console.error('❌ Error enviando alertas push:', pushError);
+          console.error('Error enviando alertas push:', pushError);
         }
       }
 
@@ -352,7 +361,7 @@ module.exports = {
       });
 
     } catch (error) {
-      console.error('❌ Error en restarMaterial:', error);
+      console.error('Error en restarMaterial:', error);
       res.status(500).json({
         success: false,
         message: error.message,
@@ -425,6 +434,52 @@ module.exports = {
 
     } catch (error) {
       console.error('Error en cambiarEstadoBodega:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  },
+
+  // ============================================
+  // 📋 OBTENER BODEGA DEL TÉCNICO AUTENTICADO (NUEVO)
+  // ============================================
+  obtenerMiBodega: async (req, res) => {
+    try {
+      console.log('📦 === OBTENIENDO BODEGA DEL TÉCNICO ===');
+      console.log('📦 Usuario ID:', req.user._id);
+      console.log('📦 Email:', req.user.email);
+      console.log('📦 Rol:', req.user.rol);
+
+      // Buscar bodega del usuario autenticado
+      let bodega = await Bodega.findOne({ usuario: req.user._id })
+        .populate('usuario', 'nombre email rol')
+        .populate('creadoPor', 'nombre');
+
+      // Si no existe, crearla automáticamente
+      if (!bodega) {
+        console.log('📦 Bodega no encontrada, creando una...');
+        bodega = new Bodega({
+          nombre: `Bodega de ${req.user.nombre || req.user.email}`,
+          usuario: req.user._id,
+          usuarioNombre: req.user.nombre || req.user.email,
+          materiales: [],
+          estado: 'ACTIVA',
+          creadoPor: req.user._id,
+        });
+        await bodega.save();
+        console.log('✅ Bodega creada automáticamente');
+      }
+
+      console.log(`📦 Materiales en bodega: ${bodega.materiales?.length || 0}`);
+
+      res.json({
+        success: true,
+        data: bodega,
+      });
+
+    } catch (error) {
+      console.error('❌ Error en obtenerMiBodega:', error);
       res.status(500).json({
         success: false,
         message: error.message,
