@@ -152,4 +152,48 @@ router.route('/:id')
 // ============================================
 router.put('/:id/estado', authorize('Admin'), cambiarEstadoBodega);
 
+// ============================================
+// 📦 RUTA PARA OBTENER MATERIALES DEL TÉCNICO (CON /api/)
+// ============================================
+router.get('/api/mis-materiales', async (req, res) => {
+  try {
+    console.log('📦 === OBTENIENDO MATERIALES DEL TÉCNICO (CON /api/) ===');
+    console.log('📦 Usuario ID:', req.user._id);
+    console.log('📦 Email:', req.user.email);
+    console.log('📦 Rol:', req.user.rol);
+    
+    const Bodega = require('../models/Bodega');
+    
+    let bodega = await Bodega.findOne({ usuario: req.user._id });
+    
+    if (!bodega) {
+      console.log('📦 Bodega no encontrada, creando una vacía...');
+      bodega = new Bodega({
+        usuario: req.user._id,
+        usuarioNombre: req.user.nombre || req.user.email,
+        nombre: `Bodega de ${req.user.nombre || req.user.email}`,
+        materiales: [],
+        estado: 'ACTIVA',
+        creadoPor: req.user._id,
+      });
+      await bodega.save();
+      console.log('✅ Bodega creada para técnico:', req.user._id);
+    }
+    
+    console.log(`📦 Materiales en bodega: ${bodega.materiales?.length || 0}`);
+    
+    res.json({
+      success: true,
+      data: bodega,
+    });
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo materiales del técnico:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
