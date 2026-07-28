@@ -421,6 +421,62 @@ exports.changePassword = async (req, res) => {
 };
 
 // ============================================
+// 📋 RESTABLECER CONTRASEÑA (PÚBLICO - resetea a 123456)
+// ============================================
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'El email es obligatorio'
+      });
+    }
+
+    console.log('🔑 Restableciendo contraseña para:', email);
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      console.log('❌ Usuario no encontrado:', email);
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    // Restablecer a "123456"
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash('123456', salt);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    console.log('✅ Contraseña restablecida para:', email);
+
+    logger.audit('CONTRASEÑA_RESTABLECIDA', user, {
+      usuario: user.email,
+      metodo: 'reset-password'
+    });
+
+    res.json({
+      success: true,
+      message: 'Contraseña restablecida a 123456'
+    });
+
+  } catch (error) {
+    console.error('❌ Error en resetPassword:', error);
+    logger.errorWithContext('Error en resetPassword', error, {
+      email: req.body.email
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Error al restablecer la contraseña'
+    });
+  }
+};
+
+// ============================================
 // 📋 REGISTRAR TOKEN PUSH
 // ============================================
 exports.registrarPushToken = async (req, res) => {
