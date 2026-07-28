@@ -48,7 +48,7 @@ router.route('/:id')
 router.put('/:id/estado', authorize('Admin'), cambiarEstadoBodega);
 
 // ============================================
-// ✅ NUEVA RUTA - OBTENER MATERIALES DEL TÉCNICO AUTENTICADO
+// ✅ RUTA - OBTENER MATERIALES DEL TÉCNICO AUTENTICADO
 // ============================================
 
 // GET /api/bodega/mis-materiales - Obtener materiales de la bodega del técnico autenticado
@@ -61,18 +61,20 @@ router.get('/mis-materiales', async (req, res) => {
     
     const Bodega = require('../models/Bodega');
     
-    // Buscar la bodega del técnico
-    let bodega = await Bodega.findOne({ tecnicoId: req.user._id });
+    // ✅ CORREGIDO: Buscar por 'usuario' en lugar de 'tecnicoId'
+    let bodega = await Bodega.findOne({ usuario: req.user._id });
     
     if (!bodega) {
       console.log('📦 Bodega no encontrada, creando una vacía...');
       
       // Crear una bodega vacía para el técnico
       bodega = new Bodega({
-        tecnicoId: req.user._id,
+        usuario: req.user._id,
+        usuarioNombre: req.user.nombre || req.user.email,
         nombre: `Bodega de ${req.user.nombre || req.user.email}`,
         materiales: [],
-        estado: 'activo'
+        estado: 'ACTIVA',
+        creadoPor: req.user._id,
       });
       
       await bodega.save();
@@ -103,7 +105,7 @@ router.get('/mis-materiales', async (req, res) => {
 });
 
 // ============================================
-// ✅ NUEVA RUTA - AGREGAR MATERIAL A BODEGA DEL TÉCNICO
+// ✅ RUTA - AGREGAR MATERIAL A BODEGA DEL TÉCNICO
 // ============================================
 
 // POST /api/bodega/mis-materiales - Agregar material a la bodega del técnico
@@ -122,14 +124,18 @@ router.post('/mis-materiales', async (req, res) => {
     console.log(`📦 Material: ${nombre}, Cantidad: ${cantidad}, Unidad: ${unidad || 'uds'}`);
     
     const Bodega = require('../models/Bodega');
-    let bodega = await Bodega.findOne({ tecnicoId: req.user._id });
+    
+    // ✅ CORREGIDO: Buscar por 'usuario' en lugar de 'tecnicoId'
+    let bodega = await Bodega.findOne({ usuario: req.user._id });
     
     if (!bodega) {
       bodega = new Bodega({
-        tecnicoId: req.user._id,
+        usuario: req.user._id,
+        usuarioNombre: req.user.nombre || req.user.email,
         nombre: `Bodega de ${req.user.nombre || req.user.email}`,
         materiales: [],
-        estado: 'activo'
+        estado: 'ACTIVA',
+        creadoPor: req.user._id,
       });
     }
     
