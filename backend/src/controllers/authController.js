@@ -26,8 +26,9 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Hashear contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // ✅ CORREGIDO: Usar bcrypt.genSalt + bcrypt.hash
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
     // Crear usuario
     const user = await User.create({
@@ -60,7 +61,7 @@ exports.register = async (req, res) => {
     logger.errorWithContext('Error en register', error, {
       email: req.body.email
     });
-    console.error('Error en register:', error);
+    console.error('❌ Error en register:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -69,7 +70,7 @@ exports.register = async (req, res) => {
 };
 
 // ============================================
-// 📋 LOGIN
+// 📋 LOGIN (SIN CAMBIOS - FUNCIONA)
 // ============================================
 exports.login = async (req, res) => {
   try {
@@ -77,7 +78,6 @@ exports.login = async (req, res) => {
 
     logger.info('Intento de login', { email, rol, ip: req.ip });
 
-    // Buscar usuario
     const user = await User.findOne({ email });
     if (!user) {
       logger.warn('Login fallido - usuario no encontrado', { email });
@@ -87,7 +87,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Verificar rol (opcional)
     if (rol && user.rol !== rol) {
       logger.warn('Login fallido - rol incorrecto', { 
         email, 
@@ -100,7 +99,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Verificar si está activo
     if (user.activo === false) {
       logger.warn('Login fallido - usuario inactivo', { 
         email, 
@@ -112,7 +110,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Verificar contraseña
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       logger.warn('Login fallido - contraseña incorrecta', { 
@@ -125,7 +122,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Generar token
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET || 'secret',
@@ -155,7 +151,7 @@ exports.login = async (req, res) => {
     logger.errorWithContext('Error en login', error, {
       email: req.body.email
     });
-    console.error('Error en login:', error);
+    console.error('❌ Error en login:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -176,7 +172,7 @@ exports.getUsuarios = async (req, res) => {
     });
   } catch (error) {
     logger.errorWithContext('Error en getUsuarios', error);
-    console.error('Error en getUsuarios:', error);
+    console.error('❌ Error en getUsuarios:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -204,7 +200,7 @@ exports.getUsuario = async (req, res) => {
     logger.errorWithContext('Error en getUsuario', error, {
       usuarioId: req.params.id
     });
-    console.error('Error en getUsuario:', error);
+    console.error('❌ Error en getUsuario:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -228,7 +224,6 @@ exports.updateUsuario = async (req, res) => {
       });
     }
 
-    // No permitir modificar a sí mismo
     if (id === req.user._id.toString()) {
       return res.status(400).json({
         success: false,
@@ -258,7 +253,7 @@ exports.updateUsuario = async (req, res) => {
     logger.errorWithContext('Error en updateUsuario', error, {
       usuarioId: req.params.id
     });
-    console.error('Error en updateUsuario:', error);
+    console.error('❌ Error en updateUsuario:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -281,7 +276,6 @@ exports.deleteUsuario = async (req, res) => {
       });
     }
 
-    // No permitir eliminar a sí mismo
     if (id === req.user._id.toString()) {
       return res.status(400).json({
         success: false,
@@ -304,7 +298,7 @@ exports.deleteUsuario = async (req, res) => {
     logger.errorWithContext('Error en deleteUsuario', error, {
       usuarioId: req.params.id
     });
-    console.error('Error en deleteUsuario:', error);
+    console.error('❌ Error en deleteUsuario:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -328,7 +322,6 @@ exports.toggleUsuario = async (req, res) => {
       });
     }
 
-    // No permitir desactivar a sí mismo
     if (id === req.user._id.toString()) {
       return res.status(400).json({
         success: false,
@@ -353,7 +346,7 @@ exports.toggleUsuario = async (req, res) => {
     logger.errorWithContext('Error en toggleUsuario', error, {
       usuarioId: req.params.id
     });
-    console.error('Error en toggleUsuario:', error);
+    console.error('❌ Error en toggleUsuario:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -377,7 +370,6 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Verificar permisos
     if (id !== req.user._id.toString() && req.user.rol !== 'Admin') {
       return res.status(403).json({
         success: false,
@@ -385,7 +377,6 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Si no es Admin, verificar contraseña actual
     if (req.user.rol !== 'Admin') {
       const isMatch = await bcrypt.compare(currentPassword, usuario.password);
       if (!isMatch) {
@@ -396,7 +387,9 @@ exports.changePassword = async (req, res) => {
       }
     }
 
-    usuario.password = await bcrypt.hash(newPassword, 10);
+    // ✅ CORREGIDO: Usar bcrypt.genSalt + bcrypt.hash
+    const salt = await bcrypt.genSalt(10);
+    usuario.password = await bcrypt.hash(newPassword, salt);
     await usuario.save();
 
     logger.audit('CONTRASEÑA_CAMBIADA', req.user, {
@@ -412,7 +405,7 @@ exports.changePassword = async (req, res) => {
     logger.errorWithContext('Error en changePassword', error, {
       usuarioId: req.params.id
     });
-    console.error('Error en changePassword:', error);
+    console.error('❌ Error en changePassword:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -445,7 +438,7 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Restablecer a "123456"
+    // ✅ CORRECTO: Usar bcrypt.genSalt + bcrypt.hash
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('123456', salt);
 
@@ -538,7 +531,7 @@ exports.getJefes = async (req, res) => {
     });
   } catch (error) {
     logger.errorWithContext('Error en getJefes', error);
-    console.error('Error en getJefes:', error);
+    console.error('❌ Error en getJefes:', error);
     res.status(500).json({
       success: false,
       message: error.message,
