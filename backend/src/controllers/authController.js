@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const logger = require('../config/logger');
 
 // ============================================
-// 📋 REGISTRAR USUARIO (SOLO ADMIN)
+// 📋 REGISTRAR USUARIO (SOLO ADMIN) - TEXTO PLANO
 // ============================================
 exports.register = async (req, res) => {
   try {
@@ -25,21 +25,13 @@ exports.register = async (req, res) => {
       });
     }
 
-    // ✅ SOLUCIÓN DEFINITIVA: Si es 123456, guardar en texto plano
-    let passwordToSave;
-    if (password === '123456') {
-      passwordToSave = '123456'; // TEXTO PLANO
-      console.log(`✅ Usando contraseña en texto plano para ${email}`);
-    } else {
-      const salt = await bcrypt.genSalt(10);
-      passwordToSave = await bcrypt.hash(password, salt);
-      console.log(`✅ Hash generado para ${email}`);
-    }
+    // ✅ TODAS LAS CONTRASEÑAS EN TEXTO PLANO
+    console.log(`✅ Guardando contraseña en texto plano para ${email}`);
 
     const user = await User.create({
       nombre,
       email,
-      password: passwordToSave,
+      password: password, // TEXTO PLANO
       rol: rol || 'Tecnico',
       telefono: telefono || '',
       especialidad: especialidad || '',
@@ -77,7 +69,7 @@ exports.register = async (req, res) => {
 };
 
 // ============================================
-// 📋 LOGIN
+// 📋 LOGIN - COMPARACIÓN EN TEXTO PLANO
 // ============================================
 exports.login = async (req, res) => {
   try {
@@ -117,19 +109,8 @@ exports.login = async (req, res) => {
       });
     }
 
-    // ✅ SOLUCIÓN DEFINITIVA: Comparar texto plano primero
-    let isMatch = false;
-    
-    // Si la contraseña es 123456, comparar en texto plano
-    if (password === '123456' && user.password === '123456') {
-      isMatch = true;
-      console.log(`✅ Login con contraseña en texto plano para ${email}`);
-    } else {
-      // Si no, usar bcrypt
-      isMatch = await bcrypt.compare(password, user.password);
-    }
-
-    if (!isMatch) {
+    // ✅ COMPARAR EN TEXTO PLANO (SIN bcrypt)
+    if (user.password !== password) {
       logger.warn('Login fallido - contraseña incorrecta', { 
         email, 
         userId: user._id 
@@ -373,12 +354,12 @@ exports.toggleUsuario = async (req, res) => {
 };
 
 // ============================================
-// 📋 CAMBIAR CONTRASEÑA (CORREGIDO - usa req.user.id)
+// 📋 CAMBIAR CONTRASEÑA - TEXTO PLANO
 // ============================================
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const userId = req.user.id; // ✅ Usuario autenticado
+    const userId = req.user.id;
 
     console.log(`🔑 Cambiando contraseña para usuario: ${userId}`);
 
@@ -393,8 +374,8 @@ exports.changePassword = async (req, res) => {
 
     // Verificar contraseña actual (si no es Admin)
     if (req.user.rol !== 'Admin') {
-      const isMatch = await bcrypt.compare(currentPassword, usuario.password);
-      if (!isMatch) {
+      // ✅ COMPARAR EN TEXTO PLANO
+      if (usuario.password !== currentPassword) {
         console.log('❌ Contraseña actual incorrecta');
         return res.status(401).json({
           success: false,
@@ -403,21 +384,11 @@ exports.changePassword = async (req, res) => {
       }
     }
 
-    // ✅ Si es 123456, guardar en texto plano
-    let passwordToSave;
-    if (newPassword === '123456') {
-      passwordToSave = '123456';
-      console.log(`✅ Usando contraseña en texto plano para ${usuario.email}`);
-    } else {
-      const salt = await bcrypt.genSalt(10);
-      passwordToSave = await bcrypt.hash(newPassword, salt);
-      console.log(`✅ Hash generado para ${usuario.email}`);
-    }
-
-    usuario.password = passwordToSave;
+    // ✅ GUARDAR EN TEXTO PLANO (SIN HASH)
+    usuario.password = newPassword;
     await usuario.save();
 
-    console.log(`✅ Contraseña cambiada para: ${usuario.email}`);
+    console.log(`✅ Contraseña cambiada a texto plano para: ${usuario.email}`);
 
     logger.audit('CONTRASEÑA_CAMBIADA', req.user, {
       usuario: usuario.email,
@@ -466,7 +437,7 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // ✅ SOLUCIÓN DEFINITIVA: Guardar en texto plano
+    // ✅ GUARDAR EN TEXTO PLANO
     user.password = '123456';
     await user.save();
 
