@@ -7,6 +7,12 @@ const authController = require('../controllers/authController');
 router.post('/register', protect, authorize('Admin'), authController.register);
 router.post('/login', authController.login);
 
+// ✅ RUTA PARA RESTABLECER CONTRASEÑA (PÚBLICA)
+router.post('/reset-password', authController.resetPassword);
+
+// ✅ RUTA PARA CAMBIAR CONTRASEÑA (PROTEGIDA) - NUEVA
+router.post('/change-password', protect, authController.changePassword);
+
 // ✅ RUTA DE USUARIOS - PERMITIR A COORDINADOR Y TECNICO
 router.get('/usuarios', protect, authorize('Admin', 'Jefe', 'Coordinador', 'Tecnico'), authController.getUsuarios);
 
