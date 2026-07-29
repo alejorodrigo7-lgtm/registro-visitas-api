@@ -25,10 +25,16 @@ exports.register = async (req, res) => {
       });
     }
 
-    console.log(`🔑 Hasheando contraseña para: ${email}`);
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    console.log(`✅ Hash generado: ${hashedPassword.substring(0, 30)}...`);
+    // ✅ USAR EL HASH ÚNICO DEL SERVIDOR
+    let hashedPassword;
+    if (password === '123456' && global.DEFAULT_PASSWORD_HASH) {
+      hashedPassword = global.DEFAULT_PASSWORD_HASH;
+      console.log(`✅ Usando hash único para ${email}`);
+    } else {
+      const salt = await bcrypt.genSalt(10);
+      hashedPassword = await bcrypt.hash(password, salt);
+      console.log(`✅ Hash generado para ${email}: ${hashedPassword.substring(0, 30)}...`);
+    }
 
     const user = await User.create({
       nombre,
@@ -71,7 +77,7 @@ exports.register = async (req, res) => {
 };
 
 // ============================================
-// 📋 LOGIN
+// 📋 LOGIN (SIN CAMBIOS)
 // ============================================
 exports.login = async (req, res) => {
   try {
@@ -388,8 +394,17 @@ exports.changePassword = async (req, res) => {
       }
     }
 
-    const salt = await bcrypt.genSalt(10);
-    usuario.password = await bcrypt.hash(newPassword, salt);
+    // ✅ SI ES 123456, USAR HASH ÚNICO
+    let hashedPassword;
+    if (newPassword === '123456' && global.DEFAULT_PASSWORD_HASH) {
+      hashedPassword = global.DEFAULT_PASSWORD_HASH;
+      console.log(`✅ Usando hash único para cambiar a 123456`);
+    } else {
+      const salt = await bcrypt.genSalt(10);
+      hashedPassword = await bcrypt.hash(newPassword, salt);
+    }
+
+    usuario.password = hashedPassword;
     await usuario.save();
 
     logger.audit('CONTRASEÑA_CAMBIADA', req.user, {
@@ -438,8 +453,8 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('123456', salt);
+    // ✅ USAR EL HASH ÚNICO DEL SERVIDOR
+    const hashedPassword = global.DEFAULT_PASSWORD_HASH || await bcrypt.hash('123456', 10);
 
     user.password = hashedPassword;
     await user.save();
