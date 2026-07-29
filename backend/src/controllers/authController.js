@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+// ✅ CAMBIAR bcryptjs POR bcrypt
+const bcrypt = require('bcrypt');
 const logger = require('../config/logger');
 
 // ============================================
@@ -26,9 +27,11 @@ exports.register = async (req, res) => {
       });
     }
 
-    // ✅ CORREGIDO: Usar bcrypt.genSalt + bcrypt.hash
+    // ✅ Hashear contraseña con bcrypt
+    console.log(`🔑 Hasheando contraseña para: ${email}`);
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
+    console.log(`✅ Hash generado: ${hashedPassword.substring(0, 30)}...`);
 
     // Crear usuario
     const user = await User.create({
@@ -40,6 +43,8 @@ exports.register = async (req, res) => {
       especialidad: especialidad || '',
       activo: true,
     });
+
+    console.log(`✅ Usuario creado: ${email} (${user._id})`);
 
     logger.audit('USUARIO_CREADO', req.user, {
       usuarioCreado: email,
@@ -70,7 +75,7 @@ exports.register = async (req, res) => {
 };
 
 // ============================================
-// 📋 LOGIN (SIN CAMBIOS - FUNCIONA)
+// 📋 LOGIN
 // ============================================
 exports.login = async (req, res) => {
   try {
@@ -78,6 +83,7 @@ exports.login = async (req, res) => {
 
     logger.info('Intento de login', { email, rol, ip: req.ip });
 
+    // Buscar usuario
     const user = await User.findOne({ email });
     if (!user) {
       logger.warn('Login fallido - usuario no encontrado', { email });
@@ -87,6 +93,7 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Verificar rol (opcional)
     if (rol && user.rol !== rol) {
       logger.warn('Login fallido - rol incorrecto', { 
         email, 
@@ -99,6 +106,7 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Verificar si está activo
     if (user.activo === false) {
       logger.warn('Login fallido - usuario inactivo', { 
         email, 
@@ -110,6 +118,7 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Verificar contraseña
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       logger.warn('Login fallido - contraseña incorrecta', { 
@@ -122,6 +131,7 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Generar token
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET || 'secret',
@@ -387,7 +397,7 @@ exports.changePassword = async (req, res) => {
       }
     }
 
-    // ✅ CORREGIDO: Usar bcrypt.genSalt + bcrypt.hash
+    // ✅ Hashear nueva contraseña con bcrypt
     const salt = await bcrypt.genSalt(10);
     usuario.password = await bcrypt.hash(newPassword, salt);
     await usuario.save();
@@ -438,7 +448,7 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // ✅ CORRECTO: Usar bcrypt.genSalt + bcrypt.hash
+    // ✅ Hashear con bcrypt
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('123456', salt);
 
