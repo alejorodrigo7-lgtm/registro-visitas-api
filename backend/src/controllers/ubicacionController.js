@@ -1,5 +1,6 @@
 const Ubicacion = require('../models/Ubicacion');
 const User = require('../models/User');
+const mongoose = require('mongoose');
 
 // ============================================
 // 📍 GUARDAR UBICACIÓN
@@ -115,7 +116,7 @@ exports.getUbicacionesPorFecha = async (req, res) => {
 };
 
 // ============================================
-// 📍 OBTENER UBICACIONES EN TIEMPO REAL
+// 📍 OBTENER UBICACIONES EN TIEMPO REAL (CORREGIDO)
 // ============================================
 exports.getUbicacionesReales = async (req, res) => {
   console.log('📍 1. getUbicacionesReales - Inicio');
@@ -139,35 +140,61 @@ exports.getUbicacionesReales = async (req, res) => {
       });
     }
 
-    const ubicaciones = await Promise.all(
-      userIds.map(async (userId) => {
-        const ultimaUbicacion = await Ubicacion.findOne({ usuario: userId })
-          .sort({ fecha: -1 });
-        
-        const usuario = await User.findById(userId).select('nombre email');
-        
-        return {
-          usuario: usuario || { nombre: 'Desconocido', email: '' },
-          ultimaUbicacion: ultimaUbicacion || null,
-          activo: ultimaUbicacion ? 
-            (new Date() - new Date(ultimaUbicacion.fecha) < 15 * 60 * 1000) : false,
-        };
-      })
-    );
+    // ✅ Obtener última ubicación de cada usuario
+    const ubicaciones = await Ubicacion.aggregate([
+      { 
+        $match: { 
+          usuario: { $in: userIds.map(id => new mongoose.Types.ObjectId(id)) } 
+        } 
+      },
+      { $sort: { fecha: -1 } },
+      { 
+        $group: { 
+          _id: '$usuario', 
+          ultimaUbicacion: { $first: '$$ROOT' } 
+        } 
+      }
+    ]);
 
-    console.log(`✅ 2. Ubicaciones reales obtenidas: ${ubicaciones.length}`);
+    console.log(`📍 2. Ubicaciones encontradas: ${ubicaciones.length}`);
+
+    // ✅ Formatear respuesta para el frontend
+    const resultado = [];
+    for (const item of ubicaciones) {
+      const user = await User.findById(item._id).select('nombre email rol');
+      
+      if (user) {
+        const tiempoTranscurrido = new Date() - new Date(item.ultimaUbicacion.fecha);
+        const activo = tiempoTranscurrido < 15 * 60 * 1000; // 15 minutos
+
+        resultado.push({
+          usuario: {
+            _id: user._id,
+            nombre: user.nombre,
+            email: user.email,
+            rol: user.rol
+          },
+          ultimaUbicacion: {
+            coordenadas: item.ultimaUbicacion.coordenadas,
+            fecha: item.ultimaUbicacion.fecha,
+            direccion: item.ultimaUbicacion.direccion || ''
+          },
+          activo: activo
+        });
+      }
+    }
 
     res.json({
       success: true,
-      count: ubicaciones.length,
-      data: ubicaciones,
+      count: resultado.length,
+      data: resultado
     });
 
   } catch (error) {
     console.error('❌ Error en getUbicacionesReales:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message
     });
   }
 };
