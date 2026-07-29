@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+// ✅ bcrypt ya no se usa para hashear, solo para comparar si es necesario
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
@@ -38,15 +39,26 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
+// ✅ COMENTADO: Ya no hasheamos automáticamente
+// userSchema.pre('save', async function(next) {
+//   if (!this.isModified('password')) return next();
+//   const salt = await bcrypt.genSalt(10);
+//   this.password = await bcrypt.hash(this.password, salt);
+//   next();
+// });
 
+// ✅ Función para comparar en texto plano (opcional)
 userSchema.methods.matchPassword = async function(enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  // Si la contraseña está en texto plano, comparar directamente
+  if (this.password === enteredPassword) {
+    return true;
+  }
+  // Si por alguna razón está hasheada, usar bcrypt
+  try {
+    return await bcrypt.compare(enteredPassword, this.password);
+  } catch {
+    return false;
+  }
 };
 
 module.exports = mongoose.model('User', userSchema);
