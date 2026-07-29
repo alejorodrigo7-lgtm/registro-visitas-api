@@ -3,26 +3,40 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const authController = require('../controllers/authController');
 
-// Rutas públicas
-router.post('/register', protect, authorize('Admin'), authController.register);
+// ============================================
+// RUTAS PÚBLICAS
+// ============================================
 router.post('/login', authController.login);
 
-// ✅ RUTA PARA RESTABLECER CONTRASEÑA (PÚBLICA)
+// ============================================
+// RUTAS PROTEGIDAS - ESPECÍFICAS (DEBEN IR ANTES)
+// ============================================
+router.post('/register', protect, authorize('Admin'), authController.register);
+
+// Ruta para restablecer contraseña
 router.post('/reset-password', authController.resetPassword);
 
-// ✅ RUTA PARA CAMBIAR CONTRASEÑA (PROTEGIDA) - NUEVA
+// Ruta para cambiar contraseña
 router.post('/change-password', protect, authController.changePassword);
 
-// ✅ RUTA DE USUARIOS - PERMITIR A COORDINADOR Y TECNICO
+// Ruta para obtener todos los usuarios
 router.get('/usuarios', protect, authorize('Admin', 'Jefe', 'Coordinador', 'Tecnico'), authController.getUsuarios);
 
-// Otras rutas
+// Ruta para obtener jefes
 router.get('/jefes', protect, authController.getJefes);
+
+// Ruta para eliminar usuario (DEBE IR ANTES DE /:id)
+router.delete('/usuarios/:id', protect, authorize('Admin'), authController.deleteUsuario);
+
+// Ruta para registrar push token
+router.post('/registrar-push-token', protect, authController.registrarPushToken);
+
+// ============================================
+// RUTAS CON PARÁMETROS (DEBEN IR AL FINAL)
+// ============================================
 router.get('/:id', protect, authController.getUsuario);
 router.put('/:id', protect, authorize('Admin'), authController.updateUsuario);
-router.delete('/:id', protect, authorize('Admin'), authController.deleteUsuario);
 router.put('/:id/toggle', protect, authorize('Admin'), authController.toggleUsuario);
 router.put('/:id/password', protect, authController.changePassword);
-router.post('/registrar-push-token', protect, authController.registrarPushToken);
 
 module.exports = router;
