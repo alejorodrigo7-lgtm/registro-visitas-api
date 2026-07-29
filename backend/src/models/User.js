@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
-// ✅ CAMBIAR bcryptjs POR bcrypt
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   nombre: {
@@ -39,7 +38,6 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// ✅ CORRECTO - usa bcrypt (NO bcryptjs)
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);
@@ -47,7 +45,6 @@ userSchema.pre('save', async function(next) {
   next();
 });
 
-// ✅ CORRECTO - usa bcrypt (NO bcryptjs)
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
