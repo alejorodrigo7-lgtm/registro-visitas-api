@@ -373,31 +373,29 @@ exports.toggleUsuario = async (req, res) => {
 };
 
 // ============================================
-// 📋 CAMBIAR CONTRASEÑA
+// 📋 CAMBIAR CONTRASEÑA (CORREGIDO - usa req.user.id)
 // ============================================
 exports.changePassword = async (req, res) => {
   try {
-    const { id } = req.params;
     const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id; // ✅ Usuario autenticado
 
-    const usuario = await User.findById(id);
+    console.log(`🔑 Cambiando contraseña para usuario: ${userId}`);
+
+    const usuario = await User.findById(userId);
     if (!usuario) {
+      console.log('❌ Usuario no encontrado:', userId);
       return res.status(404).json({
         success: false,
         message: 'Usuario no encontrado'
       });
     }
 
-    if (id !== req.user._id.toString() && req.user.rol !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'No autorizado'
-      });
-    }
-
+    // Verificar contraseña actual (si no es Admin)
     if (req.user.rol !== 'Admin') {
       const isMatch = await bcrypt.compare(currentPassword, usuario.password);
       if (!isMatch) {
+        console.log('❌ Contraseña actual incorrecta');
         return res.status(401).json({
           success: false,
           message: 'Contraseña actual incorrecta'
@@ -408,8 +406,8 @@ exports.changePassword = async (req, res) => {
     // ✅ Si es 123456, guardar en texto plano
     let passwordToSave;
     if (newPassword === '123456') {
-      passwordToSave = '123456'; // TEXTO PLANO
-      console.log(`✅ Cambiando a contraseña en texto plano para ${usuario.email}`);
+      passwordToSave = '123456';
+      console.log(`✅ Usando contraseña en texto plano para ${usuario.email}`);
     } else {
       const salt = await bcrypt.genSalt(10);
       passwordToSave = await bcrypt.hash(newPassword, salt);
@@ -419,6 +417,8 @@ exports.changePassword = async (req, res) => {
     usuario.password = passwordToSave;
     await usuario.save();
 
+    console.log(`✅ Contraseña cambiada para: ${usuario.email}`);
+
     logger.audit('CONTRASEÑA_CAMBIADA', req.user, {
       usuario: usuario.email,
       cambiadoPor: req.user.email
@@ -426,16 +426,17 @@ exports.changePassword = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Contraseña actualizada correctamente',
+      message: 'Contraseña actualizada correctamente'
     });
+
   } catch (error) {
-    logger.errorWithContext('Error en changePassword', error, {
-      usuarioId: req.params.id
-    });
     console.error('❌ Error en changePassword:', error);
+    logger.errorWithContext('Error en changePassword', error, {
+      usuarioId: req.user?.id
+    });
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Error al cambiar la contraseña'
     });
   }
 };
