@@ -25,8 +25,11 @@ router.get('/usuarios', protect, authorize('Admin', 'Jefe', 'Coordinador', 'Tecn
 // Ruta para obtener jefes
 router.get('/jefes', protect, authController.getJefes);
 
-// Ruta para eliminar usuario (DEBE IR ANTES DE /:id)
+// Ruta para eliminar usuario
 router.delete('/usuarios/:id', protect, authorize('Admin'), authController.deleteUsuario);
+
+// ✅ Ruta para activar/desactivar usuario (CORREGIDA)
+router.put('/usuarios/:id/toggle', protect, authorize('Admin'), authController.toggleUsuario);
 
 // Ruta para registrar push token
 router.post('/registrar-push-token', protect, authController.registrarPushToken);
@@ -36,7 +39,6 @@ router.post('/registrar-push-token', protect, authController.registrarPushToken)
 // ============================================
 router.get('/:id', protect, authController.getUsuario);
 router.put('/:id', protect, authorize('Admin'), authController.updateUsuario);
-router.put('/:id/toggle', protect, authorize('Admin'), authController.toggleUsuario);
 router.put('/:id/password', protect, authController.changePassword);
 
 module.exports = router;
