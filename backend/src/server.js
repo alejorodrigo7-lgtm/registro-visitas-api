@@ -31,6 +31,12 @@ const HASH_123456 = bcrypt.hashSync('123456', 10);
 console.log('🔑 Hash generado para 123456:', HASH_123456);
 global.HASH_123456 = HASH_123456;
 
+// ✅ GENERAR HASH ÚNICO PARA REGISTRO
+const SALT = bcrypt.genSaltSync(10);
+const DEFAULT_PASSWORD_HASH = bcrypt.hashSync('123456', SALT);
+console.log('🔑 Hash por defecto para registro:', DEFAULT_PASSWORD_HASH);
+global.DEFAULT_PASSWORD_HASH = DEFAULT_PASSWORD_HASH;
+
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const transferenciaRoutes = require('./routes/transferenciaRoutes');
@@ -59,7 +65,7 @@ console.log(`📡 Host: ${mongoose.connection.host}`);
 
 app.use(cors());
 
-// ✅ SOLUCIÓN PARA RATE LIMITING - AGREGAR ESTA LÍNEA
+// ✅ SOLUCIÓN PARA RATE LIMITING
 app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '50mb' }));
@@ -71,7 +77,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(logger.middleware);
 
 // ============================================
-// 🔍 RUTA DE BÚSQUEDA DE CLIENTES (DEPRECATED - USAR clienteRoutes)
+// 🔍 RUTA DE BÚSQUEDA DE CLIENTES
 // ============================================
 app.get('/api/clientes/buscar/:identificador', async (req, res) => {
   try {
@@ -105,7 +111,7 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
 });
 
 // ============================================
-// 📋 OBTENER TODOS LOS CLIENTES (DEPRECATED - USAR clienteRoutes)
+// 📋 OBTENER TODOS LOS CLIENTES
 // ============================================
 app.get('/api/clientes/todos', protect, async (req, res) => {
   try {
@@ -165,7 +171,6 @@ app.use('/api/pedir-ausencia', pedirAusenciaRoutes);
 app.use('/api/clientes', clienteRoutes);
 app.use('/api/notificaciones', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-// Aplicar límite general a todas las rutas API
 app.use('/api', generalLimiter);
 
 // Aplicar límites específicos
@@ -342,7 +347,6 @@ const gracefulShutdown = (signal) => {
     process.exit(0);
   });
   
-  // Forzar cierre después de 10 segundos
   setTimeout(() => {
     logger.error('⚠️ Forzando cierre del servidor');
     process.exit(1);
@@ -352,10 +356,8 @@ const gracefulShutdown = (signal) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Manejo de errores no capturados
 process.on('uncaughtException', (error) => {
   logger.errorWithContext('Error no capturado', error);
-  // No cerrar el proceso, pero loggear
 });
 
 process.on('unhandledRejection', (reason, promise) => {
