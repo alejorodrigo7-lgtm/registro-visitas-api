@@ -58,6 +58,10 @@ console.log(`📡 Base de datos conectada: ${mongoose.connection.name}`);
 console.log(`📡 Host: ${mongoose.connection.host}`);
 
 app.use(cors());
+
+// ✅ SOLUCIÓN PARA RATE LIMITING - AGREGAR ESTA LÍNEA
+app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
