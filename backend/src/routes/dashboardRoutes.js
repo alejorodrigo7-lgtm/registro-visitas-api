@@ -1,3 +1,4 @@
+// src/routes/dashboardRoutes.js
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
@@ -8,11 +9,20 @@ const {
   getStatsAsistencia,
 } = require('../controllers/statsController');
 
-// Todas las rutas requieren autenticación
+// ============================================
+// 🔒 TODAS LAS RUTAS REQUIEREN AUTENTICACIÓN
+// ============================================
 router.use(protect);
+
+// ============================================
+// 📊 RUTAS DEL DASHBOARD
+// ============================================
 
 // 📊 Dashboard principal (solo Admin/Jefe)
 router.get('/', authorize('Admin', 'Jefe'), getDashboardStats);
+
+// 📊 Dashboard stats (alias de / para compatibilidad)
+router.get('/stats', authorize('Admin', 'Jefe'), getDashboardStats);
 
 // 📊 Estadísticas por técnico
 router.get('/tecnico', authorize('Admin', 'Jefe'), getStatsByTecnico);
