@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const logger = require('../config/logger');
 
 // ============================================
@@ -25,21 +25,21 @@ exports.register = async (req, res) => {
       });
     }
 
-    // ✅ USAR EL HASH ÚNICO DEL SERVIDOR
-    let hashedPassword;
-    if (password === '123456' && global.DEFAULT_PASSWORD_HASH) {
-      hashedPassword = global.DEFAULT_PASSWORD_HASH;
-      console.log(`✅ Usando hash único para ${email}`);
+    // ✅ SOLUCIÓN DEFINITIVA: Si es 123456, guardar en texto plano
+    let passwordToSave;
+    if (password === '123456') {
+      passwordToSave = '123456'; // TEXTO PLANO
+      console.log(`✅ Usando contraseña en texto plano para ${email}`);
     } else {
       const salt = await bcrypt.genSalt(10);
-      hashedPassword = await bcrypt.hash(password, salt);
-      console.log(`✅ Hash generado para ${email}: ${hashedPassword.substring(0, 30)}...`);
+      passwordToSave = await bcrypt.hash(password, salt);
+      console.log(`✅ Hash generado para ${email}`);
     }
 
     const user = await User.create({
       nombre,
       email,
-      password: hashedPassword,
+      password: passwordToSave,
       rol: rol || 'Tecnico',
       telefono: telefono || '',
       especialidad: especialidad || '',
@@ -77,7 +77,7 @@ exports.register = async (req, res) => {
 };
 
 // ============================================
-// 📋 LOGIN (SIN CAMBIOS)
+// 📋 LOGIN
 // ============================================
 exports.login = async (req, res) => {
   try {
@@ -117,7 +117,18 @@ exports.login = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    // ✅ SOLUCIÓN DEFINITIVA: Comparar texto plano primero
+    let isMatch = false;
+    
+    // Si la contraseña es 123456, comparar en texto plano
+    if (password === '123456' && user.password === '123456') {
+      isMatch = true;
+      console.log(`✅ Login con contraseña en texto plano para ${email}`);
+    } else {
+      // Si no, usar bcrypt
+      isMatch = await bcrypt.compare(password, user.password);
+    }
+
     if (!isMatch) {
       logger.warn('Login fallido - contraseña incorrecta', { 
         email, 
@@ -394,17 +405,18 @@ exports.changePassword = async (req, res) => {
       }
     }
 
-    // ✅ SI ES 123456, USAR HASH ÚNICO
-    let hashedPassword;
-    if (newPassword === '123456' && global.DEFAULT_PASSWORD_HASH) {
-      hashedPassword = global.DEFAULT_PASSWORD_HASH;
-      console.log(`✅ Usando hash único para cambiar a 123456`);
+    // ✅ Si es 123456, guardar en texto plano
+    let passwordToSave;
+    if (newPassword === '123456') {
+      passwordToSave = '123456'; // TEXTO PLANO
+      console.log(`✅ Cambiando a contraseña en texto plano para ${usuario.email}`);
     } else {
       const salt = await bcrypt.genSalt(10);
-      hashedPassword = await bcrypt.hash(newPassword, salt);
+      passwordToSave = await bcrypt.hash(newPassword, salt);
+      console.log(`✅ Hash generado para ${usuario.email}`);
     }
 
-    usuario.password = hashedPassword;
+    usuario.password = passwordToSave;
     await usuario.save();
 
     logger.audit('CONTRASEÑA_CAMBIADA', req.user, {
@@ -453,13 +465,11 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // ✅ USAR EL HASH ÚNICO DEL SERVIDOR
-    const hashedPassword = global.DEFAULT_PASSWORD_HASH || await bcrypt.hash('123456', 10);
-
-    user.password = hashedPassword;
+    // ✅ SOLUCIÓN DEFINITIVA: Guardar en texto plano
+    user.password = '123456';
     await user.save();
 
-    console.log('✅ Contraseña restablecida para:', email);
+    console.log('✅ Contraseña restablecida a 123456 (texto plano)');
 
     logger.audit('CONTRASEÑA_RESTABLECIDA', user, {
       usuario: user.email,
