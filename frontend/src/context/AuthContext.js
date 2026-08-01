@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -21,7 +22,10 @@ export const AuthProvider = ({ children }) => {
           setUser(JSON.parse(storedUser));
           api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
           
-          // ✅ Registrar token push después de cargar usuario (para cualquier rol)
+          // ✅ Cargar contador de notificaciones no leídas
+          await loadUnreadCount();
+          
+          // ✅ Registrar token push después de cargar usuario
           console.log('📱 Cargando usuario guardado, registrando token push...');
           await registerForPushNotificationsAsync();
         }
@@ -33,6 +37,16 @@ export const AuthProvider = ({ children }) => {
     };
     loadUser();
   }, []);
+
+  // Cargar contador de no leídas
+  const loadUnreadCount = async () => {
+    try {
+      const response = await api.get('/notificaciones/no-leidas/count');
+      setUnreadCount(response.data.count || 0);
+    } catch (error) {
+      console.error('Error cargando contador de notificaciones:', error);
+    }
+  };
 
   const login = async (email, password, rol) => {
     try {
@@ -54,7 +68,10 @@ export const AuthProvider = ({ children }) => {
         setUser(user);
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
-        // ✅ REGISTRAR TOKEN PUSH DESPUÉS DEL LOGIN (PARA CUALQUIER ROL)
+        // ✅ Cargar contador de notificaciones no leídas
+        await loadUnreadCount();
+        
+        // ✅ REGISTRAR TOKEN PUSH DESPUÉS DEL LOGIN
         console.log(`📱 Registrando token push para ${user.rol}: ${user.email}...`);
         await registerForPushNotificationsAsync();
         
@@ -76,6 +93,7 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.removeItem('@user');
       setToken(null);
       setUser(null);
+      setUnreadCount(0);
       delete api.defaults.headers.common['Authorization'];
     } catch (error) {
       console.error('Error en logout:', error);
@@ -102,6 +120,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // ✅ Función para refrescar el contador de notificaciones
+  const refreshUnreadCount = async () => {
+    await loadUnreadCount();
+  };
+
+  // ✅ Verificar si es Admin o Jefe
+  const isAdminOrJefe = () => {
+    return user && ['Admin', 'Jefe'].includes(user.rol);
+  };
+
+  // ✅ Verificar si es Admin
+  const isAdmin = () => {
+    return user && user.rol === 'Admin';
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -110,7 +143,11 @@ export const AuthProvider = ({ children }) => {
       login, 
       logout, 
       getToken, 
-      getUser 
+      getUser,
+      unreadCount,
+      refreshUnreadCount,
+      isAdminOrJefe,
+      isAdmin,
     }}>
       {children}
     </AuthContext.Provider>

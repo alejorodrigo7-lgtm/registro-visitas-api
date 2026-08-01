@@ -6,8 +6,11 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { setupNotificationListeners } from './src/services/notificationService';
 import { initDatabase } from './src/services/database';
 import { iniciarSincronizacionAutomatica, detenerSincronizacionAutomatica } from './src/services/syncService';
-import * as ScreenCapture from 'expo-screen-capture';
-import { Alert } from 'react-native';
+// ✅ AGREGADO: Servicio de ubicación en tiempo real
+import { iniciarSeguimientoUbicacion, detenerSeguimientoUbicacion } from './src/services/ubicacionService';
+// ✅ AGREGADO: Sistema de actualizaciones OTA
+import { checkUpdateOnStart } from './src/services/updateService';
+import ScreenCaptureBlocker from './src/components/ScreenCaptureBlocker';
 
 // Pantallas principales
 import RoleSelection from './src/screens/RoleSelection';
@@ -17,6 +20,10 @@ import RegistroVisita from './src/screens/RegistroVisita';
 import GestionUsuarios from './src/screens/GestionUsuarios';
 import GestionHorarios from './src/screens/GestionHorarios';
 import Alertas from './src/screens/Alertas';
+
+// ✅ NUEVAS PANTALLAS
+import NotificacionesScreen from './src/screens/NotificacionesScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
 
 // Transferencias
 import TransferenciasMenu from './src/screens/TransferenciasMenu';
@@ -75,49 +82,7 @@ import CambiarContraseña from './src/screens/CambiarContraseña';
 const Stack = createStackNavigator();
 
 // ============================================
-// 📸 BLOQUEADOR DE CAPTURAS DE PANTALLA
-// ============================================
-const ScreenCaptureBlocker = ({ children }) => {
-  useEffect(() => {
-    let isMounted = true;
-
-    const preventScreenCapture = async () => {
-      try {
-        await ScreenCapture.preventScreenCaptureAsync();
-        console.log('📸 Capturas de pantalla bloqueadas');
-      } catch (error) {
-        console.log('⚠️ Error bloqueando capturas:', error);
-      }
-    };
-
-    const subscription = ScreenCapture.addListener(
-      ScreenCapture.ScreenCaptureEvent,
-      (event) => {
-        if (isMounted) {
-          Alert.alert(
-            '⚠️ Captura de Pantalla Detectada',
-            'No está permitido tomar capturas de pantalla en esta aplicación por razones de seguridad.',
-            [{ text: 'Entendido', style: 'default' }]
-          );
-          setTimeout(preventScreenCapture, 500);
-        }
-      }
-    );
-
-    preventScreenCapture();
-
-    return () => {
-      isMounted = false;
-      subscription?.remove();
-      ScreenCapture.allowScreenCaptureAsync().catch(() => {});
-    };
-  }, []);
-
-  return children;
-};
-
-// ============================================
-// 🚀 INICIALIZADOR DE APP CON SINCRONIZACIÓN
+// 🚀 INICIALIZADOR DE APP CON SINCRONIZACIÓN Y UBICACIÓN
 // ============================================
 const AppInitializer = ({ children }) => {
   const { user } = useAuth();
@@ -130,12 +95,19 @@ const AppInitializer = ({ children }) => {
         console.log('✅ Base de datos local inicializada');
         
         if (user) {
+          console.log('👤 Usuario autenticado:', user.email);
+          
+          // 🔄 Sincronización automática
           console.log('🔄 Iniciando sincronización automática...');
           syncUnsubscribeRef.current = await iniciarSincronizacionAutomatica((result) => {
             if (result.sincronizados > 0) {
               console.log(`✅ ${result.sincronizados} elementos sincronizados`);
             }
           });
+          
+          // 📍 Iniciar ubicación en tiempo real
+          console.log('📍 Iniciando ubicación en tiempo real...');
+          await iniciarSeguimientoUbicacion();
         }
       } catch (error) {
         console.error('❌ Error al inicializar app:', error);
@@ -149,6 +121,8 @@ const AppInitializer = ({ children }) => {
         syncUnsubscribeRef.current();
       }
       detenerSincronizacionAutomatica();
+      // ✅ Detener ubicación al cerrar
+      detenerSeguimientoUbicacion();
     };
   }, [user]);
 
@@ -160,7 +134,12 @@ const AppInitializer = ({ children }) => {
 // ============================================
 export default function App() {
   useEffect(() => {
+    // Notificaciones
     const { subscription, responseSubscription } = setupNotificationListeners();
+    
+    // ✅ Verificar actualizaciones OTA al iniciar
+    checkUpdateOnStart();
+    
     return () => {
       subscription?.remove();
       responseSubscription?.remove();
@@ -185,6 +164,11 @@ export default function App() {
               <Stack.Screen name="RoleSelection" component={RoleSelection} options={{ headerShown: false }} />
               <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
               <Stack.Screen name="MenuPrincipal" component={MenuPrincipal} options={{ title: 'RA²P', headerLeft: null }} />
+              
+              {/* ✅ NUEVAS PANTALLAS */}
+              <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: '📊 Dashboard' }} />
+              <Stack.Screen name="Notificaciones" component={NotificacionesScreen} options={{ title: '🔔 Notificaciones' }} />
+              
               <Stack.Screen name="RegistroVisita" component={RegistroVisita} options={{ title: 'Registrar Visita' }} />
               <Stack.Screen name="GestionUsuarios" component={GestionUsuarios} options={{ title: 'Gestión de Usuarios' }} />
               <Stack.Screen name="GestionHorarios" component={GestionHorarios} options={{ title: 'Horarios' }} />

@@ -8,20 +8,22 @@ import {
   SafeAreaView,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 const MapaReal = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [ubicaciones, setUbicaciones] = useState([]);
   const [region, setRegion] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
 
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
@@ -52,6 +54,33 @@ const MapaReal = ({ navigation }) => {
     }
   };
 
+  // ✅ FUNCIÓN PARA CALCULAR TIEMPO DESDE ÚLTIMA UBICACIÓN
+  const calcularTiempoDesde = (fecha) => {
+    if (!fecha) return 'Sin ubicación';
+    
+    const ahora = new Date();
+    const ultima = new Date(fecha);
+    const diffMs = ahora - ultima;
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHoras = Math.floor(diffMin / 60);
+    const diffDias = Math.floor(diffHoras / 24);
+    
+    if (diffMin < 1) return 'Hace menos de 1 minuto';
+    if (diffMin < 60) return `Hace ${diffMin} minutos`;
+    if (diffHoras < 24) return `Hace ${diffHoras} horas`;
+    return `Hace ${diffDias} días`;
+  };
+
+  // ✅ FUNCIÓN PARA VERIFICAR SI ESTÁ ACTIVO (menos de 15 minutos)
+  const estaActivo = (fecha) => {
+    if (!fecha) return false;
+    const ahora = new Date();
+    const ultima = new Date(fecha);
+    const diffMs = ahora - ultima;
+    const diffMin = Math.floor(diffMs / 60000);
+    return diffMin < 15;
+  };
+
   const buscarUbicaciones = async () => {
     if (selectedUsers.length === 0) {
       Alert.alert('Error', 'Selecciona al menos un usuario');
@@ -63,17 +92,23 @@ const MapaReal = ({ navigation }) => {
       const usuariosStr = selectedUsers.join(',');
       const response = await api.get(`/mapas/ubicaciones/reales?usuarios=${usuariosStr}`);
       
-      setUbicaciones(response.data.data || []);
+      const data = response.data.data || [];
+      setUbicaciones(data);
+      setUltimaActualizacion(new Date());
       
       // Centrar mapa en el primer usuario con ubicación
-      const primera = response.data.data.find(u => u.ultimaUbicacion);
+      const primera = data.find(u => u.ultimaUbicacion);
       if (primera) {
-        setRegion({
-          latitude: primera.ultimaUbicacion.coordenadas.coordinates[1],
-          longitude: primera.ultimaUbicacion.coordenadas.coordinates[0],
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
+        const lat = primera.ultimaUbicacion.coordenadas.coordinates[1];
+        const lng = primera.ultimaUbicacion.coordenadas.coordinates[0];
+        if (!isNaN(lat) && !isNaN(lng)) {
+          setRegion({
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          });
+        }
       }
     } catch (error) {
       console.error('Error al buscar ubicaciones:', error);
@@ -94,6 +129,10 @@ const MapaReal = ({ navigation }) => {
     return colors[index % colors.length];
   };
 
+  // ✅ Filtrar usuarios con ubicación
+  const usuariosConUbicacion = ubicaciones.filter(u => u.ultimaUbicacion);
+  const usuariosActivos = usuariosConUbicacion.filter(u => estaActivo(u.ultimaUbicacion?.fecha));
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -108,10 +147,21 @@ const MapaReal = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.title}>📍 Mapa Real</Text>
         <Text style={styles.subtitle}>Ubicación en tiempo real de usuarios</Text>
+        {ultimaActualizacion && (
+          <Text style={styles.updateTime}>
+            Última actualización: {ultimaActualizacion.toLocaleTimeString('es-ES')}
+          </Text>
+        )}
       </View>
 
       <View style={styles.filtrosContainer}>
-        <Text style={styles.label}>Selecciona usuarios (máx 5)</Text>
+        <View style={styles.filtrosHeader}>
+          <Text style={styles.label}>Selecciona usuarios (máx 5)</Text>
+          <Text style={styles.usuariosCount}>
+            {selectedUsers.length} / 5 seleccionados
+          </Text>
+        </View>
+        
         <ScrollView style={styles.usuariosLista}>
           {usuarios.map((u) => (
             <TouchableOpacity
@@ -137,42 +187,56 @@ const MapaReal = ({ navigation }) => {
 
         <View style={styles.botonesContainer}>
           <TouchableOpacity style={styles.buscarButton} onPress={buscarUbicaciones}>
-            <Text style={styles.buscarButtonText}>📍 Buscar</Text>
+            <Ionicons name="search" size={20} color="#FFFFFF" />
+            <Text style={styles.buscarButtonText}> Buscar</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.refrescarButton} onPress={actualizarUbicaciones}>
-            <Text style={styles.refrescarButtonText}>🔄 Actualizar</Text>
+            <Ionicons name="refresh" size={20} color="#FFFFFF" />
+            <Text style={styles.refrescarButtonText}> Actualizar</Text>
           </TouchableOpacity>
         </View>
 
-        {ubicaciones.length > 0 && (
-          <Text style={styles.contador}>
-            👤 {ubicaciones.filter(u => u.ultimaUbicacion).length} usuarios activos
-          </Text>
+        {usuariosConUbicacion.length > 0 && (
+          <View style={styles.estadoContainer}>
+            <Text style={styles.contador}>
+              👤 {usuariosConUbicacion.length} usuarios con ubicación
+            </Text>
+            <Text style={styles.contadorActivos}>
+              🟢 {usuariosActivos.length} activos (últimos 15 min)
+            </Text>
+          </View>
         )}
       </View>
 
       {/* Mapa */}
       <View style={styles.mapaContainer}>
-        {region ? (
+        {region && usuariosConUbicacion.length > 0 ? (
           <MapView
             style={styles.mapa}
             region={region}
             showsUserLocation={true}
+            showsMyLocationButton={true}
+            showsCompass={true}
           >
-            {ubicaciones.map((item, index) => {
-              if (!item.ultimaUbicacion) return null;
+            {usuariosConUbicacion.map((item, index) => {
               const color = getColorPorUsuario(index);
+              const lat = item.ultimaUbicacion.coordenadas.coordinates[1];
+              const lng = item.ultimaUbicacion.coordenadas.coordinates[0];
+              const activo = estaActivo(item.ultimaUbicacion.fecha);
+              const tiempo = calcularTiempoDesde(item.ultimaUbicacion.fecha);
+              
               return (
                 <Marker
-                  key={item.usuario._id}
-                  coordinate={{
-                    latitude: item.ultimaUbicacion.coordenadas.coordinates[1],
-                    longitude: item.ultimaUbicacion.coordenadas.coordinates[0],
-                  }}
-                  title={item.usuario.nombre}
-                  description={`${item.activo ? '🟢 Activo' : '🔴 Inactivo'} - ${new Date(item.ultimaUbicacion.fecha).toLocaleTimeString('es-ES')}`}
-                  pinColor={item.activo ? color : '#FF6B6B'}
-                />
+                  key={item.usuario?._id || index}
+                  coordinate={{ latitude: lat, longitude: lng }}
+                  title={item.usuario?.nombre || 'Usuario'}
+                  description={`${activo ? '🟢 Activo' : '🔴 Inactivo'} - ${tiempo}`}
+                  pinColor={activo ? color : '#FF6B6B'}
+                >
+                  <View style={styles.markerContainer}>
+                    <View style={[styles.markerDot, { backgroundColor: activo ? color : '#FF6B6B' }]} />
+                  </View>
+                </Marker>
               );
             })}
           </MapView>
@@ -180,26 +244,34 @@ const MapaReal = ({ navigation }) => {
           <View style={styles.mapaPlaceholder}>
             <Text style={styles.mapaPlaceholderText}>🗺️</Text>
             <Text style={styles.mapaPlaceholderSub}>
-              Selecciona usuarios y busca para ver su ubicación
+              {selectedUsers.length > 0 
+                ? 'Los usuarios seleccionados no tienen ubicación disponible'
+                : 'Selecciona usuarios y busca para ver su ubicación'}
             </Text>
           </View>
         )}
       </View>
 
-      {/* Leyenda */}
-      {ubicaciones.filter(u => u.ultimaUbicacion).length > 0 && (
+      {/* Leyenda de usuarios activos */}
+      {usuariosConUbicacion.length > 0 && (
         <View style={styles.leyendaContainer}>
-          <Text style={styles.leyendaTitle}>👤 Usuarios activos:</Text>
+          <Text style={styles.leyendaTitle}>
+            👤 Usuarios ({usuariosActivos.length} activos / {usuariosConUbicacion.length} total)
+          </Text>
           <ScrollView horizontal style={styles.leyendaLista}>
-            {ubicaciones.map((item, index) => {
-              if (!item.ultimaUbicacion) return null;
+            {usuariosConUbicacion.map((item, index) => {
               const color = getColorPorUsuario(index);
+              const activo = estaActivo(item.ultimaUbicacion?.fecha);
+              const tiempo = calcularTiempoDesde(item.ultimaUbicacion?.fecha);
+              
               return (
-                <View key={item.usuario._id} style={styles.leyendaItem}>
-                  <View style={[styles.leyendaColor, { backgroundColor: color }]} />
-                  <Text style={styles.leyendaNombre}>{item.usuario.nombre}</Text>
-                  <Text style={styles.leyendaEstado}>
-                    {item.activo ? '🟢' : '🔴'}
+                <View key={item.usuario?._id || index} style={styles.leyendaItem}>
+                  <View style={[styles.leyendaColor, { backgroundColor: activo ? color : '#FF6B6B' }]} />
+                  <Text style={styles.leyendaNombre}>
+                    {item.usuario?.nombre || 'Usuario'}
+                  </Text>
+                  <Text style={styles.leyendaTiempo}>
+                    {tiempo}
                   </Text>
                 </View>
               );
@@ -233,6 +305,11 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     marginTop: 5,
   },
+  updateTime: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 4,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -248,11 +325,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
+  filtrosHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   label: {
     fontSize: 14,
     fontWeight: '500',
     color: '#2D3436',
-    marginBottom: 10,
+  },
+  usuariosCount: {
+    fontSize: 12,
+    color: '#636E72',
   },
   usuariosLista: {
     maxHeight: 120,
@@ -290,10 +376,12 @@ const styles = StyleSheet.create({
   },
   buscarButton: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#6C5CE7',
     padding: 12,
     borderRadius: 10,
-    alignItems: 'center',
   },
   buscarButtonText: {
     color: '#FFFFFF',
@@ -302,21 +390,30 @@ const styles = StyleSheet.create({
   },
   refrescarButton: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#00B894',
     padding: 12,
     borderRadius: 10,
-    alignItems: 'center',
   },
   refrescarButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },
+  estadoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
   contador: {
     fontSize: 14,
     color: '#636E72',
-    marginTop: 10,
-    textAlign: 'center',
+  },
+  contadorActivos: {
+    fontSize: 14,
+    color: '#00B894',
   },
   mapaContainer: {
     flex: 1,
@@ -345,6 +442,17 @@ const styles = StyleSheet.create({
     color: '#636E72',
     textAlign: 'center',
   },
+  markerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markerDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
   leyendaContainer: {
     backgroundColor: '#FFFFFF',
     padding: 10,
@@ -364,17 +472,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 15,
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 15,
   },
   leyendaColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginRight: 5,
   },
   leyendaNombre: {
     fontSize: 12,
     color: '#2D3436',
     marginRight: 3,
+    fontWeight: '500',
+  },
+  leyendaTiempo: {
+    fontSize: 10,
+    color: '#636E72',
   },
   leyendaEstado: {
     fontSize: 12,

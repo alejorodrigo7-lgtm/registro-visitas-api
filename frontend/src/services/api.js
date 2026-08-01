@@ -43,4 +43,74 @@ api.interceptors.response.use(
   }
 );
 
+// ============================================
+// 📊 SERVICIOS DEL DASHBOARD (SOLO ADMIN/JEFE)
+// ============================================
+export const dashboardService = {
+  // Obtener estadísticas principales del dashboard
+  getStats: () => api.get('/dashboard'),
+  
+  // Estadísticas por técnico
+  getTecnicoStats: (tecnicoId) => {
+    const url = tecnicoId ? `/dashboard/tecnico?tecnicoId=${tecnicoId}` : '/dashboard/tecnico';
+    return api.get(url);
+  },
+  
+  // Estadísticas de visitas por fecha
+  getVisitasStats: (fechaInicio, fechaFin) => {
+    return api.get(`/dashboard/visitas?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
+  },
+  
+  // Estadísticas de asistencia por fecha
+  getAsistenciaStats: (fechaInicio, fechaFin) => {
+    return api.get(`/dashboard/asistencia?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
+  },
+};
+
+// ============================================
+// 🔔 SERVICIOS DE NOTIFICACIONES
+// ============================================
+export const notificationService = {
+  // Obtener notificaciones del usuario
+  getNotifications: (params = {}) => {
+    const { limit = 50, offset = 0, leida } = params;
+    let url = `/notificaciones?limit=${limit}&offset=${offset}`;
+    if (leida !== undefined) {
+      url += `&leida=${leida}`;
+    }
+    return api.get(url);
+  },
+  
+  // Contar no leídas
+  getUnreadCount: () => api.get('/notificaciones/no-leidas/count'),
+  
+  // Marcar como leída
+  markAsRead: (id) => api.put(`/notificaciones/${id}/leer`),
+  
+  // Marcar todas como leídas
+  markAllAsRead: () => api.put('/notificaciones/leer-todas'),
+  
+  // Eliminar notificación
+  deleteNotification: (id) => api.delete(`/notificaciones/${id}`),
+  
+  // Eliminar todas leídas
+  deleteRead: () => api.delete('/notificaciones/leidas'),
+};
+
+// ============================================
+// 👤 SERVICIOS DE AUTENTICACIÓN
+// ============================================
+export const authService = {
+  login: (email, password, rol) => api.post('/auth/login', { email, password, rol }),
+  register: (userData) => api.post('/auth/register', userData),
+  getUsuarios: () => api.get('/auth/usuarios'),
+  getUsuario: (id) => api.get(`/auth/usuario/${id}`),
+  updateUsuario: (id, data) => api.put(`/auth/usuario/${id}`, data),
+  deleteUsuario: (id) => api.delete(`/auth/usuario/${id}`),
+  toggleUsuario: (id, activo) => api.put(`/auth/usuario/${id}/toggle`, { activo }),
+  changePassword: (id, currentPassword, newPassword) => 
+    api.put(`/auth/usuario/${id}/password`, { currentPassword, newPassword }),
+  registerPushToken: (userId, token) => api.post('/auth/push-token', { userId, token }),
+};
+
 export default api;

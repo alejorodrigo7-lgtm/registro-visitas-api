@@ -1,0 +1,94 @@
+{
+  "expo": {
+    "name": "RA²P",
+    "slug": "ra2p-nuevo",
+    "version": "1.0.9",
+    "newArchEnabled": true,
+    "updates": {
+      "url": "https://u.expo.dev/c498ddad-89aa-41ae-9f7d-e0f2e31df324",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ra2p.app",
+      "config": {
+        "googleMapsApiKey": "AQ.Ab8RN6Kn8LSOqYchqr9n9XFjKn7AVgHuUZ3YxKIEKNzKbLlrng"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": ["location"],
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "RA²P necesita acceder a tu ubicación para mostrar tu posición en el mapa en tiempo real",
+        "NSLocationWhenInUseUsageDescription": "RA²P necesita acceder a tu ubicación para mostrar tu posición en el mapa",
+        "NSLocationAlwaysUsageDescription": "RA²P necesita acceder a tu ubicación en segundo plano para mantener actualizada tu posición"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#6C5CE7",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.ra2p.app",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AQ.Ab8RN6Kn8LSOqYchqr9n9XFjKn7AVgHuUZ3YxKIEKNzKbLlrng"
+        }
+      },
+      "permissions": [
+        "ACCESS_BACKGROUND_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "INTERNET",
+        "NOTIFICATIONS",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#6C5CE7",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "RA²P necesita acceder a tu ubicación para mostrar tu posición en el mapa en tiempo real",
+          "locationAlwaysPermission": "RA²P necesita acceder a tu ubicación en segundo plano para mantener actualizada tu posición",
+          "locationWhenInUsePermission": "RA²P necesita acceder a tu ubicación para mostrar tu posición en el mapa"
+        }
+      ],
+      [
+        "expo-task-manager",
+        {
+          "permissions": [
+            "ACCESS_BACKGROUND_LOCATION",
+            "ACCESS_FINE_LOCATION",
+            "ACCESS_COARSE_LOCATION"
+          ]
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c498ddad-89aa-41ae-9f7d-e0f2e31df324"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}

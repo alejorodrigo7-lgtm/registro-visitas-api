@@ -1,0 +1,60 @@
+﻿module.exports = {
+  expo: {
+    name: "RA2P",
+    slug: "registro-visitas-app",
+    version: "2.0.0",
+    orientation: "portrait",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "light",
+    splash: {
+      image: "./assets/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#6C5CE7"
+    },
+    assetBundlePatterns: ["**/*"],
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.ra2p.app",
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription: "RA2P necesita tu ubicacion para registrar asistencias y visitas",
+        NSLocationAlwaysUsageDescription: "RA2P necesita tu ubicacion para registrar asistencias",
+        UIBackgroundModes: ["location"]
+      }
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#6C5CE7"
+      },
+      package: "com.ra2p.app",
+      permissions: [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    web: {
+      favicon: "./assets/favicon.png"
+    },
+    extra: {
+      eas: {
+        projectId: "e135c1cd-81b1-43c2-a270-217b041f596b"
+      }
+    },
+    plugins: [
+      "expo-sqlite",
+      "expo-font",
+      "expo-screen-capture"
+    ],
+    updates: {
+      fallbackToCacheTimeout: 0,
+      enabled: true,
+      checkAutomatically: "ON_LOAD"
+    },
+    runtimeVersion: {
+      policy: "appVersion"
+    }
+  }
+};

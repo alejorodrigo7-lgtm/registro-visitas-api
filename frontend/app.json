@@ -1,56 +1,54 @@
-{
+﻿{
   "expo": {
-    "name": "RA²P",
+    "name": "RA2P",
     "slug": "registro-visitas-app",
     "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "jsEngine": "jsc",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#6C5CE7"
     },
+    "updates": {
+      "url": "https://u.expo.dev/e135c1cd-81b1-43c2-a270-217b041f596b",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
+      "jsEngine": "jsc",
       "supportsTablet": true,
-      "bundleIdentifier": "com.ra2p.app",
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "RA²P necesita tu ubicación para registrar asistencias y visitas",
-        "NSLocationAlwaysUsageDescription": "RA²P necesita tu ubicación para registrar asistencias",
-        "UIBackgroundModes": [
-          "location"
-        ]
-      }
+      "bundleIdentifier": "com.alejorodrigo7.ra2p"
     },
     "android": {
+      "jsEngine": "jsc",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#6C5CE7"
       },
-      "package": "com.ra2p.app",
+      "package": "com.alejorodrigo7.ra2p",
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-sqlite",
-      "expo-font"
-    ],
     "extra": {
       "eas": {
         "projectId": "e135c1cd-81b1-43c2-a270-217b041f596b"
       }
-    },
-    "owner": "alejorodrigo7"
+    }
   }
 }

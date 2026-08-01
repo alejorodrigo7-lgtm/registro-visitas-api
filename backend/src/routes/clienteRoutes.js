@@ -5,9 +5,30 @@ const Cliente = require('../models/Cliente');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const csv = require('csv-parser'); // ✅ Agregar esta importación
 
 // Configurar multer para archivos CSV
 const upload = multer({ dest: 'uploads/' });
+
+// ============================================
+// FUNCIÓN UTILITARIA PARA NORMALIZAR TELÉFONO
+// ============================================
+const normalizarTelefono = (telefono) => {
+    if (!telefono) return '';
+    
+    // Si es array, tomar el primer elemento
+    if (Array.isArray(telefono)) {
+        return telefono.length > 0 ? String(telefono[0]).trim() : '';
+    }
+    
+    // Si es string, limpiar directamente
+    if (typeof telefono === 'string') {
+        return telefono.trim();
+    }
+    
+    // Si es número u otro tipo, convertir a string
+    return String(telefono).trim();
+};
 
 // ============================================
 // 🔍 BUSCAR CLIENTE POR IDENTIFICADOR
@@ -127,7 +148,7 @@ router.get('/todos-sin-limite', protect, async (req, res) => {
 });
 
 // ============================================
-// 👤 CREAR NUEVO CLIENTE (Admin/Jefe)
+// 👤 CREAR NUEVO CLIENTE (Admin/Jefe) - CORREGIDO
 // ============================================
 router.post('/', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
@@ -168,6 +189,10 @@ router.post('/', protect, authorize('Admin', 'Jefe'), async (req, res) => {
       });
     }
 
+    // ✅ CORREGIDO: Normalizar teléfono
+    const telefonoLimpio = normalizarTelefono(telefono);
+    console.log('📝 [CLIENTE] Teléfono normalizado:', telefonoLimpio);
+
     console.log('📝 [CLIENTE] Creando nuevo cliente...');
     
     const nuevoCliente = new Cliente({
@@ -175,7 +200,7 @@ router.post('/', protect, authorize('Admin', 'Jefe'), async (req, res) => {
       identificador: identificador.trim(),
       barrio: barrio?.trim() || '',
       direccion: direccion?.trim() || '',
-      telefono: telefono?.trim() || '',
+      telefono: telefonoLimpio, // ✅ Usar teléfono normalizado
     });
 
     console.log('📝 [CLIENTE] Cliente a guardar:', JSON.stringify(nuevoCliente, null, 2));
@@ -247,7 +272,12 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
       try {
         const existe = await Cliente.findOne({ identificador: cliente.identificador });
         if (!existe) {
-          await Cliente.create(cliente);
+          // ✅ CORREGIDO: Normalizar teléfono al importar CSV
+          const telefonoLimpio = normalizarTelefono(cliente.telefono);
+          await Cliente.create({
+            ...cliente,
+            telefono: telefonoLimpio
+          });
           guardados++;
         } else {
           errores.push(`Identificador ${cliente.identificador} ya existe, omitido`);
@@ -306,11 +336,14 @@ router.delete('/:id', protect, authorize('Admin'), async (req, res) => {
 });
 
 // ============================================
-// 📋 ACTUALIZAR CLIENTE (Admin/Jefe)
+// 📋 ACTUALIZAR CLIENTE (Admin/Jefe) - CORREGIDO
 // ============================================
 router.put('/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
     const { nombre, identificador, barrio, direccion, telefono } = req.body;
+    
+    console.log('📝 [CLIENTE] Actualizando cliente:', req.params.id);
+    console.log('📝 [CLIENTE] Datos recibidos:', JSON.stringify(req.body, null, 2));
     
     const cliente = await Cliente.findById(req.params.id);
     
@@ -333,13 +366,19 @@ router.put('/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
       }
     }
 
+    // ✅ CORREGIDO: Normalizar teléfono al actualizar
+    const telefonoLimpio = normalizarTelefono(telefono);
+    console.log('📝 [CLIENTE] Teléfono normalizado:', telefonoLimpio);
+
     cliente.nombre = nombre || cliente.nombre;
     cliente.identificador = identificador || cliente.identificador;
     cliente.barrio = barrio || cliente.barrio;
     cliente.direccion = direccion || cliente.direccion;
-    cliente.telefono = telefono || cliente.telefono;
+    cliente.telefono = telefonoLimpio || cliente.telefono; // ✅ Usar teléfono normalizado
     
     await cliente.save();
+    
+    console.log('✅ [CLIENTE] Cliente actualizado:', cliente._id);
     
     res.json({
       success: true,

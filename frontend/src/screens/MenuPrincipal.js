@@ -7,8 +7,10 @@ import {
   SafeAreaView,
   Alert,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { registerForPushNotificationsAsync } from '../services/notificationService';
 import { 
   contarPendientes, 
@@ -17,9 +19,12 @@ import {
 } from '../services/database';
 import { verificarEstadoSincronizacion } from '../services/syncService';
 import NetInfo from '@react-native-community/netinfo';
+import { Ionicons } from '@expo/vector-icons';
 
 const MenuPrincipal = ({ navigation }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, unreadCount } = useAuth();
+  const { theme, themeMode, setTheme } = useTheme();
+  const { colors } = theme;
   const [pendientes, setPendientes] = useState({ total: 0 });
   const [conectado, setConectado] = useState(true);
   const [clientesCargados, setClientesCargados] = useState(false);
@@ -35,9 +40,6 @@ const MenuPrincipal = ({ navigation }) => {
     registerPush();
   }, []);
 
-  // ============================================
-  // 📋 CARGAR CLIENTES EN CACHÉ AL INICIAR
-  // ============================================
   useEffect(() => {
     const cargarClientes = async () => {
       try {
@@ -63,9 +65,6 @@ const MenuPrincipal = ({ navigation }) => {
     cargarClientes();
   }, []);
 
-  // ============================================
-  // 📊 ACTUALIZAR PENDIENTES
-  // ============================================
   useEffect(() => {
     const actualizarPendientes = async () => {
       try {
@@ -105,220 +104,302 @@ const MenuPrincipal = ({ navigation }) => {
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
   const isTecnicoOrCoordinador = ['Tecnico', 'Coordinador'].includes(user?.rol);
 
+  // ============================================
+  // 🎨 FUNCIÓN PARA CAMBIAR TEMA (DIRECTO)
+  // ============================================
+  const toggleTheme = () => {
+    if (themeMode === 'light') {
+      setTheme('dark');
+    } else if (themeMode === 'dark') {
+      setTheme('system');
+    } else {
+      setTheme('light');
+    }
+  };
+
+  const getThemeIcon = () => {
+    if (themeMode === 'dark') return 'moon';
+    if (themeMode === 'light') return 'sunny';
+    return 'phone-portrait';
+  };
+
+  const getThemeLabel = () => {
+    if (themeMode === 'dark') return 'Oscuro';
+    if (themeMode === 'light') return 'Claro';
+    return 'Sistema';
+  };
+
+  // ============================================
+  // 📋 CONFIGURACIÓN DE ÍTEMS DEL MENÚ
+  // ============================================
+  const menuItems = [
+    { 
+      id: 'RegistroVisita', 
+      label: '📋 Registrar Visita',
+      show: true,
+      badge: pendientes.visitas,
+      style: 'default'
+    },
+    { 
+      id: 'GestionHorarios', 
+      label: isAdminOrJefe ? '📋 Gestión de Horarios' : '📋 Mi Horario',
+      show: true,
+      badge: pendientes.horarios,
+      style: isAdminOrJefe ? 'admin' : 'horario'
+    },
+    { 
+      id: 'TransferenciasMenu', 
+      label: '💰 Transferencias',
+      show: true,
+      badge: pendientes.transferencias,
+      style: 'transferencia'
+    },
+    { 
+      id: 'ServiciosMenu', 
+      label: '🛠️ Servicios',
+      show: true,
+      badge: pendientes.servicios,
+      style: 'servicio'
+    },
+    { 
+      id: 'Dashboard', 
+      label: '📊 Dashboard',
+      show: isAdminOrJefe,
+      style: 'dashboard'
+    },
+    { 
+      id: 'Reportes', 
+      label: '📊 Reportes',
+      show: isAdminOrJefe,
+      style: 'reporte'
+    },
+    { 
+      id: 'CajasMenu', 
+      label: '💰 Cajas',
+      show: isAdminOrJefe,
+      badge: pendientes.cajas,
+      style: 'caja'
+    },
+    { 
+      id: 'BodegaMenu', 
+      label: '🏪 Bodegas',
+      show: isAdminOrJefe,
+      badge: pendientes.bodegas,
+      style: 'bodega'
+    },
+    { 
+      id: 'MapasMenu', 
+      label: '🗺️ Mapas',
+      show: isAdminOrJefe,
+      style: 'mapa'
+    },
+    { 
+      id: 'UsuarioNuevoScreen', 
+      label: '👤 Usuario Nuevo',
+      show: isAdminOrJefe,
+      style: 'usuario'
+    },
+    { 
+      id: 'CambiarContraseña', 
+      label: '🔒 Cambiar Contraseña',
+      show: true,
+      style: 'password'
+    },
+  ];
+
+  const visibleItems = menuItems.filter(item => item.show);
+
+  const getItemStyle = (style) => {
+    const stylesMap = {
+      default: {
+        bg: colors.card,
+        border: colors.border,
+        text: colors.text,
+      },
+      admin: {
+        bg: colors.primary,
+        border: '#5A4BD1',
+        text: '#FFFFFF',
+      },
+      horario: {
+        bg: '#E8F0FE',
+        border: '#0984E3',
+        text: '#0984E3',
+      },
+      transferencia: {
+        bg: '#E8F0FE',
+        border: '#0984E3',
+        text: '#0984E3',
+      },
+      servicio: {
+        bg: '#E8F8F5',
+        border: '#00B894',
+        text: '#00B894',
+      },
+      dashboard: {
+        bg: colors.primary,
+        border: '#5A4BD1',
+        text: '#FFFFFF',
+      },
+      reporte: {
+        bg: '#F3E5F5',
+        border: '#9C27B0',
+        text: '#9C27B0',
+      },
+      caja: {
+        bg: '#FFF3E0',
+        border: '#FDCB6E',
+        text: '#F39C12',
+      },
+      bodega: {
+        bg: '#E8F0FE',
+        border: '#0984E3',
+        text: '#0984E3',
+      },
+      mapa: {
+        bg: '#E8F0FE',
+        border: '#0984E3',
+        text: '#0984E3',
+      },
+      usuario: {
+        bg: '#F0E6FF',
+        border: '#6C5CE7',
+        text: '#6C5CE7',
+      },
+      password: {
+        bg: '#E8F0FE',
+        border: '#0984E3',
+        text: '#0984E3',
+      },
+    };
+    return stylesMap[style] || stylesMap.default;
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
+      
+      {/* HEADER */}
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        {/* Fila superior: Tema | Notificaciones */}
+        <View style={styles.headerTopRow}>
+          {/* Botón Tema - Directo en el header */}
+          <TouchableOpacity 
+            style={styles.themeButton}
+            onPress={toggleTheme}
+          >
+            <Ionicons name={getThemeIcon()} size={16} color="#FFFFFF" />
+            <Text style={styles.themeButtonText}>{getThemeLabel()}</Text>
+          </TouchableOpacity>
+          
+          {/* Notificaciones */}
+          <TouchableOpacity
+            style={styles.notificationIcon}
+            onPress={() => navigation.navigate('Notificaciones')}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* RA²P - Más pequeño */}
         <Text style={styles.appName}>RA²P</Text>
-        <Text style={styles.welcomeText}>Bienvenido,</Text>
+        
+        {/* Usuario */}
         <Text style={styles.userName}>{user?.nombre || 'Usuario'}</Text>
         <Text style={styles.userRole}>{user?.rol || ''}</Text>
         
-        {/* Estado de sincronización */}
+        {/* Estado */}
         <View style={styles.syncStatus}>
-          <Text style={styles.syncStatusText}>
-            {conectado ? '🟢 Conectado' : '🔴 Sin conexión'}
-          </Text>
+          <View style={[styles.statusBadge, { backgroundColor: conectado ? 'rgba(46,204,113,0.3)' : 'rgba(255,107,107,0.3)' }]}>
+            <Text style={[styles.statusText, { color: conectado ? '#2ECC71' : '#FF6B6B' }]}>
+              {conectado ? '● Conectado' : '● Sin conexión'}
+            </Text>
+          </View>
+          {clientesCargados && (
+            <View style={[styles.statusBadge, { backgroundColor: 'rgba(108,92,231,0.3)' }]}>
+              <Text style={[styles.statusText, { color: '#6C5CE7' }]}>📋 Clientes listos</Text>
+            </View>
+          )}
           {pendientes.total > 0 && (
-            <View style={styles.pendientesBadge}>
-              <Text style={styles.pendientesBadgeText}>
+            <View style={[styles.statusBadge, { backgroundColor: 'rgba(255,107,107,0.3)' }]}>
+              <Text style={[styles.statusText, { color: '#FF6B6B' }]}>
                 📤 {pendientes.total} pendiente{pendientes.total > 1 ? 's' : ''}
               </Text>
             </View>
           )}
-          {clientesCargados && (
-            <Text style={styles.syncStatusText}>
-              📋 Clientes listos
-            </Text>
-          )}
         </View>
       </View>
 
+      {/* MENÚ */}
       <ScrollView
         style={styles.menuScrollView}
-        showsVerticalScrollIndicator={true}
-        contentContainerStyle={styles.menuContentContainer}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.menuContentContainer, { backgroundColor: colors.background }]}
       >
-        {/* Registrar Visita - Todos */}
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => navigation.navigate('RegistroVisita')}
-        >
-          <Text style={styles.menuItemText}>📋 Registrar Visita</Text>
-          {pendientes.visitas > 0 && (
-            <View style={styles.badgeSmall}>
-              <Text style={styles.badgeSmallText}>{pendientes.visitas}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Alertas - Todos */}
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => navigation.navigate('Alertas')}
-        >
-          <Text style={styles.menuItemText}>🔔 Alertas</Text>
-        </TouchableOpacity>
-
-        {/* Horarios - Todos los usuarios */}
-        {isAdminOrJefe ? (
-          <TouchableOpacity
-            style={[styles.menuItem, styles.adminMenuItem]}
-            onPress={() => navigation.navigate('GestionHorarios')}
-          >
-            <Text style={[styles.menuItemText, styles.adminMenuItemText]}>
-              📋 Gestión de Horarios
-            </Text>
-            {pendientes.horarios > 0 && (
-              <View style={[styles.badgeSmall, styles.badgeWhite]}>
-                <Text style={[styles.badgeSmallText, styles.badgeWhiteText]}>{pendientes.horarios}</Text>
+        {visibleItems.map((item) => {
+          const style = getItemStyle(item.style);
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.menuItem,
+                { 
+                  backgroundColor: style.bg,
+                  borderColor: style.border,
+                  borderWidth: 1,
+                }
+              ]}
+              onPress={() => navigation.navigate(item.id)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.menuItemLeft}>
+                <Text style={[styles.menuItemText, { color: style.text }]}>
+                  {item.label}
+                </Text>
+                {item.badge > 0 && (
+                  <View style={[styles.badgeSmall, { backgroundColor: style.text }]}>
+                    <Text style={[styles.badgeSmallText, { color: style.bg }]}>
+                      {item.badge}
+                    </Text>
+                  </View>
+                )}
               </View>
-            )}
-          </TouchableOpacity>
-        ) : isTecnicoOrCoordinador ? (
-          <TouchableOpacity
-            style={[styles.menuItem, styles.horarioMenuItem]}
-            onPress={() => navigation.navigate('GestionHorarios')}
-          >
-            <Text style={[styles.menuItemText, styles.horarioMenuItemText]}>
-              📋 Mi Horario
-            </Text>
-          </TouchableOpacity>
-        ) : null}
+              <Ionicons 
+                name="chevron-forward-outline" 
+                size={20} 
+                color={style.text} 
+                style={{ opacity: 0.6 }}
+              />
+            </TouchableOpacity>
+          );
+        })}
 
-        {/* Gestión de Usuarios - Solo Admin */}
-        {isAdmin && (
-          <TouchableOpacity
-            style={[styles.menuItem, styles.adminMenuItem]}
-            onPress={() => navigation.navigate('GestionUsuarios')}
-          >
-            <Text style={[styles.menuItemText, styles.adminMenuItemText]}>
-              👥 Gestión de Usuarios
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Transferencias - Todos */}
-        <TouchableOpacity
-          style={[styles.menuItem, styles.transferenciaMenuItem]}
-          onPress={() => navigation.navigate('TransferenciasMenu')}
-        >
-          <Text style={[styles.menuItemText, styles.transferenciaMenuItemText]}>
-            💰 Transferencias
-          </Text>
-          {pendientes.transferencias > 0 && (
-            <View style={styles.badgeSmall}>
-              <Text style={styles.badgeSmallText}>{pendientes.transferencias}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Servicios - Todos */}
-        <TouchableOpacity
-          style={[styles.menuItem, styles.servicioMenuItem]}
-          onPress={() => navigation.navigate('ServiciosMenu')}
-        >
-          <Text style={[styles.menuItemText, styles.servicioMenuItemText]}>
-            🛠️ Servicios
-          </Text>
-          {pendientes.servicios > 0 && (
-            <View style={styles.badgeSmall}>
-              <Text style={styles.badgeSmallText}>{pendientes.servicios}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Cajas - Solo Jefe y Admin */}
-        {isAdminOrJefe && (
-          <TouchableOpacity
-            style={[styles.menuItem, styles.cajaMenuItem]}
-            onPress={() => navigation.navigate('CajasMenu')}
-          >
-            <Text style={[styles.menuItemText, styles.cajaMenuItemText]}>
-              💰 Cajas
-            </Text>
-            {pendientes.cajas > 0 && (
-              <View style={styles.badgeSmall}>
-                <Text style={styles.badgeSmallText}>{pendientes.cajas}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Reportes - Solo Admin y Jefe */}
-        {isAdminOrJefe && (
-          <TouchableOpacity
-            style={[styles.menuItem, styles.reporteMenuItem]}
-            onPress={() => navigation.navigate('Reportes')}
-          >
-            <Text style={[styles.menuItemText, styles.reporteMenuItemText]}>
-              📊 Reportes
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Mapas - Solo Admin y Jefe */}
-        {isAdminOrJefe && (
-          <TouchableOpacity
-            style={[styles.menuItem, styles.mapaMenuItem]}
-            onPress={() => navigation.navigate('MapasMenu')}
-          >
-            <Text style={[styles.menuItemText, styles.mapaMenuItemText]}>
-              🗺️ Mapas
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Bodegas - Solo Admin y Jefe */}
-        {isAdminOrJefe && (
-          <TouchableOpacity
-            style={[styles.menuItem, styles.bodegaMenuItem]}
-            onPress={() => navigation.navigate('BodegaMenu')}
-          >
-            <Text style={[styles.menuItemText, styles.bodegaMenuItemText]}>
-              🏪 Bodegas
-            </Text>
-            {pendientes.bodegas > 0 && (
-              <View style={styles.badgeSmall}>
-                <Text style={styles.badgeSmallText}>{pendientes.bodegas}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Usuario Nuevo - Solo Admin y Jefe */}
-        {isAdminOrJefe && (
-          <TouchableOpacity
-            style={[styles.menuItem, styles.usuarioNuevoMenuItem]}
-            onPress={() => navigation.navigate('UsuarioNuevoScreen')}
-          >
-            <Text style={[styles.menuItemText, styles.usuarioNuevoMenuItemText]}>
-              👤 Usuario Nuevo
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Cambiar Contraseña - Todos los usuarios */}
-<TouchableOpacity
-  style={[styles.menuItem, styles.passwordMenuItem]}
-  onPress={() => navigation.navigate('CambiarContraseña')}
->
-  <Text style={[styles.menuItemText, styles.passwordMenuItemText]}>
-    🔒 Cambiar Contraseña
-  </Text>
-</TouchableOpacity>
-
-        {/* Cerrar Sesión - Siempre al final */}
+        {/* Cerrar Sesión */}
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutButton]}
           onPress={handleLogout}
+          activeOpacity={0.8}
         >
-          <Text style={[styles.menuItemText, styles.logoutText]}>🚪 Cerrar Sesión</Text>
+          <View style={styles.menuItemLeft}>
+            <Text style={[styles.menuItemText, styles.logoutText]}>🚪 Cerrar Sesión</Text>
+          </View>
+          <Ionicons 
+            name="log-out-outline" 
+            size={20} 
+            color="#FFFFFF" 
+            style={{ opacity: 0.6 }}
+          />
         </TouchableOpacity>
 
-        {/* Autoría */}
+        {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2026 RA²P - Todos los derechos reservados</Text>
-          <Text style={styles.footerSubText}>Desarrollado por: Alejandro Abril</Text>
+          <Text style={styles.footerText}>© 2026 RA²P</Text>
+          <Text style={styles.footerSubText}>Desarrollado por Alejandro Abril</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -328,225 +409,166 @@ const MenuPrincipal = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
   },
   header: {
-    padding: 30,
-    paddingBottom: 15,
-    backgroundColor: '#6C5CE7',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingTop: 40,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  themeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    gap: 4,
+  },
+  themeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  notificationIcon: {
+    padding: 8,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   appName: {
     color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '300',
     textAlign: 'center',
-    marginBottom: 10,
-    letterSpacing: 2,
-  },
-  welcomeText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    opacity: 0.8,
+    letterSpacing: 4,
+    marginBottom: 4,
   },
   userName: {
     color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginTop: 5,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 2,
   },
   userRole: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    marginTop: 5,
-    opacity: 0.9,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 2,
+    fontWeight: '400',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   syncStatus: {
     flexDirection: 'row',
-    alignItems: 'center',
     flexWrap: 'wrap',
-    marginTop: 10,
-    gap: 8,
+    justifyContent: 'center',
+    marginTop: 12,
+    gap: 6,
   },
-  syncStatusText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    opacity: 0.8,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: 12,
   },
-  pendientesBadge: {
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  pendientesBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
+  statusText: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   menuScrollView: {
     flex: 1,
   },
   menuContentContainer: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 16,
+    paddingBottom: 30,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    padding: 18,
-    borderRadius: 12,
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   menuItemText: {
-    fontSize: 18,
-    color: '#2D3436',
+    fontSize: 15,
+    fontWeight: '500',
   },
-  adminMenuItem: {
-    backgroundColor: '#6C5CE7',
-    borderWidth: 2,
-    borderColor: '#5A4BD1',
+  badgeSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
+    marginLeft: 8,
   },
-  adminMenuItemText: {
-    color: '#FFFFFF',
+  badgeSmallText: {
+    fontSize: 10,
     fontWeight: 'bold',
-  },
-  horarioMenuItem: {
-    backgroundColor: '#E8F0FE',
-    borderWidth: 1,
-    borderColor: '#0984E3',
-  },
-  horarioMenuItemText: {
-    color: '#0984E3',
-    fontWeight: '500',
-  },
-  transferenciaMenuItem: {
-    backgroundColor: '#E8F0FE',
-    borderWidth: 1,
-    borderColor: '#0984E3',
-  },
-  transferenciaMenuItemText: {
-    color: '#0984E3',
-    fontWeight: '500',
-  },
-  servicioMenuItem: {
-    backgroundColor: '#E8F8F5',
-    borderWidth: 1,
-    borderColor: '#00B894',
-  },
-  servicioMenuItemText: {
-    color: '#00B894',
-    fontWeight: '500',
-  },
-  cajaMenuItem: {
-    backgroundColor: '#FFF3E0',
-    borderWidth: 1,
-    borderColor: '#FDCB6E',
-  },
-  cajaMenuItemText: {
-    color: '#F39C12',
-    fontWeight: '500',
-  },
-  reporteMenuItem: {
-    backgroundColor: '#F3E5F5',
-    borderWidth: 1,
-    borderColor: '#9C27B0',
-  },
-  reporteMenuItemText: {
-    color: '#9C27B0',
-    fontWeight: '500',
-  },
-  mapaMenuItem: {
-    backgroundColor: '#E8F0FE',
-    borderWidth: 1,
-    borderColor: '#0984E3',
-  },
-  mapaMenuItemText: {
-    color: '#0984E3',
-    fontWeight: '500',
-  },
-  bodegaMenuItem: {
-    backgroundColor: '#E8F0FE',
-    borderWidth: 1,
-    borderColor: '#0984E3',
-  },
-  bodegaMenuItemText: {
-    color: '#0984E3',
-    fontWeight: '500',
-  },
-  usuarioNuevoMenuItem: {
-    backgroundColor: '#F0E6FF',
-    borderWidth: 1,
-    borderColor: '#6C5CE7',
-  },
-  usuarioNuevoMenuItemText: {
-    color: '#6C5CE7',
-    fontWeight: '500',
   },
   logoutButton: {
     backgroundColor: '#FF6B6B',
-    marginTop: 10,
+    marginTop: 6,
+    borderWidth: 0,
   },
   logoutText: {
     color: '#FFFFFF',
-    textAlign: 'center',
+    fontWeight: '600',
   },
   footer: {
-    marginTop: 20,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#DFE6E9',
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(0,0,0,0.1)',
     alignItems: 'center',
   },
   footerText: {
     fontSize: 12,
     color: '#636E72',
+    fontWeight: '400',
+    letterSpacing: 1,
   },
   footerSubText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#B2BEC3',
-    marginTop: 4,
+    marginTop: 2,
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
-  badgeSmall: {
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 12,
-    minWidth: 28,
-    alignItems: 'center',
-  },
-  badgeSmallText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  badgeWhite: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  badgeWhiteText: {
-    color: '#FFFFFF',
-  },
-  passwordMenuItem: {
-  backgroundColor: '#E8F0FE',
-  borderWidth: 1,
-  borderColor: '#0984E3',
-},
-passwordMenuItemText: {
-  color: '#0984E3',
-  fontWeight: '500',
-},
 });
 
 export default MenuPrincipal;
