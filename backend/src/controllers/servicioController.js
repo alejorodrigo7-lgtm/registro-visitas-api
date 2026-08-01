@@ -62,6 +62,7 @@ exports.tomarServicio = async (req, res) => {
       jefeAsignado,
       imagen: imagen || '',
       estado: 'TOMADO',
+      activo: true, // ✅ Nuevo servicio siempre activo
     });
 
     // Notificaciones push
@@ -122,7 +123,6 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
     console.log(`📋 Buscando servicios TOMADOS para técnico: ${tecnicoId}`);
     console.log(`👤 Usuario que consulta: ${req.user.email} (${req.user.rol})`);
     
-    // ✅ VALIDAR ID
     if (!tecnicoId || tecnicoId === 'undefined' || tecnicoId === 'null' || tecnicoId === '') {
       console.error('❌ ID de técnico inválido:', tecnicoId);
       return res.status(400).json({
@@ -131,7 +131,6 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       });
     }
     
-    // ✅ Verificar que el técnico existe
     const tecnico = await User.findById(tecnicoId);
     if (!tecnico) {
       console.error('❌ Técnico no encontrado:', tecnicoId);
@@ -141,13 +140,12 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       });
     }
     
-    // ✅ Buscar servicios - SIN usuarioTomador (no existe en el esquema)
     const servicios = await Servicio.find({
       tecnicoAsignado: tecnicoId,
-      estado: 'TOMADO'
+      estado: 'TOMADO',
+      activo: true // ✅ Solo servicios activos
     })
     .populate('tecnicoAsignado', 'nombre email')
-    // ❌ ELIMINADO: .populate('usuarioTomador', 'nombre email')
     .populate('jefeAsignado', 'nombre email')
     .populate('responsableId', 'nombre email')
     .sort({ createdAt: -1 });
@@ -171,7 +169,7 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
 };
 
 // ============================================
-// OBTENER SERVICIOS POR ESTADO (CORREGIDO)
+// ✅ OBTENER SERVICIOS POR ESTADO (CORREGIDO)
 // ============================================
 exports.getServiciosByEstado = async (req, res) => {
   try {
@@ -198,7 +196,10 @@ exports.getServiciosByEstado = async (req, res) => {
       });
     }
 
-    let query = { estado };
+    let query = { 
+      estado,
+      activo: true // ✅ Solo servicios activos
+    };
     
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
@@ -243,19 +244,58 @@ exports.getServiciosByEstado = async (req, res) => {
 };
 
 // ============================================
-// OBTENER TODOS LOS SERVICIOS
+// ✅ OBTENER TODOS LOS SERVICIOS (CORREGIDO)
 // ============================================
 exports.getServicios = async (req, res) => {
   try {
-    let query = {};
-
-    if (req.user.rol === 'Tecnico') {
-      query.tecnicoAsignado = req.user._id;
-    } else if (req.user.rol === 'Jefe') {
-      query.jefeAsignado = req.user._id;
-    }
+    let query = { activo: true }; // ✅ Solo servicios activos
 
     console.log(`🔍 Obteniendo todos los servicios para rol: ${req.user.rol}`);
+    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
+
+    // ✅ SI ES TÉCNICO - VER SERVICIOS EN ESTADOS PERMITIDOS
+    if (req.user.rol === 'Tecnico') {
+      query = {
+        $and: [
+          { activo: true },
+          { 
+            estado: { 
+              $in: [
+                'TOMADO', 
+                'ASIGNADO',
+                'EN PROCESO'
+              ] 
+            } 
+          },
+          { 
+            $or: [
+              { tecnicoAsignado: req.user._id },
+              { tecnicoAsignado: { $exists: false } }
+            ]
+          }
+        ]
+      };
+      console.log(`🎯 Técnico filtrado por estados: TOMADO, ASIGNADO, EN PROCESO`);
+    }
+    
+    // ✅ SI ES JEFE - VER TODOS LOS SERVICIOS ASIGNADOS A ÉL
+    else if (req.user.rol === 'Jefe') {
+      query = {
+        $and: [
+          { activo: true },
+          { jefeAsignado: req.user._id }
+        ]
+      };
+      console.log(`🎯 Jefe filtrado por: ${req.user._id}`);
+    }
+    
+    // ✅ SI ES ADMIN O COORDINADOR - VER TODOS
+    else if (req.user.rol === 'Admin' || req.user.rol === 'Coordinador') {
+      // Sin filtro adicional (solo activo)
+      console.log('🎯 Acceso completo a todos los servicios activos');
+    }
+
+    console.log(`📋 Query final: ${JSON.stringify(query, null, 2)}`);
 
     const servicios = await Servicio.find(query)
       .populate('tecnicoAsignado', 'nombre email')
@@ -557,10 +597,15 @@ exports.buscarServicios = async (req, res) => {
     console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
 
     const query = {
-      $or: [
-        { cliente: { $regex: search, $options: 'i' } },
-        { codigoIdentificador: { $regex: search, $options: 'i' } },
-      ],
+      $and: [
+        { activo: true }, // ✅ Solo servicios activos
+        {
+          $or: [
+            { cliente: { $regex: search, $options: 'i' } },
+            { codigoIdentificador: { $regex: search, $options: 'i' } },
+          ]
+        }
+      ]
     };
 
     const servicios = await Servicio.find(query)
@@ -583,4 +628,4 @@ exports.buscarServicios = async (req, res) => {
       message: error.message 
     });
   }
-};// Forzar redeploy - 07/31/2026 22:02:45
+};
