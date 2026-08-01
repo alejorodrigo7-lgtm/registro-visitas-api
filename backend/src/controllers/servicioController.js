@@ -583,4 +583,4 @@ exports.buscarServicios = async (req, res) => {
       message: error.message 
     });
   }
-};
+};// Forzar redeploy - 07/31/2026 22:02:45
