@@ -122,7 +122,7 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
     console.log(`📋 Buscando servicios TOMADOS para técnico: ${tecnicoId}`);
     console.log(`👤 Usuario que consulta: ${req.user.email} (${req.user.rol})`);
     
-    // ✅ VALIDAR QUE EL ID NO SEA "undefined" O VACÍO
+    // ✅ VALIDAR ID
     if (!tecnicoId || tecnicoId === 'undefined' || tecnicoId === 'null' || tecnicoId === '') {
       console.error('❌ ID de técnico inválido:', tecnicoId);
       return res.status(400).json({
@@ -141,15 +141,15 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       });
     }
     
-    // Buscar servicios en estado TOMADO asignados al técnico
+    // ✅ Buscar servicios - SIN usuarioTomador (no existe en el esquema)
     const servicios = await Servicio.find({
       tecnicoAsignado: tecnicoId,
       estado: 'TOMADO'
     })
     .populate('tecnicoAsignado', 'nombre email')
-    .populate('usuarioTomador', 'nombre email')
+    // ❌ ELIMINADO: .populate('usuarioTomador', 'nombre email')
     .populate('jefeAsignado', 'nombre email')
-    .populate('clienteId', 'nombre direccion telefono')
+    .populate('responsableId', 'nombre email')
     .sort({ createdAt: -1 });
     
     console.log(`✅ ${servicios.length} servicios encontrados para el técnico ${tecnico.nombre}`);
