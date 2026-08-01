@@ -113,22 +113,64 @@ exports.tomarServicio = async (req, res) => {
 };
 
 // ============================================
+// ✅ NUEVA FUNCIÓN: OBTENER SERVICIOS TOMADOS POR TÉCNICO
+// ============================================
+exports.getServiciosTomadosByTecnico = async (req, res) => {
+  try {
+    const { tecnicoId } = req.params;
+    
+    console.log(`📋 Buscando servicios TOMADOS para técnico: ${tecnicoId}`);
+    console.log(`👤 Usuario que consulta: ${req.user.email} (${req.user.rol})`);
+    
+    // Verificar que el técnico existe
+    const tecnico = await User.findById(tecnicoId);
+    if (!tecnico) {
+      return res.status(404).json({
+        success: false,
+        message: 'Técnico no encontrado'
+      });
+    }
+    
+    // Buscar servicios en estado TOMADO asignados al técnico
+    const servicios = await Servicio.find({
+      tecnicoAsignado: tecnicoId,
+      estado: 'TOMADO'
+    })
+    .populate('tecnicoAsignado', 'nombre email')
+    .populate('usuarioTomador', 'nombre email')
+    .populate('jefeAsignado', 'nombre email')
+    .populate('clienteId', 'nombre direccion telefono')
+    .sort({ createdAt: -1 });
+    
+    console.log(`✅ ${servicios.length} servicios encontrados para el técnico ${tecnico.nombre}`);
+    
+    res.json({
+      success: true,
+      count: servicios.length,
+      data: servicios
+    });
+    
+  } catch (error) {
+    console.error('❌ Error al obtener servicios del técnico:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener servicios del técnico',
+      error: error.message
+    });
+  }
+};
+
+// ============================================
 // OBTENER SERVICIOS POR ESTADO (CORREGIDO)
 // ============================================
 exports.getServiciosByEstado = async (req, res) => {
   try {
     const { estado } = req.params;
     
-    // ==========================================
-    // 🔍 LOGS DE DEPURACIÓN EXTENDIDOS
-    // ==========================================
     console.log('========================================');
     console.log('🔍 BUSCANDO SERVICIOS POR ESTADO');
     console.log(`📋 Estado solicitado: ${estado}`);
-    console.log(`👤 Usuario ID (req.user._id): ${req.user._id}`);
-    console.log(`👤 Usuario ID (req.user.id): ${req.user.id}`);
-    console.log(`👤 Usuario Email: ${req.user.email}`);
-    console.log(`👤 Usuario Rol: ${req.user.rol}`);
+    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
     console.log('========================================');
     
     if (!estado) {
@@ -148,18 +190,14 @@ exports.getServiciosByEstado = async (req, res) => {
 
     let query = { estado };
     
-    // ✅ FILTRADO CORRECTO POR ROL
     if (req.user.rol === 'Tecnico') {
-      // Usar el ID correcto (ObjectId o string)
       const tecnicoId = req.user._id || req.user.id;
       query.tecnicoAsignado = tecnicoId;
       console.log(`🎯 Filtrando por técnico ID: ${tecnicoId}`);
-      console.log(`🎯 Tipo de ID: ${typeof tecnicoId}`);
     } else if (req.user.rol === 'Jefe') {
       query.jefeAsignado = req.user._id;
       console.log(`🎯 Filtrando por jefe ID: ${req.user._id}`);
     } else if (req.user.rol === 'Coordinador' || req.user.rol === 'Admin') {
-      // Coordinador y Admin ven todos los servicios
       console.log('🎯 Rol con acceso a todos los servicios');
     }
 
@@ -173,50 +211,8 @@ exports.getServiciosByEstado = async (req, res) => {
 
     console.log(`✅ Servicios encontrados: ${servicios.length}`);
     
-    // ==========================================
-    // 🔍 DIAGNÓSTICO ADICIONAL - SOLO PARA TÉCNICO
-    // ==========================================
     if (servicios.length === 0 && req.user.rol === 'Tecnico') {
-      console.log('⚠️ No se encontraron servicios TOMADO para este técnico');
-      
-      // Buscar todos los servicios asignados a este técnico (sin filtrar por estado)
-      const tecnicoId = req.user._id || req.user.id;
-      const todosLosServicios = await Servicio.find({ 
-        tecnicoAsignado: tecnicoId 
-      });
-      
-      console.log(`📊 Total servicios asignados a este técnico: ${todosLosServicios.length}`);
-      
-      if (todosLosServicios.length > 0) {
-        console.log('📋 Estados de los servicios:');
-        todosLosServicios.forEach((s, i) => {
-          console.log(`   ${i+1}. ID: ${s._id} - Estado: ${s.estado} - Cliente: ${s.cliente}`);
-        });
-        
-        // Si hay servicios en otros estados, sugerir al usuario
-        const tieneTomado = todosLosServicios.some(s => s.estado === 'TOMADO');
-        if (!tieneTomado) {
-          console.log('💡 El técnico tiene servicios pero NINGUNO está en estado TOMADO');
-        }
-      } else {
-        console.log('❌ Este técnico NO tiene NINGÚN servicio asignado en la BD');
-        
-        // Verificar si el servicio específico existe (para diagnóstico)
-        try {
-          const servicioExiste = await Servicio.findById('6a67bce54fb90a7d1f211c27');
-          if (servicioExiste) {
-            console.log('✅ El servicio específico 6a67bce54fb90a7d1f211c27 existe en la BD');
-            console.log(`   ID: ${servicioExiste._id}`);
-            console.log(`   Estado: ${servicioExiste.estado}`);
-            console.log(`   Técnico asignado: ${servicioExiste.tecnicoAsignado}`);
-            console.log(`   ¿Coincide? ${servicioExiste.tecnicoAsignado.toString() === tecnicoId.toString()}`);
-          } else {
-            console.log('❌ El servicio 6a67bce54fb90a7d1f211c27 NO existe en la BD');
-          }
-        } catch (err) {
-          console.log('⚠️ No se pudo verificar el servicio específico:', err.message);
-        }
-      }
+      console.log('⚠️ No se encontraron servicios para este técnico');
     }
     
     console.log('========================================');
@@ -228,7 +224,6 @@ exports.getServiciosByEstado = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error en getServiciosByEstado:', error);
-    console.error('❌ Stack trace:', error.stack);
     res.status(500).json({ 
       success: false,
       message: 'Error al obtener servicios', 
@@ -251,7 +246,6 @@ exports.getServicios = async (req, res) => {
     }
 
     console.log(`🔍 Obteniendo todos los servicios para rol: ${req.user.rol}`);
-    console.log(`📋 Query: ${JSON.stringify(query)}`);
 
     const servicios = await Servicio.find(query)
       .populate('tecnicoAsignado', 'nombre email')
@@ -325,11 +319,9 @@ exports.ejecutarServicio = async (req, res) => {
       });
     }
 
-    // ✅ Verificar que el técnico sea el asignado
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
       if (servicio.tecnicoAsignado.toString() !== tecnicoId.toString()) {
-        console.log(`❌ Técnico no autorizado. Asignado: ${servicio.tecnicoAsignado}, Actual: ${tecnicoId}`);
         return res.status(403).json({
           success: false,
           message: 'No tienes permiso para ejecutar este servicio',
@@ -405,11 +397,9 @@ exports.pendienteServicio = async (req, res) => {
       });
     }
 
-    // ✅ Verificar que el técnico sea el asignado
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
       if (servicio.tecnicoAsignado.toString() !== tecnicoId.toString()) {
-        console.log(`❌ Técnico no autorizado. Asignado: ${servicio.tecnicoAsignado}, Actual: ${tecnicoId}`);
         return res.status(403).json({
           success: false,
           message: 'No tienes permiso para poner pendiente este servicio',
