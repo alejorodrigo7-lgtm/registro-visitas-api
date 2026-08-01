@@ -54,6 +54,9 @@ const clienteRoutes = require('./routes/clienteRoutes');
 const notificationRoutes = require('./routes/notificacionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
+// ✅ NUEVO: RUTAS DE DESCONEXIONES
+const desconexionRoutes = require('./routes/desconexionRoutes');
+
 const app = express();
 
 // Conectar a MongoDB
@@ -154,7 +157,7 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
 });
 
 // ============================================
-// RUTAS
+// 📋 RUTAS
 // ============================================
 app.use('/api/auth', authRoutes);
 app.use('/api/transferencias', transferenciaRoutes);
@@ -171,6 +174,10 @@ app.use('/api/pedir-ausencia', pedirAusenciaRoutes);
 app.use('/api/clientes', clienteRoutes);
 app.use('/api/notificaciones', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+// ✅ NUEVO: RUTAS DE DESCONEXIONES
+app.use('/api/desconexiones', desconexionRoutes);
+
 app.use('/api', generalLimiter);
 
 // Aplicar límites específicos
@@ -335,6 +342,8 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`📲 /api/test-transferencia-push`);
   logger.info(`📱 /api/notificaciones`);
   logger.info(`📊 /api/dashboard`);
+  // ✅ NUEVO: LOG DE RUTAS DE DESCONEXIONES
+  logger.info(`🔌 /api/desconexiones`);
 });
 
 // ============================================
