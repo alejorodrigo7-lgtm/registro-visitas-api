@@ -7,7 +7,7 @@ let expo = new Expo();
 // ============================================
 // ENVIAR NOTIFICACIÓN PUSH
 // ============================================
-exports.enviarNotificacionPush = async (userId, notification) => {
+const enviarNotificacionPush = async (userId, notification) => {
   try {
     console.log(`📱 Intentando enviar push a usuario: ${userId}`);
     
@@ -67,7 +67,7 @@ exports.enviarNotificacionPush = async (userId, notification) => {
 // ============================================
 // VERIFICAR RECIBOS DE NOTIFICACIONES (opcional)
 // ============================================
-exports.verificarTicketsPush = async (tickets) => {
+const verificarTicketsPush = async (tickets) => {
   try {
     const receiptIds = [];
     for (let ticket of tickets) {
@@ -94,6 +94,7 @@ exports.verificarTicketsPush = async (tickets) => {
             // Si el token es inválido, eliminarlo de la base de datos
             if (details && details.error === 'DeviceNotRegistered') {
               // Aquí podrías eliminar el token inválido
+              console.log(`⚠️ Token inválido para usuario, se recomienda eliminar`);
             }
           }
         }
@@ -104,4 +105,12 @@ exports.verificarTicketsPush = async (tickets) => {
   } catch (error) {
     console.error('❌ Error en verificarTicketsPush:', error);
   }
+};
+
+// ============================================
+// ✅ EXPORTAR FUNCIONES
+// ============================================
+module.exports = {
+  enviarNotificacionPush,
+  verificarTicketsPush,
 };
