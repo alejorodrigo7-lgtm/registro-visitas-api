@@ -113,7 +113,7 @@ exports.tomarServicio = async (req, res) => {
 };
 
 // ============================================
-// ✅ NUEVA FUNCIÓN: OBTENER SERVICIOS TOMADOS POR TÉCNICO
+// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO (CORREGIDO)
 // ============================================
 exports.getServiciosTomadosByTecnico = async (req, res) => {
   try {
@@ -122,9 +122,19 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
     console.log(`📋 Buscando servicios TOMADOS para técnico: ${tecnicoId}`);
     console.log(`👤 Usuario que consulta: ${req.user.email} (${req.user.rol})`);
     
-    // Verificar que el técnico existe
+    // ✅ VALIDAR QUE EL ID NO SEA "undefined" O VACÍO
+    if (!tecnicoId || tecnicoId === 'undefined' || tecnicoId === 'null' || tecnicoId === '') {
+      console.error('❌ ID de técnico inválido:', tecnicoId);
+      return res.status(400).json({
+        success: false,
+        message: 'ID de técnico inválido'
+      });
+    }
+    
+    // ✅ Verificar que el técnico existe
     const tecnico = await User.findById(tecnicoId);
     if (!tecnico) {
+      console.error('❌ Técnico no encontrado:', tecnicoId);
       return res.status(404).json({
         success: false,
         message: 'Técnico no encontrado'
