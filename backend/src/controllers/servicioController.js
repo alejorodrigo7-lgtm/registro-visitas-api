@@ -4,6 +4,13 @@ const Servicio = require('../models/Servicio');
 const User = require('../models/User');
 const { enviarNotificacionPush } = require('../services/pushService');
 
+// ✅ Función para asegurar que la imagen tenga el prefijo correcto
+const formatearImagen = (imagen) => {
+  if (!imagen) return '';
+  if (imagen.startsWith('data:image')) return imagen;
+  return `data:image/jpeg;base64,${imagen}`;
+};
+
 // ============================================
 // TOMAR SERVICIO - CORREGIDO ✅
 // ============================================
@@ -76,7 +83,8 @@ exports.tomarServicio = async (req, res) => {
         nombre: jefe.nombre,
         email: jefe.email
       } : null,
-      imagen: imagen || '',
+      // ✅ IMAGEN CON PREFIJO CORRECTO
+      imagen: formatearImagen(imagen),
       estado: 'TOMADO',
       activo: true,
     });
