@@ -1,4 +1,4 @@
-// ✅ CONTROLADOR CORREGIDO - 2026-08-03
+// ✅ CONTROLADOR CORREGIDO - VERSIÓN FINAL
 
 const Servicio = require('../models/Servicio');
 const User = require('../models/User');
@@ -580,6 +580,62 @@ exports.buscarServicios = async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: error.message 
+    });
+  }
+};
+
+// ============================================
+// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO - AGREGADA ✅
+// ============================================
+exports.getServiciosTomadosByTecnico = async (req, res) => {
+  try {
+    const { tecnicoId } = req.params;
+    
+    console.log(`📋 Buscando servicios TOMADOS para técnico: ${tecnicoId}`);
+    console.log(`👤 Usuario que consulta: ${req.user.email} (${req.user.rol})`);
+    
+    if (!tecnicoId || tecnicoId === 'undefined' || tecnicoId === 'null' || tecnicoId === '') {
+      console.error('❌ ID de técnico inválido:', tecnicoId);
+      return res.status(400).json({
+        success: false,
+        message: 'ID de técnico inválido'
+      });
+    }
+    
+    const tecnico = await User.findById(tecnicoId);
+    if (!tecnico) {
+      console.error('❌ Técnico no encontrado:', tecnicoId);
+      return res.status(404).json({
+        success: false,
+        message: 'Técnico no encontrado'
+      });
+    }
+    
+    // ✅ BUSCAR POR tecnico._id
+    const servicios = await Servicio.find({
+      'tecnico._id': tecnicoId,
+      estado: 'TOMADO',
+      activo: true
+    })
+    .populate('tecnico', 'nombre email')
+    .populate('jefe', 'nombre email')
+    .populate('responsableId', 'nombre email')
+    .sort({ createdAt: -1 });
+    
+    console.log(`✅ ${servicios.length} servicios encontrados para el técnico ${tecnico.nombre}`);
+    
+    res.json({
+      success: true,
+      count: servicios.length,
+      data: servicios
+    });
+    
+  } catch (error) {
+    console.error('❌ Error al obtener servicios del técnico:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener servicios del técnico',
+      error: error.message
     });
   }
 };
