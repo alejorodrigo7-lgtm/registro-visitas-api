@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
-  Image, // ✅ AGREGAR
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -152,7 +152,7 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
-  // 📋 CARGAR SERVICIOS (FILTRADOS POR ROL) - CORREGIDO
+  // 📋 CARGAR SERVICIOS (FILTRADOS POR ROL) - CORREGIDO ✅
   // ============================================
   const cargarServicios = async () => {
     setLoading(true);
@@ -164,7 +164,7 @@ const EjecucionServicio = ({ navigation }) => {
 
       let response;
       
-      // ✅ Si es Técnico, cargar SOLO sus servicios tomados
+      // ✅ Si es Técnico, cargar SOLO sus servicios PENDIENTES
       if (isTecnico) {
         const userId = user?._id || user?.id;
         if (!userId) {
@@ -173,8 +173,9 @@ const EjecucionServicio = ({ navigation }) => {
           setLoading(false);
           return;
         }
-        console.log('📱 Cargando servicios para TÉCNICO:', userId);
-        response = await api.get(`/servicios/tecnico/${userId}/tomados`, {
+        console.log('📱 Cargando servicios PENDIENTES para TÉCNICO:', userId);
+        // ✅ CORREGIDO: Usar endpoint correcto con filtro de estado
+        response = await api.get(`/servicios/estado/PENDIENTE?tecnicoId=${userId}`, {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
@@ -204,9 +205,9 @@ const EjecucionServicio = ({ navigation }) => {
       setServicios(serviciosData);
 
       if (serviciosData.length === 0) {
-        setDebugInfo(`⚠️ No hay servicios en TOMADO${isTecnico ? ' para ti' : ''}`);
+        setDebugInfo(`⚠️ No hay servicios PENDIENTES${isTecnico ? ' para ti' : ''}`);
       } else {
-        setDebugInfo(`✅ ${serviciosData.length} servicios en TOMADO${isTecnico ? ' para ti' : ''}`);
+        setDebugInfo(`✅ ${serviciosData.length} servicios PENDIENTES${isTecnico ? ' para ti' : ''}`);
       }
 
     } catch (error) {
@@ -562,7 +563,7 @@ const EjecucionServicio = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.title}>⚙️ Ejecutar Servicio</Text>
         <Text style={styles.subtitle}>
-          {servicios.length} servicio{servicios.length !== 1 ? 's' : ''} en TOMADO
+          {servicios.length} servicio{servicios.length !== 1 ? 's' : ''} PENDIENTES
         </Text>
       </View>
 
@@ -579,7 +580,7 @@ const EjecucionServicio = ({ navigation }) => {
             <Text style={styles.emptyTitle}>No hay servicios asignados</Text>
             <Text style={styles.emptyText}>
               {isTecnico
-                ? 'No tienes servicios en estado TOMADO para ejecutar'
+                ? 'No tienes servicios PENDIENTES para ejecutar'
                 : 'No hay servicios disponibles'}
             </Text>
             <TouchableOpacity style={styles.refreshButton} onPress={cargarServicios}>
@@ -611,7 +612,6 @@ const EjecucionServicio = ({ navigation }) => {
                 </View>
               </View>
 
-              {/* ✅ MOSTRAR IMAGEN DEL SERVICIO */}
               {servicio.imagen && (
                 <View style={styles.imagenContainer}>
                   <Image 
@@ -655,7 +655,6 @@ const EjecucionServicio = ({ navigation }) => {
               </View>
             )}
 
-            {/* 📝 OBSERVACIONES */}
             <Text style={styles.modalLabel}>📝 Observaciones</Text>
             <TextInput
               style={[styles.modalInput, styles.modalTextArea]}
@@ -666,7 +665,6 @@ const EjecucionServicio = ({ navigation }) => {
               numberOfLines={3}
             />
 
-            {/* 📦 MATERIALES USADOS - PICKER DESPLEGABLE */}
             <Text style={styles.modalLabel}>📦 Materiales Usados (Opcional)</Text>
             
             <View style={styles.materialContainer}>
@@ -699,7 +697,6 @@ const EjecucionServicio = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Materiales seleccionados */}
             {servicioSeleccionado && (
               <View style={styles.materialesLista}>
                 {Object.keys(materialesSeleccionados[servicioSeleccionado._id] || {}).map((nombre) => {
@@ -723,7 +720,6 @@ const EjecucionServicio = ({ navigation }) => {
               💡 Los materiales son opcionales. Puedes ejecutar el servicio sin reportar materiales.
             </Text>
 
-            {/* 📶 MAC Y NÚMERO DE SERIE */}
             <Text style={styles.modalLabel}>📶 MAC Equipo</Text>
             <TextInput
               style={styles.modalInput}
@@ -742,7 +738,6 @@ const EjecucionServicio = ({ navigation }) => {
 
             <Text style={styles.modalResponsable}>👤 Responsable: {user?.nombre || ''}</Text>
 
-            {/* BOTONES DE ACCIÓN */}
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.pendienteButton]}
@@ -768,12 +763,279 @@ const EjecucionServicio = ({ navigation }) => {
 };
 
 // ============================================
-// 🎨 ESTILOS - AGREGAR NUEVOS ESTILOS
+// 🎨 ESTILOS
 // ============================================
 const styles = StyleSheet.create({
-  // ... (todos los estilos existentes) ...
-  
-  // ✅ NUEVO ESTILO PARA LA IMAGEN
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  header: {
+    padding: 20,
+    backgroundColor: '#6C5CE7',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#636E72',
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 15,
+    paddingTop: 10,
+  },
+  debugContainer: {
+    backgroundColor: '#F0F0F0',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  servicioCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  servicioHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  servicioCliente: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    flex: 1,
+  },
+  estadoBadge: {
+    backgroundColor: '#FDCB6E',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  estadoBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  servicioInfo: {
+    fontSize: 14,
+    color: '#636E72',
+    marginVertical: 2,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginTop: 16,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#636E72',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    backgroundColor: '#6C5CE7',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  refreshButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '95%',
+    maxHeight: '90%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  bodegaInfoModal: {
+    backgroundColor: '#F0F0F0',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  bodegaInfoModalText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2D3436',
+  },
+  bodegaInfoModalSub: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2D3436',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  modalInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+  },
+  modalTextArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  materialContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pickerContainer: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+  },
+  cantidadInput: {
+    width: 60,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    textAlign: 'center',
+  },
+  agregarMaterialButton: {
+    backgroundColor: '#6C5CE7',
+    padding: 12,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 50,
+  },
+  agregarMaterialText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  materialesLista: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 10,
+  },
+  materialItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    margin: 4,
+  },
+  materialItemText: {
+    fontSize: 14,
+    color: '#2D3436',
+    marginRight: 8,
+  },
+  eliminarMaterialText: {
+    color: '#FF6B6B',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  materialOpcional: {
+    fontSize: 12,
+    color: '#636E72',
+    fontStyle: 'italic',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  modalResponsable: {
+    fontSize: 14,
+    color: '#636E72',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 15,
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  pendienteButton: {
+    backgroundColor: '#FF6B6B',
+  },
+  ejecutarModalButton: {
+    backgroundColor: '#00B894',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   imagenContainer: {
     marginVertical: 8,
     borderRadius: 8,
