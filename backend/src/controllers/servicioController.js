@@ -77,7 +77,7 @@ exports.tomarServicio = async (req, res) => {
         email: jefe.email
       } : null,
       imagen: imagen || '',
-      estado: 'PENDIENTE',
+      estado: 'TOMADO',
       activo: true,
     });
 
