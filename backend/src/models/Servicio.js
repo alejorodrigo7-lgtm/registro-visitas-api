@@ -1,3 +1,4 @@
+// ? MODELO CORREGIDO - 2026-08-03 11:06:24
 const mongoose = require('mongoose');
 
 const servicioSchema = new mongoose.Schema({
