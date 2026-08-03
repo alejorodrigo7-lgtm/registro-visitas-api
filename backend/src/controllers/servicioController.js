@@ -157,9 +157,9 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       });
     }
     
-    // ✅ BUSCAR POR tecnicoAsignado._id (OBJETO COMPLETO)
+    // ✅ BUSCAR POR tecnico._id (OBJETO COMPLETO)
     const servicios = await Servicio.find({
-      'tecnicoAsignado._id': tecnicoId,
+      'tecnico._id': tecnicoId,
       estado: 'TOMADO',
       activo: true
     })
@@ -221,8 +221,8 @@ exports.getServiciosByEstado = async (req, res) => {
     
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
-      // ✅ BUSCAR POR tecnicoAsignado._id (OBJETO COMPLETO)
-      query['tecnicoAsignado._id'] = tecnicoId;
+      // ✅ BUSCAR POR tecnico._id (OBJETO COMPLETO)
+      query['tecnico._id'] = tecnicoId;
       console.log(`🎯 Filtrando por técnico ID: ${tecnicoId}`);
     } else if (req.user.rol === 'Jefe') {
       query['jefeAsignado._id'] = req.user._id;
@@ -284,7 +284,7 @@ exports.getServicios = async (req, res) => {
           },
           { 
             $or: [
-              { 'tecnicoAsignado._id': tecnicoId },
+              { 'tecnico._id': tecnicoId },
               { tecnicoAsignado: { $exists: false } }
             ]
           }
@@ -379,8 +379,8 @@ exports.ejecutarServicio = async (req, res) => {
 
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
-      // ✅ VERIFICAR POR tecnicoAsignado._id
-      if (servicio.tecnicoAsignado && servicio.tecnicoAsignado._id.toString() !== tecnicoId.toString()) {
+      // ✅ VERIFICAR POR tecnico._id
+      if (servicio.tecnicoAsignado && servicio.tecnico._id.toString() !== tecnicoId.toString()) {
         return res.status(403).json({
           success: false,
           message: 'No tienes permiso para ejecutar este servicio',
@@ -458,8 +458,8 @@ exports.pendienteServicio = async (req, res) => {
 
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
-      // ✅ VERIFICAR POR tecnicoAsignado._id
-      if (servicio.tecnicoAsignado && servicio.tecnicoAsignado._id.toString() !== tecnicoId.toString()) {
+      // ✅ VERIFICAR POR tecnico._id
+      if (servicio.tecnicoAsignado && servicio.tecnico._id.toString() !== tecnicoId.toString()) {
         return res.status(403).json({
           success: false,
           message: 'No tienes permiso para poner pendiente este servicio',
@@ -639,3 +639,4 @@ exports.buscarServicios = async (req, res) => {
     });
   }
 };
+
