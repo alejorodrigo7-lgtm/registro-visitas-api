@@ -174,8 +174,8 @@ const EjecucionServicio = ({ navigation }) => {
           return;
         }
         console.log('📱 Cargando servicios PENDIENTES para TÉCNICO:', userId);
-        // ✅ CORREGIDO: Usar endpoint correcto con filtro de estado
-        response = await api.get(`/servicios/estado/PENDIENTE?tecnicoId=${userId}`, {
+        // ✅ CORREGIDO: Usar 'tecnico' en lugar de 'tecnicoId'
+        response = await api.get(`/visitas?estado=PENDIENTE&tecnico=${userId}`, {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
