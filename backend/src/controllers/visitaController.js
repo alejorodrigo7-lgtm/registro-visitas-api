@@ -206,16 +206,22 @@ exports.crearVisita = async (req, res) => {
 };
 
 // ============================================
-// 📋 OBTENER TODAS LAS VISITAS
+// 📋 OBTENER TODAS LAS VISITAS - CORREGIDO ✅
 // ============================================
 exports.obtenerVisitas = async (req, res) => {
   try {
     const start = Date.now();
-    const { estado, tecnico, fechaInicio, fechaFin } = req.query;
+    const { estado, tecnico, tecnicoId, fechaInicio, fechaFin } = req.query;
     let query = {};
 
     if (estado) query.estado = estado;
-    if (tecnico) query.tecnico = tecnico;
+    
+    // ✅ CORREGIDO: Buscar en tecnico._id cuando se pasa tecnicoId
+    if (tecnicoId) {
+      query['tecnico._id'] = tecnicoId;
+    } else if (tecnico) {
+      query['tecnico._id'] = tecnico;
+    }
 
     if (fechaInicio && fechaFin) {
       const inicio = new Date(fechaInicio);
@@ -226,8 +232,10 @@ exports.obtenerVisitas = async (req, res) => {
     }
 
     if (req.user.rol === 'Tecnico') {
-      query.tecnico = req.user._id;
+      query['tecnico._id'] = req.user._id;
     }
+
+    console.log('📋 Query final:', JSON.stringify(query, null, 2));
 
     const visitas = await Visita.find(query)
       .populate('tecnico', 'nombre email')
