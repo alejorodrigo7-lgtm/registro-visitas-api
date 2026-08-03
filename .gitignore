@@ -1,0 +1,18 @@
+﻿# Expo
+.expo/
+dist/
+node_modules/
+*.log
+*.tar.gz
+.DS_Store
+
+# Build
+android/app/build/
+ios/build/
+*.apk
+*.aab
+*.ipa
+
+# Environment
+.env
+.env.local
