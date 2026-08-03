@@ -3,7 +3,7 @@ const User = require('../models/User');
 const { enviarNotificacionPush } = require('../services/pushService');
 
 // ============================================
-// TOMAR SERVICIO
+// TOMAR SERVICIO - CORREGIDO ✅
 // ============================================
 exports.tomarServicio = async (req, res) => {
   try {
@@ -47,6 +47,11 @@ exports.tomarServicio = async (req, res) => {
       });
     }
 
+    // ✅ BUSCAR EL TÉCNICO Y JEFE PARA OBTENER SUS DATOS COMPLETOS
+    const tecnico = await User.findById(tecnicoAsignado);
+    const jefe = await User.findById(jefeAsignado);
+
+    // ✅ CREAR EL SERVICIO CON LOS DATOS COMPLETOS DEL TÉCNICO Y JEFE
     const servicio = await Servicio.create({
       cliente,
       codigoIdentificador,
@@ -58,17 +63,27 @@ exports.tomarServicio = async (req, res) => {
       observaciones,
       responsable: responsable.nombre,
       responsableId: req.user._id,
-      tecnicoAsignado,
-      jefeAsignado,
+      // ✅ GUARDAR COMO OBJETO COMPLETO, NO SOLO ID
+      tecnicoAsignado: tecnico ? {
+        _id: tecnico._id,
+        nombre: tecnico.nombre,
+        email: tecnico.email
+      } : tecnicoAsignado,
+      jefeAsignado: jefe ? {
+        _id: jefe._id,
+        nombre: jefe.nombre,
+        email: jefe.email
+      } : jefeAsignado,
       imagen: imagen || '',
-      estado: 'TOMADO',
-      activo: true, // ✅ Nuevo servicio siempre activo
+      estado: 'PENDIENTE', // ✅ Cambiar a PENDIENTE para que aparezca en Ejecutar Servicios
+      activo: true,
     });
 
-    // Notificaciones push
-    const tecnico = await User.findById(tecnicoAsignado);
-    const jefe = await User.findById(jefeAsignado);
+    console.log('✅ Servicio creado:', servicio._id);
+    console.log('✅ Técnico asignado:', tecnico ? tecnico.nombre : 'No encontrado');
+    console.log('✅ Jefe asignado:', jefe ? jefe.nombre : 'No encontrado');
 
+    // Notificaciones push
     const mensajePush = `📋 Se ha tomado un servicio "${nombreServicio}" para el cliente ${cliente}`;
 
     if (tecnico) {
@@ -140,10 +155,11 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       });
     }
     
+    // ✅ BUSCAR POR tecnicoAsignado._id (OBJETO COMPLETO)
     const servicios = await Servicio.find({
-      tecnicoAsignado: tecnicoId,
+      'tecnicoAsignado._id': tecnicoId,
       estado: 'TOMADO',
-      activo: true // ✅ Solo servicios activos
+      activo: true
     })
     .populate('tecnicoAsignado', 'nombre email')
     .populate('jefeAsignado', 'nombre email')
@@ -198,15 +214,16 @@ exports.getServiciosByEstado = async (req, res) => {
 
     let query = { 
       estado,
-      activo: true // ✅ Solo servicios activos
+      activo: true
     };
     
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
-      query.tecnicoAsignado = tecnicoId;
+      // ✅ BUSCAR POR tecnicoAsignado._id (OBJETO COMPLETO)
+      query['tecnicoAsignado._id'] = tecnicoId;
       console.log(`🎯 Filtrando por técnico ID: ${tecnicoId}`);
     } else if (req.user.rol === 'Jefe') {
-      query.jefeAsignado = req.user._id;
+      query['jefeAsignado._id'] = req.user._id;
       console.log(`🎯 Filtrando por jefe ID: ${req.user._id}`);
     } else if (req.user.rol === 'Coordinador' || req.user.rol === 'Admin') {
       console.log('🎯 Rol con acceso a todos los servicios');
@@ -248,50 +265,39 @@ exports.getServiciosByEstado = async (req, res) => {
 // ============================================
 exports.getServicios = async (req, res) => {
   try {
-    let query = { activo: true }; // ✅ Solo servicios activos
+    let query = { activo: true };
 
     console.log(`🔍 Obteniendo todos los servicios para rol: ${req.user.rol}`);
     console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
 
-    // ✅ SI ES TÉCNICO - VER SERVICIOS EN ESTADOS PERMITIDOS
     if (req.user.rol === 'Tecnico') {
+      const tecnicoId = req.user._id || req.user.id;
       query = {
         $and: [
           { activo: true },
           { 
             estado: { 
-              $in: [
-                'TOMADO', 
-                'ASIGNADO',
-                'EN PROCESO'
-              ] 
+              $in: ['TOMADO', 'ASIGNADO', 'EN PROCESO'] 
             } 
           },
           { 
             $or: [
-              { tecnicoAsignado: req.user._id },
+              { 'tecnicoAsignado._id': tecnicoId },
               { tecnicoAsignado: { $exists: false } }
             ]
           }
         ]
       };
       console.log(`🎯 Técnico filtrado por estados: TOMADO, ASIGNADO, EN PROCESO`);
-    }
-    
-    // ✅ SI ES JEFE - VER TODOS LOS SERVICIOS ASIGNADOS A ÉL
-    else if (req.user.rol === 'Jefe') {
+    } else if (req.user.rol === 'Jefe') {
       query = {
         $and: [
           { activo: true },
-          { jefeAsignado: req.user._id }
+          { 'jefeAsignado._id': req.user._id }
         ]
       };
       console.log(`🎯 Jefe filtrado por: ${req.user._id}`);
-    }
-    
-    // ✅ SI ES ADMIN O COORDINADOR - VER TODOS
-    else if (req.user.rol === 'Admin' || req.user.rol === 'Coordinador') {
-      // Sin filtro adicional (solo activo)
+    } else if (req.user.rol === 'Admin' || req.user.rol === 'Coordinador') {
       console.log('🎯 Acceso completo a todos los servicios activos');
     }
 
@@ -371,7 +377,8 @@ exports.ejecutarServicio = async (req, res) => {
 
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
-      if (servicio.tecnicoAsignado.toString() !== tecnicoId.toString()) {
+      // ✅ VERIFICAR POR tecnicoAsignado._id
+      if (servicio.tecnicoAsignado && servicio.tecnicoAsignado._id.toString() !== tecnicoId.toString()) {
         return res.status(403).json({
           success: false,
           message: 'No tienes permiso para ejecutar este servicio',
@@ -449,7 +456,8 @@ exports.pendienteServicio = async (req, res) => {
 
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
-      if (servicio.tecnicoAsignado.toString() !== tecnicoId.toString()) {
+      // ✅ VERIFICAR POR tecnicoAsignado._id
+      if (servicio.tecnicoAsignado && servicio.tecnicoAsignado._id.toString() !== tecnicoId.toString()) {
         return res.status(403).json({
           success: false,
           message: 'No tienes permiso para poner pendiente este servicio',
@@ -598,7 +606,7 @@ exports.buscarServicios = async (req, res) => {
 
     const query = {
       $and: [
-        { activo: true }, // ✅ Solo servicios activos
+        { activo: true },
         {
           $or: [
             { cliente: { $regex: search, $options: 'i' } },
