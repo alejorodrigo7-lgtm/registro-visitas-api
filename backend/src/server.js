@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 process.env.TZ = 'America/Guayaquil';
 
 const express = require('express');
@@ -9,7 +9,7 @@ const { protect, authorize } = require('./middleware/auth');
 const User = require('./models/User');
 const bcrypt = require('bcrypt');
 // ============================================
-// 🔒 RATE LIMITING
+// ðŸ”’ RATE LIMITING
 // ============================================
 const {
   generalLimiter,
@@ -21,20 +21,20 @@ const {
 } = require('./config/rateLimit');
 
 // ============================================
-// 📊 LOGGER
+// ðŸ“Š LOGGER
 // ============================================
 const logger = require('./config/logger');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
-// 🔥 GENERAR HASH PARA 123456 AL INICIAR EL SERVIDOR
+// ðŸ”¥ GENERAR HASH PARA 123456 AL INICIAR EL SERVIDOR
 const HASH_123456 = bcrypt.hashSync('123456', 10);
-console.log('🔑 Hash generado para 123456:', HASH_123456);
+console.log('ðŸ”‘ Hash generado para 123456:', HASH_123456);
 global.HASH_123456 = HASH_123456;
 
-// ✅ GENERAR HASH ÚNICO PARA REGISTRO
+// âœ… GENERAR HASH ÃšNICO PARA REGISTRO
 const SALT = bcrypt.genSaltSync(10);
 const DEFAULT_PASSWORD_HASH = bcrypt.hashSync('123456', SALT);
-console.log('🔑 Hash por defecto para registro:', DEFAULT_PASSWORD_HASH);
+console.log('ðŸ”‘ Hash por defecto para registro:', DEFAULT_PASSWORD_HASH);
 global.DEFAULT_PASSWORD_HASH = DEFAULT_PASSWORD_HASH;
 
 // Importar rutas
@@ -54,38 +54,39 @@ const clienteRoutes = require('./routes/clienteRoutes');
 const notificationRoutes = require('./routes/notificacionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
-// ✅ NUEVO: RUTAS DE DESCONEXIONES
+// âœ… NUEVO: RUTAS DE DESCONEXIONES
 const desconexionRoutes = require('./routes/desconexionRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 
 // Conectar a MongoDB
 connectDB();
 
-// Después de conectar, mostrar información de la base de datos
-console.log(`📡 Base de datos conectada: ${mongoose.connection.name}`);
-console.log(`📡 Host: ${mongoose.connection.host}`);
+// DespuÃ©s de conectar, mostrar informaciÃ³n de la base de datos
+console.log(`ðŸ“¡ Base de datos conectada: ${mongoose.connection.name}`);
+console.log(`ðŸ“¡ Host: ${mongoose.connection.host}`);
 
 app.use(cors());
 
-// ✅ SOLUCIÓN PARA RATE LIMITING
+// âœ… SOLUCIÃ“N PARA RATE LIMITING
 app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ============================================
-// 📊 MIDDLEWARE DE LOGGING
+// ðŸ“Š MIDDLEWARE DE LOGGING
 // ============================================
 app.use(logger.middleware);
 
 // ============================================
-// 🔍 RUTA DE BÚSQUEDA DE CLIENTES
+// ðŸ” RUTA DE BÃšSQUEDA DE CLIENTES
 // ============================================
 app.get('/api/clientes/buscar/:identificador', async (req, res) => {
   try {
     const { identificador } = req.params;
-    console.log(`🔍 Buscando cliente: ${identificador}`);
+    console.log(`ðŸ” Buscando cliente: ${identificador}`);
     
     const Cliente = require('./models/Cliente');
     const cliente = await Cliente.findOne({ identificador: identificador.trim() });
@@ -108,13 +109,13 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
     logger.errorWithContext('Error al buscar cliente', error, {
       identificador: req.params.identificador
     });
-    console.error('❌ Error al buscar cliente:', error);
+    console.error('âŒ Error al buscar cliente:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // ============================================
-// 📋 OBTENER TODOS LOS CLIENTES
+// ðŸ“‹ OBTENER TODOS LOS CLIENTES
 // ============================================
 app.get('/api/clientes/todos', protect, async (req, res) => {
   try {
@@ -137,7 +138,7 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
     const Cliente = require('./models/Cliente');
     const clientes = await Cliente.find(query).sort({ nombre: 1 });
     
-    console.log(`📋 ${clientes.length} clientes encontrados`);
+    console.log(`ðŸ“‹ ${clientes.length} clientes encontrados`);
     
     res.json({
       success: true,
@@ -148,7 +149,7 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
     logger.errorWithContext('Error en /todos', error, {
       usuario: req.user?.email
     });
-    console.error('❌ Error en /todos:', error);
+    console.error('âŒ Error en /todos:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -157,7 +158,7 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
 });
 
 // ============================================
-// 📋 RUTAS
+// ðŸ“‹ RUTAS
 // ============================================
 app.use('/api/auth', authRoutes);
 app.use('/api/transferencias', transferenciaRoutes);
@@ -175,12 +176,13 @@ app.use('/api/clientes', clienteRoutes);
 app.use('/api/notificaciones', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
-// ✅ NUEVO: RUTAS DE DESCONEXIONES
+// âœ… NUEVO: RUTAS DE DESCONEXIONES
 app.use('/api/desconexiones', desconexionRoutes);
+  app.use('/api/usuarios', userRoutes);
 
 app.use('/api', generalLimiter);
 
-// Aplicar límites específicos
+// Aplicar lÃ­mites especÃ­ficos
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth/register', registerLimiter);
 app.use('/api/visitas', visitasLimiter);
@@ -188,7 +190,7 @@ app.use('/api/asistencia', asistenciaLimiter);
 app.use('/api/notificaciones', notificacionesLimiter);
 
 // ============================================
-// 📲 RUTA DE PRUEBA PARA NOTIFICACIONES
+// ðŸ“² RUTA DE PRUEBA PARA NOTIFICACIONES
 // ============================================
 app.post('/api/test-transferencia-push', protect, async (req, res) => {
   try {
@@ -222,8 +224,8 @@ app.post('/api/test-transferencia-push', protect, async (req, res) => {
     const messages = [{
       to: user.expoPushToken,
       sound: 'default',
-      title: titulo || '🔔 Prueba de Notificación',
-      body: mensaje || 'Esta es una notificación de prueba',
+      title: titulo || 'ðŸ”” Prueba de NotificaciÃ³n',
+      body: mensaje || 'Esta es una notificaciÃ³n de prueba',
       data: { tipo: 'test' },
     }];
     
@@ -238,18 +240,18 @@ app.post('/api/test-transferencia-push', protect, async (req, res) => {
       usuario: user.email,
       userId: user._id
     });
-    console.log(`📲 Push de prueba enviado a ${user.email}`);
+    console.log(`ðŸ“² Push de prueba enviado a ${user.email}`);
     
     res.json({
       success: true,
-      message: 'Notificación de prueba enviada',
+      message: 'NotificaciÃ³n de prueba enviada',
       tickets,
     });
   } catch (error) {
     logger.errorWithContext('Error en test push', error, {
       userId: req.body.userId
     });
-    console.error('❌ Error en test push:', error);
+    console.error('âŒ Error en test push:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -265,21 +267,21 @@ app.get('/api/test', (req, res) => {
 });
 
 // ============================================
-// 📦 RUTA PARA OBTENER MATERIALES DEL TÉCNICO
+// ðŸ“¦ RUTA PARA OBTENER MATERIALES DEL TÃ‰CNICO
 // ============================================
 app.get('/api/mis-materiales', protect, async (req, res) => {
   try {
-    console.log('📦 === OBTENIENDO MATERIALES DEL TÉCNICO ===');
-    console.log('📦 Usuario ID:', req.user._id);
-    console.log('📦 Email:', req.user.email);
-    console.log('📦 Rol:', req.user.rol);
+    console.log('ðŸ“¦ === OBTENIENDO MATERIALES DEL TÃ‰CNICO ===');
+    console.log('ðŸ“¦ Usuario ID:', req.user._id);
+    console.log('ðŸ“¦ Email:', req.user.email);
+    console.log('ðŸ“¦ Rol:', req.user.rol);
     
     const Bodega = require('./models/Bodega');
     
     let bodega = await Bodega.findOne({ usuario: req.user._id });
     
     if (!bodega) {
-      console.log('📦 Bodega no encontrada, creando una vacía...');
+      console.log('ðŸ“¦ Bodega no encontrada, creando una vacÃ­a...');
       bodega = new Bodega({
         usuario: req.user._id,
         usuarioNombre: req.user.nombre || req.user.email,
@@ -289,10 +291,10 @@ app.get('/api/mis-materiales', protect, async (req, res) => {
         creadoPor: req.user._id,
       });
       await bodega.save();
-      console.log('✅ Bodega creada para técnico:', req.user._id);
+      console.log('âœ… Bodega creada para tÃ©cnico:', req.user._id);
     }
     
-    console.log(`📦 Materiales en bodega: ${bodega.materiales?.length || 0}`);
+    console.log(`ðŸ“¦ Materiales en bodega: ${bodega.materiales?.length || 0}`);
     
     res.json({
       success: true,
@@ -300,7 +302,7 @@ app.get('/api/mis-materiales', protect, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error obteniendo materiales del técnico:', error);
+    console.error('âŒ Error obteniendo materiales del tÃ©cnico:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -309,55 +311,55 @@ app.get('/api/mis-materiales', protect, async (req, res) => {
 });
 
 // ============================================
-// 📊 MANEJO DE ERRORES
+// ðŸ“Š MANEJO DE ERRORES
 // ============================================
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 // ============================================
-// 🚀 INICIAR SERVIDOR
+// ðŸš€ INICIAR SERVIDOR
 // ============================================
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`🚀 Servidor iniciado en puerto ${PORT}`);
-  logger.info(`📊 Logs guardados en: ${__dirname}/../logs`);
-  logger.info(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`🕐 Zona horaria: ${process.env.TZ || 'UTC'}`);
-  logger.info(`🕐 Hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
-  logger.info(`📡 Escuchando en todas las interfaces (0.0.0.0)`);
-  logger.info(`🔍 /api/clientes/buscar/:identificador`);
-  logger.info(`📋 /api/clientes/todos (SIN LÍMITE)`);
-  logger.info(`👤 /api/clientes (POST - Crear cliente)`);
-  logger.info(`📤 /api/transferencias`);
-  logger.info(`🛠️ /api/servicios`);
-  logger.info(`💰 /api/cajas`);
-  logger.info(`📊 /api/reportes`);
-  logger.info(`📋 /api/visitas`);
-  logger.info(`🏪 /api/bodegas`);
-  logger.info(`📋 /api/horarios`);
-  logger.info(`🗺️ /api/mapas`);
-  logger.info(`📋 /api/monserrath`);
-  logger.info(`📍 /api/asistencia`);
-  logger.info(`📝 /api/pedir-ausencia`);
-  logger.info(`📲 /api/test-transferencia-push`);
-  logger.info(`📱 /api/notificaciones`);
-  logger.info(`📊 /api/dashboard`);
-  // ✅ NUEVO: LOG DE RUTAS DE DESCONEXIONES
-  logger.info(`🔌 /api/desconexiones`);
+  logger.info(`ðŸš€ Servidor iniciado en puerto ${PORT}`);
+  logger.info(`ðŸ“Š Logs guardados en: ${__dirname}/../logs`);
+  logger.info(`ðŸŒ Entorno: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`ðŸ• Zona horaria: ${process.env.TZ || 'UTC'}`);
+  logger.info(`ðŸ• Hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
+  logger.info(`ðŸ“¡ Escuchando en todas las interfaces (0.0.0.0)`);
+  logger.info(`ðŸ” /api/clientes/buscar/:identificador`);
+  logger.info(`ðŸ“‹ /api/clientes/todos (SIN LÃMITE)`);
+  logger.info(`ðŸ‘¤ /api/clientes (POST - Crear cliente)`);
+  logger.info(`ðŸ“¤ /api/transferencias`);
+  logger.info(`ðŸ› ï¸ /api/servicios`);
+  logger.info(`ðŸ’° /api/cajas`);
+  logger.info(`ðŸ“Š /api/reportes`);
+  logger.info(`ðŸ“‹ /api/visitas`);
+  logger.info(`ðŸª /api/bodegas`);
+  logger.info(`ðŸ“‹ /api/horarios`);
+  logger.info(`ðŸ—ºï¸ /api/mapas`);
+  logger.info(`ðŸ“‹ /api/monserrath`);
+  logger.info(`ðŸ“ /api/asistencia`);
+  logger.info(`ðŸ“ /api/pedir-ausencia`);
+  logger.info(`ðŸ“² /api/test-transferencia-push`);
+  logger.info(`ðŸ“± /api/notificaciones`);
+  logger.info(`ðŸ“Š /api/dashboard`);
+  // âœ… NUEVO: LOG DE RUTAS DE DESCONEXIONES
+  logger.info(`ðŸ”Œ /api/desconexiones`);
 });
 
 // ============================================
-// 📊 MANEJO DE SEÑALES
+// ðŸ“Š MANEJO DE SEÃ‘ALES
 // ============================================
 const gracefulShutdown = (signal) => {
-  logger.info(`📥 Recibida señal ${signal}, cerrando servidor...`);
+  logger.info(`ðŸ“¥ Recibida seÃ±al ${signal}, cerrando servidor...`);
   server.close(() => {
-    logger.info('✅ Servidor cerrado correctamente');
+    logger.info('âœ… Servidor cerrado correctamente');
     process.exit(0);
   });
   
   setTimeout(() => {
-    logger.error('⚠️ Forzando cierre del servidor');
+    logger.error('âš ï¸ Forzando cierre del servidor');
     process.exit(1);
   }, 10000);
 };
