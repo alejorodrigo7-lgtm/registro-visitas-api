@@ -27,37 +27,23 @@ router.get('/', protect, authorize('Admin'), async (req, res) => {
 });
 
 // ============================================
-// GUARDAR TOKEN PUSH
+// GUARDAR TOKEN PUSH (para el propio usuario)
 // ============================================
 router.post('/guardar-token', protect, async (req, res) => {
   try {
-    // Aceptar tanto pushToken como expoPushToken
     const pushToken = req.body.pushToken || req.body.expoPushToken;
     const userId = req.user._id;
 
     console.log(`📱 Guardando token para usuario: ${userId}`);
     console.log(`📱 Token recibido: ${pushToken ? pushToken.substring(0, 30) + '...' : 'NULO'}`);
-    console.log(`📱 Body completo:`, JSON.stringify(req.body));
 
     if (!pushToken) {
       return res.status(400).json({
         success: false,
-        message: 'Token push es requerido (pushToken o expoPushToken)'
+        message: 'Token push es requerido'
       });
     }
 
-    // Verificar que sea un token válido de Expo
-    try {
-      const { Expo } = require('expo-server-sdk');
-      if (!Expo.isExpoPushToken(pushToken)) {
-        console.log(`⚠️ Token push inválido según Expo SDK: ${pushToken.substring(0, 30)}...`);
-        // No fallamos, solo advertimos
-      }
-    } catch (expoError) {
-      console.log('⚠️ Expo SDK no disponible, guardando token sin validación');
-    }
-
-    // Actualizar el usuario
     const user = await User.findByIdAndUpdate(
       userId,
       { expoPushToken: pushToken },
@@ -72,8 +58,6 @@ router.post('/guardar-token', protect, async (req, res) => {
     }
 
     console.log(`✅ Token push guardado para ${user.email}`);
-    console.log(`📱 Token: ${pushToken.substring(0, 30)}...`);
-
     res.json({
       success: true,
       message: 'Token push guardado correctamente',
@@ -85,6 +69,56 @@ router.post('/guardar-token', protect, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error guardando token push:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ============================================
+// ADMIN: REGISTRAR TOKEN PARA OTRO USUARIO
+// ============================================
+router.post('/admin/registrar-token', protect, authorize('Admin'), async (req, res) => {
+  try {
+    const { userId, expoPushToken } = req.body;
+
+    console.log(`👑 Admin registrando token para usuario: ${userId}`);
+    console.log(`📱 Token: ${expoPushToken ? expoPushToken.substring(0, 30) + '...' : 'NULO'}`);
+
+    if (!userId || !expoPushToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere userId y expoPushToken'
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { expoPushToken: expoPushToken },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    console.log(`✅ Token registrado por admin para ${user.email}`);
+    res.json({
+      success: true,
+      message: 'Token registrado correctamente',
+      data: { 
+        userId: user._id,
+        email: user.email,
+        nombre: user.nombre,
+        expoPushToken: user.expoPushToken
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error registrando token por admin:', error);
     res.status(500).json({
       success: false,
       message: error.message
