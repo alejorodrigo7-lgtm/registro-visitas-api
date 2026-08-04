@@ -31,16 +31,18 @@ router.get('/', protect, authorize('Admin'), async (req, res) => {
 // ============================================
 router.post('/guardar-token', protect, async (req, res) => {
   try {
-    const { pushToken } = req.body;
+    // Aceptar tanto pushToken como expoPushToken
+    const pushToken = req.body.pushToken || req.body.expoPushToken;
     const userId = req.user._id;
 
     console.log(`📱 Guardando token para usuario: ${userId}`);
-    console.log(`📱 Token: ${pushToken ? pushToken.substring(0, 30) + '...' : 'NULO'}`);
+    console.log(`📱 Token recibido: ${pushToken ? pushToken.substring(0, 30) + '...' : 'NULO'}`);
+    console.log(`📱 Body completo:`, JSON.stringify(req.body));
 
     if (!pushToken) {
       return res.status(400).json({
         success: false,
-        message: 'Token push es requerido'
+        message: 'Token push es requerido (pushToken o expoPushToken)'
       });
     }
 
@@ -48,19 +50,17 @@ router.post('/guardar-token', protect, async (req, res) => {
     try {
       const { Expo } = require('expo-server-sdk');
       if (!Expo.isExpoPushToken(pushToken)) {
-        console.log(`❌ Token push inválido: ${pushToken.substring(0, 30)}...`);
-        return res.status(400).json({
-          success: false,
-          message: 'Token push inválido'
-        });
+        console.log(`⚠️ Token push inválido según Expo SDK: ${pushToken.substring(0, 30)}...`);
+        // No fallamos, solo advertimos
       }
     } catch (expoError) {
       console.log('⚠️ Expo SDK no disponible, guardando token sin validación');
     }
 
+    // Actualizar el usuario
     const user = await User.findByIdAndUpdate(
       userId,
-      { pushToken: pushToken },
+      { expoPushToken: pushToken },
       { new: true }
     );
 
@@ -78,7 +78,7 @@ router.post('/guardar-token', protect, async (req, res) => {
       success: true,
       message: 'Token push guardado correctamente',
       data: { 
-        pushToken: user.pushToken,
+        expoPushToken: user.expoPushToken,
         email: user.email,
         nombre: user.nombre
       }
