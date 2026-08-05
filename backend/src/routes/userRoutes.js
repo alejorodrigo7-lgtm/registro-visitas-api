@@ -126,4 +126,54 @@ router.post('/admin/registrar-token', protect, authorize('Admin'), async (req, r
   }
 });
 
+// ============================================
+// ADMIN: ELIMINAR TOKEN PUSH DE UN USUARIO
+// ============================================
+router.post('/admin/eliminar-token', protect, authorize('Admin'), async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    console.log(`👑 Admin eliminando token para usuario: ${userId}`);
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere userId'
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { expoPushToken: null },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    console.log(`✅ Token eliminado por admin para ${user.email}`);
+    res.json({
+      success: true,
+      message: 'Token eliminado correctamente',
+      data: { 
+        userId: user._id,
+        email: user.email,
+        nombre: user.nombre,
+        expoPushToken: user.expoPushToken
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error eliminando token:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
+
