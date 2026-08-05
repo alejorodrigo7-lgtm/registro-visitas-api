@@ -1,4 +1,4 @@
-// src/screens/DesconexionesMenu.js
+﻿// src/screens/DesconexionesMenu.js
 import React from 'react';
 import {
   View,
@@ -22,31 +22,40 @@ const DesconexionesMenu = ({ navigation }) => {
   const isCoordinador = user?.rol === 'Coordinador';
   const isTecnico = user?.rol === 'Tecnico';
 
+  // âœ… SOLO Admin y Jefe pueden ejecutar
+  const puedeEjecutar = isAdmin || isJefe;
+
   const menuItems = [
-    // 1️⃣ REGISTRAR DESCONEXIÓN - Coordinador y Técnico
+    // 1ï¸âƒ£ REGISTRAR DESCONEXIÃ“N - Coordinador y TÃ©cnico
     {
       id: 'RegistrarDesconexion',
-      label: '1️⃣ Registrar Desconexión',
+      label: '1ï¸âƒ£ Registrar DesconexiÃ³n',
       icon: 'power-outline',
-      show: isCoordinador || isTecnico,
+      show: isAdmin || isJefe || isCoordinador || isTecnico,
     },
-    // 2️⃣ REGISTRAR RECONEXIÓN - Coordinador y Técnico
+    // 2ï¸âƒ£ REGISTRAR RECONEXIÃ“N - Coordinador y TÃ©cnico
     {
       id: 'RegistrarReconexion',
-      label: '2️⃣ Registrar Reconexión',
+      label: '2ï¸âƒ£ Registrar ReconexiÃ³n',
       icon: 'reload-outline',
-      show: isCoordinador || isTecnico,
+      show: isAdmin || isJefe || isCoordinador || isTecnico,
     },
-    // 3️⃣ EJECUCIÓN - Coordinador y Técnico
+    // 3ï¸âƒ£ EJECUCIÃ“N - SOLO Admin y Jefe âœ… CORREGIDO
     {
       id: 'EjecucionDesconexiones',
-      label: '3️⃣ Ejecución',
+      label: '3ï¸âƒ£ EjecuciÃ³n',
       icon: 'play-outline',
-      show: isCoordinador || isTecnico,
+      show: puedeEjecutar,  // âœ… AHORA SOLO ADMIN Y JEFE
     },
-    // 4️⃣ BUSCAR DES/REC - Todos
+    // 4ï¸âƒ£ BUSCAR DES/REC - Todos
     {
       id: 'BuscarDesconexiones',
+      label: '4ï¸âƒ£ Buscar Des/Rec',
+      icon: 'search-outline',
+      show: isAdmin || isJefe || isCoordinador || isTecnico,
+    },    // 4️⃣ BUSCAR DES/REC - Todos
+    {
+      id: 'BuscarDesRec',
       label: '4️⃣ Buscar Des/Rec',
       icon: 'search-outline',
       show: isAdmin || isJefe || isCoordinador || isTecnico,
@@ -58,8 +67,8 @@ const DesconexionesMenu = ({ navigation }) => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <Text style={styles.title}>🔌 Desconexiones/Reconexiones</Text>
-        <Text style={styles.subtitle}>Gestión de servicios de desconexión y reconexión</Text>
+        <Text style={styles.title}>ðŸ”Œ Desconexiones/Reconexiones</Text>
+        <Text style={styles.subtitle}>GestiÃ³n de servicios de desconexiÃ³n y reconexiÃ³n</Text>
       </View>
 
       <ScrollView
