@@ -1,59 +1,77 @@
-const { Expo } = require('expo-server-sdk');
+﻿const { Expo } = require('expo-server-sdk');
 const User = require('../models/User');
 
-// Crear una instancia de Expo
-let expo = new Expo();
+// Crear cliente Expo
+const expo = new Expo();
 
-// ============================================
-// ENVIAR NOTIFICACIÓN PUSH
-// ============================================
-const enviarNotificacionPush = async (userId, notification) => {
+// Enviar notificación push
+const enviarNotificacionPush = async (userId, { title, body, data = {} }) => {
   try {
-    console.log(`📱 Intentando enviar push a usuario: ${userId}`);
-    
     // Buscar el usuario
     const user = await User.findById(userId);
     if (!user) {
       console.log(`❌ Usuario ${userId} no encontrado`);
-      return { success: false, message: 'Usuario no encontrado' };
+      return { success: false, error: 'Usuario no encontrado' };
     }
 
-    console.log(`📱 Usuario: ${user.email}, Token: ${user.expoPushToken ? '✅ SI' : '❌ NO'}`);
-
-    // Verificar que el usuario tiene token push
-    if (!user.expoPushToken) {
+    // Verificar si tiene token push
+    if (!user.pushToken) {
       console.log(`⚠️ Usuario ${user.email} no tiene token push registrado`);
-      return { success: false, message: 'No push token' };
+      return { success: false, error: 'No tiene token push' };
     }
 
-    // Verificar que el token es válido
-    if (!Expo.isExpoPushToken(user.expoPushToken)) {
-      console.log(`⚠️ Token push inválido para ${user.email}`);
-      return { success: false, message: 'Invalid push token' };
+    // Verificar si el token es válido
+    if (!Expo.isExpoPushToken(user.pushToken)) {
+      console.log(`❌ Token push inválido para usuario ${user.email}: ${user.pushToken}`);
+      return { success: false, error: 'Token push inválido' };
     }
 
-    // Construir el mensaje
-    const messages = [{
-      to: user.expoPushToken,
+    // Crear mensaje
+    const message = {
+      to: user.pushToken,
       sound: 'default',
-      title: notification.title || 'Nueva Alerta',
-      body: notification.body || 'Tienes una nueva notificación',
-      data: notification.data || {},
-    }];
+      title: title || 'Notificación',
+      body: body || 'Tienes una nueva notificación',
+      data: data || {},
+      priority: 'high',
+      channelId: 'default',
+    };
 
-    console.log(`📤 Enviando push a ${user.email}:`, messages);
+    console.log(`📤 Enviando push a ${user.email}`);
+    console.log(`📱 Token: ${user.pushToken.substring(0, 20)}...`);
 
-    // Enviar notificaciones en lotes
-    const chunks = expo.chunkPushNotifications(messages);
+    // Enviar notificación
+    const chunks = expo.chunkPushNotifications([message]);
     const tickets = [];
 
-    for (let chunk of chunks) {
+    for (const chunk of chunks) {
       try {
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
-        console.log(`✅ Push enviado a ${user.email}`, ticketChunk);
+        console.log(`✅ Push enviado a ${user.email}`);
       } catch (error) {
-        console.error('❌ Error al enviar push:', error);
+        console.error(`❌ Error enviando push a ${user.email}:`, error);
+        return { success: false, error: error.message };
+      }
+    }
+
+    // Verificar tickets
+    const receiptIds = tickets
+      .filter(ticket => ticket.id)
+      .map(ticket => ticket.id);
+
+    if (receiptIds.length > 0) {
+      const receipts = await expo.getPushNotificationReceiptsAsync(receiptIds);
+      for (const receiptId of receiptIds) {
+        const receipt = receipts[receiptId];
+        if (receipt && receipt.status === 'error') {
+          console.error(`❌ Error en push ${receiptId}:`, receipt.message);
+          if (receipt.details && receipt.details.error === 'DeviceNotRegistered') {
+            // Limpiar token inválido
+            await User.findByIdAndUpdate(userId, { pushToken: null });
+            console.log(`🧹 Token inválido eliminado para ${user.email}`);
+          }
+        }
       }
     }
 
@@ -64,53 +82,39 @@ const enviarNotificacionPush = async (userId, notification) => {
   }
 };
 
-// ============================================
-// VERIFICAR RECIBOS DE NOTIFICACIONES (opcional)
-// ============================================
-const verificarTicketsPush = async (tickets) => {
+// Guardar token push
+const guardarTokenPush = async (userId, token) => {
   try {
-    const receiptIds = [];
-    for (let ticket of tickets) {
-      if (ticket.id) {
-        receiptIds.push(ticket.id);
-      }
+    if (!userId || !token) {
+      return { success: false, error: 'Faltan datos' };
     }
 
-    if (receiptIds.length === 0) {
-      return;
+    // Verificar token válido
+    if (!Expo.isExpoPushToken(token)) {
+      console.log(`❌ Token push inválido: ${token.substring(0, 20)}...`);
+      return { success: false, error: 'Token push inválido' };
     }
 
-    const receiptIdChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { pushToken: token },
+      { new: true }
+    );
 
-    for (let chunk of receiptIdChunks) {
-      try {
-        const receipts = await expo.getPushNotificationReceiptsAsync(chunk);
-        console.log('📋 Recibos de notificaciones:', receipts);
-
-        for (let receiptId in receipts) {
-          const { status, message, details } = receipts[receiptId];
-          if (status === 'error') {
-            console.error(`❌ Error en notificación ${receiptId}:`, message, details);
-            // Si el token es inválido, eliminarlo de la base de datos
-            if (details && details.error === 'DeviceNotRegistered') {
-              // Aquí podrías eliminar el token inválido
-              console.log(`⚠️ Token inválido para usuario, se recomienda eliminar`);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error al obtener recibos:', error);
-      }
+    if (!user) {
+      return { success: false, error: 'Usuario no encontrado' };
     }
+
+    console.log(`✅ Token push guardado para ${user.email}`);
+    return { success: true, user };
   } catch (error) {
-    console.error('❌ Error en verificarTicketsPush:', error);
+    console.error('❌ Error guardando token push:', error);
+    return { success: false, error: error.message };
   }
 };
 
-// ============================================
-// ✅ EXPORTAR FUNCIONES
-// ============================================
 module.exports = {
   enviarNotificacionPush,
-  verificarTicketsPush,
+  guardarTokenPush,
+  Expo,
 };

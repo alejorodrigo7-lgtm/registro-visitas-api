@@ -1,81 +1,30 @@
-// src/controllers/desconexionController.js
-const DesconexionReconexion = require('../models/DesconexionReconexion');
+﻿const Desconexion = require('../models/Desconexion');
 const User = require('../models/User');
 const { enviarNotificacionPush } = require('../services/pushService');
 
 // ============================================
-// 📋 CREAR DESCONEXIÓN O RECONEXIÓN
-// ============================================
-exports.crear = async (req, res) => {
-  try {
-    const { tipo, cliente, codigoCliente, fecha, observaciones } = req.body;
-
-    if (!tipo || !cliente || !codigoCliente || !fecha) {
-      return res.status(400).json({
-        success: false,
-        message: 'Todos los campos son obligatorios',
-      });
-    }
-
-    const nuevoRegistro = new DesconexionReconexion({
-      tipo,
-      cliente,
-      codigoCliente,
-      fecha: new Date(fecha),
-      observaciones: observaciones || '',
-      creadoPor: req.user._id,
-      creadoPorNombre: req.user.nombre,
-      estado: 'PENDIENTE',
-    });
-
-    await nuevoRegistro.save();
-
-    // 📱 Enviar notificación push al usuario que creó
-    try {
-      await enviarNotificacionPush(req.user._id, {
-        title: `📋 ${tipo === 'DESCONEXION' ? 'Desconexión' : 'Reconexión'} Registrada`,
-        body: `Se ha registrado una ${tipo === 'DESCONEXION' ? 'desconexión' : 'reconexión'} para el cliente ${cliente}`,
-        data: {
-          tipo: 'desconexion',
-          id: nuevoRegistro._id.toString(),
-        },
-      });
-    } catch (pushError) {
-      console.error('Error enviando push:', pushError);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: `${tipo === 'DESCONEXION' ? 'Desconexión' : 'Reconexión'} registrada correctamente`,
-      data: nuevoRegistro,
-    });
-  } catch (error) {
-    console.error('❌ Error en crear:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// ============================================
-// 📋 OBTENER TODOS (con orden: más antiguo primero)
+// 📋 OBTENER TODAS LAS SOLICITUDES
 // ============================================
 exports.obtenerTodos = async (req, res) => {
   try {
-    const registros = await DesconexionReconexion.find()
-      .sort({ fecha: 1, createdAt: 1 }) // Más antiguo primero
-      .populate('creadoPor', 'nombre email')
-      .populate('realizadoPor', 'nombre email')
-      .populate('anuladoPor', 'nombre email');
-
+    let query = {};
+    
+    if (req.user.rol === 'Tecnico' || req.user.rol === 'Coordinador') {
+      query.usuario = req.user._id;
+    }
+    
+    const solicitudes = await Desconexion.find(query)
+      .populate('usuario', 'nombre email')
+      .populate('ejecutadoPor', 'nombre email')
+      .sort({ createdAt: -1 });
+    
     res.json({
       success: true,
-      count: registros.length,
-      data: registros,
+      count: solicitudes.length,
+      data: solicitudes,
     });
   } catch (error) {
-    console.error('❌ Error en obtenerTodos:', error);
+    console.error('Error obteniendo solicitudes:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -84,23 +33,21 @@ exports.obtenerTodos = async (req, res) => {
 };
 
 // ============================================
-// 📋 OBTENER PENDIENTES (para ejecución)
+// 📋 OBTENER SOLICITUDES PENDIENTES
 // ============================================
 exports.obtenerPendientes = async (req, res) => {
   try {
-    const pendientes = await DesconexionReconexion.find({
-      estado: 'PENDIENTE',
-    })
-      .sort({ fecha: 1, createdAt: 1 })
-      .populate('creadoPor', 'nombre email');
-
+    const solicitudes = await Desconexion.find({ estado: 'PENDIENTE' })
+      .populate('usuario', 'nombre email')
+      .sort({ createdAt: -1 });
+    
     res.json({
       success: true,
-      count: pendientes.length,
-      data: pendientes,
+      count: solicitudes.length,
+      data: solicitudes,
     });
   } catch (error) {
-    console.error('❌ Error en obtenerPendientes:', error);
+    console.error('Error obteniendo pendientes:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -109,39 +56,38 @@ exports.obtenerPendientes = async (req, res) => {
 };
 
 // ============================================
-// 🔍 BUSCAR (por nombre o código)
+// 🔍 BUSCAR SOLICITUDES
 // ============================================
 exports.buscar = async (req, res) => {
   try {
-    const { search } = req.query;
-
-    if (!search) {
+    const { q } = req.query;
+    
+    if (!q) {
       return res.status(400).json({
         success: false,
         message: 'Se requiere un término de búsqueda',
       });
     }
-
-    const query = {
+    
+    const searchRegex = new RegExp(q, 'i');
+    const solicitudes = await Desconexion.find({
       $or: [
-        { cliente: { $regex: search, $options: 'i' } },
-        { codigoCliente: { $regex: search, $options: 'i' } },
-      ],
-    };
-
-    const registros = await DesconexionReconexion.find(query)
-      .sort({ fecha: 1, createdAt: 1 })
-      .populate('creadoPor', 'nombre email')
-      .populate('realizadoPor', 'nombre email')
-      .populate('anuladoPor', 'nombre email');
-
+        { cliente: searchRegex },
+        { codigoCliente: searchRegex },
+        { observaciones: searchRegex },
+      ]
+    })
+      .populate('usuario', 'nombre email')
+      .populate('ejecutadoPor', 'nombre email')
+      .sort({ createdAt: -1 });
+    
     res.json({
       success: true,
-      count: registros.length,
-      data: registros,
+      count: solicitudes.length,
+      data: solicitudes,
     });
   } catch (error) {
-    console.error('❌ Error en buscar:', error);
+    console.error('Error buscando solicitudes:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -150,59 +96,179 @@ exports.buscar = async (req, res) => {
 };
 
 // ============================================
-// ✅ REALIZAR (ejecutar)
+// 📝 CREAR NUEVA SOLICITUD (CON NOTIFICACIÓN)
+// ============================================
+exports.crear = async (req, res) => {
+  try {
+    const { tipo, cliente, codigoCliente, fecha, observaciones } = req.body;
+    
+    if (!tipo || !cliente) {
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan campos obligatorios: tipo y cliente',
+      });
+    }
+    
+    const solicitud = new Desconexion({
+      tipo,
+      cliente,
+      codigoCliente: codigoCliente || '',
+      fecha: fecha || new Date(),
+      observaciones: observaciones || '',
+      estado: 'PENDIENTE',
+      usuario: req.user._id,
+      usuarioNombre: req.user.nombre,
+    });
+    
+    await solicitud.save();
+
+    // 🔔 ENVIAR NOTIFICACIÓN A ADMIN Y JEFE
+    const tipoTexto = tipo === 'DESCONEXION' ? '🔌 Desconexión' : '🔄 Reconexión';
+    const mensajePush = `📋 Nueva solicitud de ${tipoTexto} del cliente ${cliente}`;
+    
+    // Buscar usuarios con rol Admin o Jefe
+    const adminsJefes = await User.find({
+      rol: { $in: ['Admin', 'Jefe'] },
+      expoPushToken: { $ne: null }
+    });
+
+    for (const usuario of adminsJefes) {
+      try {
+        await enviarNotificacionPush(usuario._id, {
+          title: '📋 Nueva Solicitud',
+          body: mensajePush,
+          data: {
+            tipo: 'nueva_solicitud',
+            solicitudId: solicitud._id.toString(),
+            tipoSolicitud: tipo,
+            cliente: cliente
+          }
+        });
+        console.log(`✅ Notificación push enviada a ${usuario.email}`);
+      } catch (error) {
+        console.error(`❌ Error enviando notificación a ${usuario.email}:`, error);
+      }
+    }
+
+    // También notificar al creador de la solicitud (si no es Admin/Jefe)
+    if (req.user.rol !== 'Admin' && req.user.rol !== 'Jefe') {
+      try {
+        await enviarNotificacionPush(req.user._id, {
+          title: '✅ Solicitud Registrada',
+          body: `✅ ${tipoTexto} de ${cliente} registrada correctamente. Esperando aprobación.`,
+          data: {
+            tipo: 'solicitud_registrada',
+            solicitudId: solicitud._id.toString(),
+            tipoSolicitud: tipo,
+            cliente: cliente
+          }
+        });
+        console.log(`✅ Notificación push enviada al creador ${req.user.email}`);
+      } catch (error) {
+        console.error(`❌ Error enviando notificación al creador:`, error);
+      }
+    }
+
+    console.log(`📱 Notificaciones push enviadas para solicitud ${solicitud._id}`);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Solicitud creada correctamente',
+      data: solicitud,
+    });
+  } catch (error) {
+    console.error('Error creando solicitud:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ============================================
+// ✅ EJECUTAR SOLICITUD (REALIZAR) CON NOTIFICACIÓN
 // ============================================
 exports.realizar = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const registro = await DesconexionReconexion.findById(id);
-    if (!registro) {
+    const { observacion } = req.body;
+    
+    const solicitud = await Desconexion.findById(id);
+    if (!solicitud) {
       return res.status(404).json({
         success: false,
-        message: 'Registro no encontrado',
+        message: 'Solicitud no encontrada',
       });
     }
-
-    if (registro.estado !== 'PENDIENTE') {
+    
+    if (solicitud.estado !== 'PENDIENTE') {
       return res.status(400).json({
         success: false,
-        message: `El registro ya está en estado ${registro.estado}`,
+        message: `La solicitud ya está ${solicitud.estado.toLowerCase()}`,
       });
     }
+    
+    solicitud.estado = 'EJECUTADO';
+    solicitud.ejecutadoPor = req.user._id;
+    solicitud.ejecutadoPorNombre = req.user.nombre;
+    solicitud.observacionEjecucion = observacion || 'Ejecutado por ' + req.user.nombre;
+    solicitud.updatedAt = new Date();
+    
+    await solicitud.save();
 
-    registro.estado = 'REALIZADO';
-    registro.realizadoPor = req.user._id;
-    registro.realizadoPorNombre = req.user.nombre;
-    registro.fechaRealizado = new Date();
-    registro.updatedAt = new Date();
-
-    await registro.save();
-
-    // 📱 Notificar al creador
+    // 🔔 ENVIAR NOTIFICACIÓN AL CREADOR DE LA SOLICITUD
+    const tipoTexto = solicitud.tipo === 'DESCONEXION' ? '🔌 Desconexión' : '🔄 Reconexión';
+    const mensajePush = `✅ Solicitud de ${tipoTexto} de ${solicitud.cliente} fue EJECUTADA por ${req.user.nombre}`;
+    
     try {
-      const creador = await User.findById(registro.creadoPor);
-      if (creador) {
-        await enviarNotificacionPush(creador._id, {
-          title: `✅ ${registro.tipo === 'DESCONEXION' ? 'Desconexión' : 'Reconexión'} Realizada`,
-          body: `El cliente ${registro.cliente} fue ${registro.tipo === 'DESCONEXION' ? 'desconectado' : 'reconectado'} por ${req.user.nombre}`,
+      await enviarNotificacionPush(solicitud.usuario, {
+        title: '✅ Solicitud Ejecutada',
+        body: mensajePush,
+        data: {
+          tipo: 'solicitud_ejecutada',
+          solicitudId: solicitud._id.toString(),
+          tipoSolicitud: solicitud.tipo,
+          cliente: solicitud.cliente,
+          ejecutadoPor: req.user.nombre
+        }
+      });
+      console.log(`✅ Notificación push enviada al creador ${solicitud.usuarioNombre}`);
+    } catch (error) {
+      console.error(`❌ Error enviando notificación al creador:`, error);
+    }
+
+    // También notificar a otros Admin/Jefe que ya fue ejecutada
+    const adminsJefes = await User.find({
+      rol: { $in: ['Admin', 'Jefe'] },
+      expoPushToken: { $ne: null },
+      _id: { $ne: req.user._id } // No enviar al que ejecutó
+    });
+
+    for (const usuario of adminsJefes) {
+      try {
+        await enviarNotificacionPush(usuario._id, {
+          title: '✅ Solicitud Ejecutada',
+          body: mensajePush,
           data: {
-            tipo: 'desconexion_realizada',
-            id: registro._id.toString(),
-          },
+            tipo: 'solicitud_ejecutada',
+            solicitudId: solicitud._id.toString(),
+            tipoSolicitud: solicitud.tipo,
+            cliente: solicitud.cliente,
+            ejecutadoPor: req.user.nombre
+          }
         });
+      } catch (error) {
+        console.error(`❌ Error enviando notificación a ${usuario.email}:`, error);
       }
-    } catch (pushError) {
-      console.error('Error enviando push:', pushError);
     }
 
     res.json({
       success: true,
-      message: 'Registro realizado correctamente',
-      data: registro,
+      message: 'Solicitud ejecutada correctamente',
+      data: solicitud,
     });
   } catch (error) {
-    console.error('❌ Error en realizar:', error);
+    console.error('Error ejecutando solicitud:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -211,59 +277,89 @@ exports.realizar = async (req, res) => {
 };
 
 // ============================================
-// ❌ ANULAR
+// ❌ ANULAR SOLICITUD (RECHAZAR) CON NOTIFICACIÓN
 // ============================================
 exports.anular = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const registro = await DesconexionReconexion.findById(id);
-    if (!registro) {
+    const { observacion } = req.body;
+    
+    const solicitud = await Desconexion.findById(id);
+    if (!solicitud) {
       return res.status(404).json({
         success: false,
-        message: 'Registro no encontrado',
+        message: 'Solicitud no encontrada',
       });
     }
-
-    if (registro.estado !== 'PENDIENTE') {
+    
+    if (solicitud.estado !== 'PENDIENTE') {
       return res.status(400).json({
         success: false,
-        message: `El registro ya está en estado ${registro.estado}`,
+        message: `La solicitud ya está ${solicitud.estado.toLowerCase()}`,
       });
     }
+    
+    solicitud.estado = 'RECHAZADO';
+    solicitud.ejecutadoPor = req.user._id;
+    solicitud.ejecutadoPorNombre = req.user.nombre;
+    solicitud.observacionEjecucion = observacion || 'Rechazado por ' + req.user.nombre;
+    solicitud.updatedAt = new Date();
+    
+    await solicitud.save();
 
-    registro.estado = 'ANULADO';
-    registro.anuladoPor = req.user._id;
-    registro.anuladoPorNombre = req.user.nombre;
-    registro.fechaAnulado = new Date();
-    registro.updatedAt = new Date();
-
-    await registro.save();
-
-    // 📱 Notificar al creador
+    // 🔔 ENVIAR NOTIFICACIÓN AL CREADOR DE LA SOLICITUD
+    const tipoTexto = solicitud.tipo === 'DESCONEXION' ? '🔌 Desconexión' : '🔄 Reconexión';
+    const mensajePush = `❌ Solicitud de ${tipoTexto} de ${solicitud.cliente} fue RECHAZADA por ${req.user.nombre}`;
+    
     try {
-      const creador = await User.findById(registro.creadoPor);
-      if (creador) {
-        await enviarNotificacionPush(creador._id, {
-          title: `❌ ${registro.tipo === 'DESCONEXION' ? 'Desconexión' : 'Reconexión'} Anulada`,
-          body: `La ${registro.tipo === 'DESCONEXION' ? 'desconexión' : 'reconexión'} del cliente ${registro.cliente} fue anulada por ${req.user.nombre}`,
+      await enviarNotificacionPush(solicitud.usuario, {
+        title: '❌ Solicitud Rechazada',
+        body: mensajePush,
+        data: {
+          tipo: 'solicitud_rechazada',
+          solicitudId: solicitud._id.toString(),
+          tipoSolicitud: solicitud.tipo,
+          cliente: solicitud.cliente,
+          rechazadoPor: req.user.nombre
+        }
+      });
+      console.log(`✅ Notificación push enviada al creador ${solicitud.usuarioNombre}`);
+    } catch (error) {
+      console.error(`❌ Error enviando notificación al creador:`, error);
+    }
+
+    // También notificar a otros Admin/Jefe que fue rechazada
+    const adminsJefes = await User.find({
+      rol: { $in: ['Admin', 'Jefe'] },
+      expoPushToken: { $ne: null },
+      _id: { $ne: req.user._id }
+    });
+
+    for (const usuario of adminsJefes) {
+      try {
+        await enviarNotificacionPush(usuario._id, {
+          title: '❌ Solicitud Rechazada',
+          body: mensajePush,
           data: {
-            tipo: 'desconexion_anulada',
-            id: registro._id.toString(),
-          },
+            tipo: 'solicitud_rechazada',
+            solicitudId: solicitud._id.toString(),
+            tipoSolicitud: solicitud.tipo,
+            cliente: solicitud.cliente,
+            rechazadoPor: req.user.nombre
+          }
         });
+      } catch (error) {
+        console.error(`❌ Error enviando notificación a ${usuario.email}:`, error);
       }
-    } catch (pushError) {
-      console.error('Error enviando push:', pushError);
     }
 
     res.json({
       success: true,
-      message: 'Registro anulado correctamente',
-      data: registro,
+      message: 'Solicitud rechazada correctamente',
+      data: solicitud,
     });
   } catch (error) {
-    console.error('❌ Error en anular:', error);
+    console.error('Error rechazando solicitud:', error);
     res.status(500).json({
       success: false,
       message: error.message,
