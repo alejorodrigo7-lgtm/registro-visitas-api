@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 
 const ubicacionSchema = new mongoose.Schema({
   usuario: {
@@ -27,7 +27,7 @@ const ubicacionSchema = new mongoose.Schema({
   },
   tipo: {
     type: String,
-    enum: ['visita', 'servicio', 'registro'],
+    enum: ['visita', 'servicio', 'registro', 'background'],
     default: 'visita',
   },
   fecha: {
