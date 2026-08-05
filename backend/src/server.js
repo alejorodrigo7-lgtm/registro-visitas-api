@@ -8,8 +8,9 @@ const connectDB = require('./config/database');
 const { protect, authorize } = require('./middleware/auth');
 const User = require('./models/User');
 const bcrypt = require('bcrypt');
+
 // ============================================
-// ðŸ”’ RATE LIMITING
+// RATE LIMITING
 // ============================================
 const {
   generalLimiter,
@@ -21,20 +22,20 @@ const {
 } = require('./config/rateLimit');
 
 // ============================================
-// ðŸ“Š LOGGER
+// LOGGER
 // ============================================
 const logger = require('./config/logger');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
-// ðŸ”¥ GENERAR HASH PARA 123456 AL INICIAR EL SERVIDOR
+// GENERAR HASH PARA 123456 AL INICIAR EL SERVIDOR
 const HASH_123456 = bcrypt.hashSync('123456', 10);
-console.log('ðŸ”‘ Hash generado para 123456:', HASH_123456);
+console.log('Hash generado para 123456:', HASH_123456);
 global.HASH_123456 = HASH_123456;
 
-// âœ… GENERAR HASH ÃšNICO PARA REGISTRO
+// GENERAR HASH UNICO PARA REGISTRO
 const SALT = bcrypt.genSaltSync(10);
 const DEFAULT_PASSWORD_HASH = bcrypt.hashSync('123456', SALT);
-console.log('ðŸ”‘ Hash por defecto para registro:', DEFAULT_PASSWORD_HASH);
+console.log('Hash por defecto para registro:', DEFAULT_PASSWORD_HASH);
 global.DEFAULT_PASSWORD_HASH = DEFAULT_PASSWORD_HASH;
 
 // Importar rutas
@@ -54,7 +55,7 @@ const clienteRoutes = require('./routes/clienteRoutes');
 const notificationRoutes = require('./routes/notificacionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
-// âœ… NUEVO: RUTAS DE DESCONEXIONES
+// NUEVO: RUTAS DE DESCONEXIONES
 const desconexionRoutes = require('./routes/desconexionRoutes');
 const userRoutes = require('./routes/userRoutes');
 
@@ -63,33 +64,40 @@ const app = express();
 // Conectar a MongoDB
 connectDB();
 
-// DespuÃ©s de conectar, mostrar informaciÃ³n de la base de datos
-console.log(`ðŸ“¡ Base de datos conectada: ${mongoose.connection.name}`);
-console.log(`ðŸ“¡ Host: ${mongoose.connection.host}`);
+// Despues de conectar, mostrar informacion de la base de datos
+console.log(`Base de datos conectada: ${mongoose.connection.name}`);
+console.log(`Host: ${mongoose.connection.host}`);
 
 app.use(cors());
 
-// âœ… SOLUCIÃ“N PARA RATE LIMITING
+// SOLUCION PARA RATE LIMITING
 app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ============================================
-// ðŸ“Š MIDDLEWARE DE LOGGING
+// MIDDLEWARE DE LOGGING
 // ============================================
 app.use(logger.middleware);
 
 // ============================================
-// ðŸ” RUTA DE BÃšSQUEDA DE CLIENTES
+// RUTA DE BUSQUEDA DE CLIENTES (por codigo o nombre)
 // ============================================
-app.get('/api/clientes/buscar/:identificador', async (req, res) => {
+app.get('/api/clientes/buscar/:termino', async (req, res) => {
   try {
-    const { identificador } = req.params;
-    console.log(`ðŸ” Buscando cliente: ${identificador}`);
+    const { termino } = req.params;
+    console.log(`Buscando cliente: ${termino}`);
     
     const Cliente = require('./models/Cliente');
-    const cliente = await Cliente.findOne({ identificador: identificador.trim() });
+    
+    // Buscar por codigo exacto o por nombre que contenga el termino
+    const cliente = await Cliente.findOne({
+      $or: [
+        { identificador: termino.trim() },
+        { nombre: { $regex: termino.trim(), $options: 'i' } }
+      ]
+    });
     
     if (!cliente) {
       return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
@@ -107,15 +115,15 @@ app.get('/api/clientes/buscar/:identificador', async (req, res) => {
     });
   } catch (error) {
     logger.errorWithContext('Error al buscar cliente', error, {
-      identificador: req.params.identificador
+      termino: req.params.termino
     });
-    console.error('âŒ Error al buscar cliente:', error);
+    console.error('Error al buscar cliente:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // ============================================
-// ðŸ“‹ OBTENER TODOS LOS CLIENTES
+// OBTENER TODOS LOS CLIENTES
 // ============================================
 app.get('/api/clientes/todos', protect, async (req, res) => {
   try {
@@ -138,7 +146,7 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
     const Cliente = require('./models/Cliente');
     const clientes = await Cliente.find(query).sort({ nombre: 1 });
     
-    console.log(`ðŸ“‹ ${clientes.length} clientes encontrados`);
+    console.log(`${clientes.length} clientes encontrados`);
     
     res.json({
       success: true,
@@ -149,7 +157,7 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
     logger.errorWithContext('Error en /todos', error, {
       usuario: req.user?.email
     });
-    console.error('âŒ Error en /todos:', error);
+    console.error('Error en /todos:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -158,7 +166,7 @@ app.get('/api/clientes/todos', protect, async (req, res) => {
 });
 
 // ============================================
-// ðŸ“‹ RUTAS
+// RUTAS
 // ============================================
 app.use('/api/auth', authRoutes);
 app.use('/api/transferencias', transferenciaRoutes);
@@ -176,13 +184,13 @@ app.use('/api/clientes', clienteRoutes);
 app.use('/api/notificaciones', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
-// âœ… NUEVO: RUTAS DE DESCONEXIONES
+// NUEVO: RUTAS DE DESCONEXIONES
 app.use('/api/desconexiones', desconexionRoutes);
-  app.use('/api/usuarios', userRoutes);
+app.use('/api/usuarios', userRoutes);
 
 app.use('/api', generalLimiter);
 
-// Aplicar lÃ­mites especÃ­ficos
+// Aplicar limites especificos
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth/register', registerLimiter);
 app.use('/api/visitas', visitasLimiter);
@@ -190,7 +198,7 @@ app.use('/api/asistencia', asistenciaLimiter);
 app.use('/api/notificaciones', notificacionesLimiter);
 
 // ============================================
-// ðŸ“² RUTA DE PRUEBA PARA NOTIFICACIONES
+// RUTA DE PRUEBA PARA NOTIFICACIONES
 // ============================================
 app.post('/api/test-transferencia-push', protect, async (req, res) => {
   try {
@@ -224,8 +232,8 @@ app.post('/api/test-transferencia-push', protect, async (req, res) => {
     const messages = [{
       to: user.expoPushToken,
       sound: 'default',
-      title: titulo || 'ðŸ”” Prueba de NotificaciÃ³n',
-      body: mensaje || 'Esta es una notificaciÃ³n de prueba',
+      title: titulo || 'Prueba de Notificacion',
+      body: mensaje || 'Esta es una notificacion de prueba',
       data: { tipo: 'test' },
     }];
     
@@ -240,18 +248,18 @@ app.post('/api/test-transferencia-push', protect, async (req, res) => {
       usuario: user.email,
       userId: user._id
     });
-    console.log(`ðŸ“² Push de prueba enviado a ${user.email}`);
+    console.log(`Push de prueba enviado a ${user.email}`);
     
     res.json({
       success: true,
-      message: 'NotificaciÃ³n de prueba enviada',
+      message: 'Notificacion de prueba enviada',
       tickets,
     });
   } catch (error) {
     logger.errorWithContext('Error en test push', error, {
       userId: req.body.userId
     });
-    console.error('âŒ Error en test push:', error);
+    console.error('Error en test push:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -267,21 +275,21 @@ app.get('/api/test', (req, res) => {
 });
 
 // ============================================
-// ðŸ“¦ RUTA PARA OBTENER MATERIALES DEL TÃ‰CNICO
+// RUTA PARA OBTENER MATERIALES DEL TECNICO
 // ============================================
 app.get('/api/mis-materiales', protect, async (req, res) => {
   try {
-    console.log('ðŸ“¦ === OBTENIENDO MATERIALES DEL TÃ‰CNICO ===');
-    console.log('ðŸ“¦ Usuario ID:', req.user._id);
-    console.log('ðŸ“¦ Email:', req.user.email);
-    console.log('ðŸ“¦ Rol:', req.user.rol);
+    console.log('=== OBTENIENDO MATERIALES DEL TECNICO ===');
+    console.log('Usuario ID:', req.user._id);
+    console.log('Email:', req.user.email);
+    console.log('Rol:', req.user.rol);
     
     const Bodega = require('./models/Bodega');
     
     let bodega = await Bodega.findOne({ usuario: req.user._id });
     
     if (!bodega) {
-      console.log('ðŸ“¦ Bodega no encontrada, creando una vacÃ­a...');
+      console.log('Bodega no encontrada, creando una vacia...');
       bodega = new Bodega({
         usuario: req.user._id,
         usuarioNombre: req.user.nombre || req.user.email,
@@ -291,10 +299,10 @@ app.get('/api/mis-materiales', protect, async (req, res) => {
         creadoPor: req.user._id,
       });
       await bodega.save();
-      console.log('âœ… Bodega creada para tÃ©cnico:', req.user._id);
+      console.log('Bodega creada para tecnico:', req.user._id);
     }
     
-    console.log(`ðŸ“¦ Materiales en bodega: ${bodega.materiales?.length || 0}`);
+    console.log(`Materiales en bodega: ${bodega.materiales?.length || 0}`);
     
     res.json({
       success: true,
@@ -302,7 +310,7 @@ app.get('/api/mis-materiales', protect, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('âŒ Error obteniendo materiales del tÃ©cnico:', error);
+    console.error('Error obteniendo materiales del tecnico:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -311,55 +319,55 @@ app.get('/api/mis-materiales', protect, async (req, res) => {
 });
 
 // ============================================
-// ðŸ“Š MANEJO DE ERRORES
+// MANEJO DE ERRORES
 // ============================================
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 // ============================================
-// ðŸš€ INICIAR SERVIDOR
+// INICIAR SERVIDOR
 // ============================================
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`ðŸš€ Servidor iniciado en puerto ${PORT}`);
-  logger.info(`ðŸ“Š Logs guardados en: ${__dirname}/../logs`);
-  logger.info(`ðŸŒ Entorno: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`ðŸ• Zona horaria: ${process.env.TZ || 'UTC'}`);
-  logger.info(`ðŸ• Hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
-  logger.info(`ðŸ“¡ Escuchando en todas las interfaces (0.0.0.0)`);
-  logger.info(`ðŸ” /api/clientes/buscar/:identificador`);
-  logger.info(`ðŸ“‹ /api/clientes/todos (SIN LÃMITE)`);
-  logger.info(`ðŸ‘¤ /api/clientes (POST - Crear cliente)`);
-  logger.info(`ðŸ“¤ /api/transferencias`);
-  logger.info(`ðŸ› ï¸ /api/servicios`);
-  logger.info(`ðŸ’° /api/cajas`);
-  logger.info(`ðŸ“Š /api/reportes`);
-  logger.info(`ðŸ“‹ /api/visitas`);
-  logger.info(`ðŸª /api/bodegas`);
-  logger.info(`ðŸ“‹ /api/horarios`);
-  logger.info(`ðŸ—ºï¸ /api/mapas`);
-  logger.info(`ðŸ“‹ /api/monserrath`);
-  logger.info(`ðŸ“ /api/asistencia`);
-  logger.info(`ðŸ“ /api/pedir-ausencia`);
-  logger.info(`ðŸ“² /api/test-transferencia-push`);
-  logger.info(`ðŸ“± /api/notificaciones`);
-  logger.info(`ðŸ“Š /api/dashboard`);
-  // âœ… NUEVO: LOG DE RUTAS DE DESCONEXIONES
-  logger.info(`ðŸ”Œ /api/desconexiones`);
+  logger.info(`Servidor iniciado en puerto ${PORT}`);
+  logger.info(`Logs guardados en: ${__dirname}/../logs`);
+  logger.info(`Entorno: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`Zona horaria: ${process.env.TZ || 'UTC'}`);
+  logger.info(`Hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
+  logger.info(`Escuchando en todas las interfaces (0.0.0.0)`);
+  logger.info(`/api/clientes/buscar/:termino`);
+  logger.info(`/api/clientes/todos (SIN LIMITE)`);
+  logger.info(`/api/clientes (POST - Crear cliente)`);
+  logger.info(`/api/transferencias`);
+  logger.info(`/api/servicios`);
+  logger.info(`/api/cajas`);
+  logger.info(`/api/reportes`);
+  logger.info(`/api/visitas`);
+  logger.info(`/api/bodegas`);
+  logger.info(`/api/horarios`);
+  logger.info(`/api/mapas`);
+  logger.info(`/api/monserrath`);
+  logger.info(`/api/asistencia`);
+  logger.info(`/api/pedir-ausencia`);
+  logger.info(`/api/test-transferencia-push`);
+  logger.info(`/api/notificaciones`);
+  logger.info(`/api/dashboard`);
+  // NUEVO: LOG DE RUTAS DE DESCONEXIONES
+  logger.info(`/api/desconexiones`);
 });
 
 // ============================================
-// ðŸ“Š MANEJO DE SEÃ‘ALES
+// MANEJO DE SEÑALES
 // ============================================
 const gracefulShutdown = (signal) => {
-  logger.info(`ðŸ“¥ Recibida seÃ±al ${signal}, cerrando servidor...`);
+  logger.info(`Recibida señal ${signal}, cerrando servidor...`);
   server.close(() => {
-    logger.info('âœ… Servidor cerrado correctamente');
+    logger.info('Servidor cerrado correctamente');
     process.exit(0);
   });
   
   setTimeout(() => {
-    logger.error('âš ï¸ Forzando cierre del servidor');
+    logger.error('Forzando cierre del servidor');
     process.exit(1);
   }, 10000);
 };
