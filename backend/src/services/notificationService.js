@@ -1,10 +1,8 @@
-const { Expo } = require('expo-server-sdk');
+// backend/src/services/notificationService.js
 const logger = require('../config/logger');
 const User = require('../models/User');
 const Notificacion = require('../models/Notificacion');
-
-// Crear instancia de Expo
-const expo = new Expo();
+const fcmService = require('./fcmService');
 
 // ============================================
 // 📱 GUARDAR NOTIFICACIÓN EN BASE DE DATOS
@@ -28,111 +26,98 @@ const guardarNotificacion = async (userId, titulo, mensaje, tipo = 'sistema', da
     });
     return notificacion;
   } catch (error) {
-    logger.errorWithContext('Error guardando notificación en DB', error, { userId, titulo });
+    logger.error('Error guardando notificación en DB', { userId, titulo, error: error.message });
     return null;
   }
 };
 
 // ============================================
-// 📱 ENVIAR NOTIFICACIÓN A UN USUARIO
+// 📱 ENVIAR NOTIFICACIÓN A UN USUARIO (USANDO FCM)
 // ============================================
 const enviarNotificacion = async (userId, titulo, mensaje, datos = {}, tipo = 'sistema') => {
   try {
     // 1. Guardar en base de datos
     const notificacionDB = await guardarNotificacion(userId, titulo, mensaje, tipo, datos);
-    
+
     // 2. Buscar el usuario
     const user = await User.findById(userId);
     if (!user) {
       logger.warn('Usuario no encontrado para notificación', { userId });
-      return { 
-        success: false, 
-        message: 'Usuario no encontrado', 
+      return {
+        success: false,
+        message: 'Usuario no encontrado',
         dbSaved: !!notificacionDB,
         notificacionId: notificacionDB?._id
       };
     }
 
     // 3. Verificar si tiene token push
-    if (!user.expoPushToken) {
-      logger.warn('Usuario sin token push registrado', { 
-        userId, 
-        email: user.email 
+    if (!user.pushToken) {
+      logger.warn('Usuario sin token push registrado', {
+        userId,
+        email: user.email
       });
-      return { 
-        success: false, 
+      return {
+        success: false,
         message: 'Usuario sin token push',
         dbSaved: !!notificacionDB,
         notificacionId: notificacionDB?._id
       };
     }
 
-    // 4. Verificar si el token es válido
-    if (!Expo.isExpoPushToken(user.expoPushToken)) {
-      logger.warn('Token push inválido', { 
-        userId, 
-        token: user.expoPushToken 
-      });
-      return { 
-        success: false, 
-        message: 'Token push inválido',
-        dbSaved: !!notificacionDB,
-        notificacionId: notificacionDB?._id
-      };
-    }
+    console.log('📤 Enviando notificación FCM a:', user.email);
+    console.log('📱 Token:', user.pushToken.substring(0, 20) + '...');
 
-    // 5. Construir mensaje para push
-    const messages = [{
-      to: user.expoPushToken,
-      sound: 'default',
-      title: titulo || '📢 Notificación RA²P',
-      body: mensaje || 'Tienes una nueva notificación',
-      data: {
+    // 4. Enviar usando FCM
+    const result = await fcmService.sendFCMNotification(
+      user.pushToken,
+      titulo || '📢 Notificación RA²P',
+      mensaje || 'Tienes una nueva notificación',
+      {
         ...datos,
         notificacionId: notificacionDB?._id?.toString(),
         timestamp: new Date().toISOString(),
         userId: user._id.toString(),
         tipo: tipo,
-      },
-      priority: 'high',
-      badge: 1,
-    }];
+      }
+    );
 
-    // 6. Enviar notificación push
-    const chunks = expo.chunkPushNotifications(messages);
-    const tickets = [];
-
-    for (const chunk of chunks) {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      tickets.push(ticketChunk);
+    // 5. Si el token es inválido, limpiarlo
+    if (result.code === 'messaging/invalid-registration-token') {
+      await User.findByIdAndUpdate(userId, { pushToken: null });
+      console.log(`🧹 Token inválido eliminado para ${user.email}`);
+      return {
+        success: false,
+        message: 'Token inválido eliminado',
+        dbSaved: !!notificacionDB,
+        notificacionId: notificacionDB?._id
+      };
     }
 
-    logger.info('📱 Notificación push enviada', {
+    logger.info('📱 Notificación FCM enviada', {
       userId: user._id,
       email: user.email,
       titulo,
       notificacionId: notificacionDB?._id,
-      ticketCount: tickets.length
+      fcmSuccess: result.success
     });
 
-    return { 
-      success: true, 
-      message: 'Notificación enviada',
-      tickets,
+    return {
+      success: result.success,
+      message: result.success ? 'Notificación enviada' : 'Error enviando notificación',
       userId: user._id,
       email: user.email,
       notificacionId: notificacionDB?._id,
-      dbSaved: true
+      dbSaved: true,
+      fcmResult: result
     };
 
   } catch (error) {
-    logger.errorWithContext('Error enviando notificación push', error, {
-      userId,
-      titulo
-    });
-    return { 
-      success: false, 
-      message: error.message 
+    logger.error('Error enviando notificación FCM', { userId, titulo, error: error.message });
+    return {
+      success: false,
+      message: error.message,
+      dbSaved: false
     };
   }
 };
@@ -151,68 +136,55 @@ const enviarNotificacionMultiple = async (userIds, titulo, mensaje, datos = {}, 
 
     // 2. Buscar todos los usuarios
     const users = await User.find({ _id: { $in: userIds } });
-    
+
     // 3. Filtrar usuarios con token válido
     const tokens = users
-      .filter(user => user.expoPushToken && Expo.isExpoPushToken(user.expoPushToken))
-      .map(user => ({
-        to: user.expoPushToken,
-        sound: 'default',
-        title: titulo || '📢 Notificación RA²P',
-        body: mensaje || 'Tienes una nueva notificación',
-        data: {
-          ...datos,
-          timestamp: new Date().toISOString(),
-          userId: user._id.toString(),
-          tipo: tipo,
-        },
-        priority: 'high',
-        badge: 1,
-      }));
+      .filter(user => user.pushToken)
+      .map(user => user.pushToken);
 
     if (tokens.length === 0) {
-      logger.warn('No hay tokens válidos para enviar notificaciones', { 
+      logger.warn('No hay tokens válidos para enviar notificaciones', {
         usuarios: userIds.length,
         tokensValidos: 0,
         dbSaved: dbResults.length
       });
-      return { 
-        success: false, 
+      return {
+        success: false,
         message: 'No hay tokens válidos',
         dbSaved: dbResults.length
       };
     }
 
-    // 4. Enviar notificaciones en chunks
-    const chunks = expo.chunkPushNotifications(tokens);
-    const tickets = [];
+    // 4. Enviar usando FCM
+    const result = await fcmService.sendMultipleFCMNotifications(
+      tokens,
+      titulo || '📢 Notificación RA²P',
+      mensaje || 'Tienes una nueva notificación',
+      {
+        ...datos,
+        timestamp: new Date().toISOString(),
+        tipo: tipo,
+      }
+    );
 
-    for (const chunk of chunks) {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      tickets.push(ticketChunk);
-    }
-
-    logger.info('📱 Notificaciones push múltiples enviadas', {
+    logger.info('📱 Notificaciones FCM múltiples enviadas', {
       totalUsuarios: userIds.length,
       tokensValidos: tokens.length,
       dbSaved: dbResults.length,
-      ticketCount: tickets.length
+      fcmSuccess: result.success
     });
 
     return {
-      success: true,
-      message: 'Notificaciones enviadas',
+      success: result.success,
+      message: result.success ? 'Notificaciones enviadas' : 'Error enviando notificaciones',
       total: userIds.length,
       enviadas: tokens.length,
       dbSaved: dbResults.length,
-      tickets
+      fcmResult: result
     };
 
   } catch (error) {
-    logger.errorWithContext('Error enviando notificaciones múltiples', error, {
-      userIds,
-      titulo
-    });
+    logger.error('Error enviando notificaciones múltiples', { userIds, titulo, error: error.message });
     return {
       success: false,
       message: error.message
@@ -240,67 +212,54 @@ const enviarNotificacionATodos = async (titulo, mensaje, datos = {}, roles = [],
       const notif = await guardarNotificacion(userId, titulo, mensaje, tipo, datos);
       if (notif) dbResults.push(notif);
     }
-    
+
     // Filtrar usuarios con token válido
     const tokens = users
-      .filter(user => user.expoPushToken && Expo.isExpoPushToken(user.expoPushToken))
-      .map(user => ({
-        to: user.expoPushToken,
-        sound: 'default',
-        title: titulo || '📢 Notificación RA²P',
-        body: mensaje || 'Tienes una nueva notificación',
-        data: {
-          ...datos,
-          timestamp: new Date().toISOString(),
-          userId: user._id.toString(),
-          tipo: tipo,
-        },
-        priority: 'high',
-        badge: 1,
-      }));
+      .filter(user => user.pushToken)
+      .map(user => user.pushToken);
 
     if (tokens.length === 0) {
       logger.warn('No hay tokens válidos para enviar notificaciones a todos', {
         dbSaved: dbResults.length
       });
-      return { 
-        success: false, 
+      return {
+        success: false,
         message: 'No hay tokens válidos',
         dbSaved: dbResults.length
       };
     }
 
-    // Enviar notificaciones en chunks
-    const chunks = expo.chunkPushNotifications(tokens);
-    const tickets = [];
+    // Enviar usando FCM
+    const result = await fcmService.sendMultipleFCMNotifications(
+      tokens,
+      titulo || '📢 Notificación RA²P',
+      mensaje || 'Tienes una nueva notificación',
+      {
+        ...datos,
+        timestamp: new Date().toISOString(),
+        tipo: tipo,
+      }
+    );
 
-    for (const chunk of chunks) {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      tickets.push(ticketChunk);
-    }
-
-    logger.info('📱 Notificaciones push a todos los usuarios enviadas', {
+    logger.info('📱 Notificaciones FCM a todos los usuarios enviadas', {
       totalUsuarios: users.length,
       tokensValidos: tokens.length,
       dbSaved: dbResults.length,
-      roles: roles.length > 0 ? roles : 'todos'
+      roles: roles.length > 0 ? roles : 'todos',
+      fcmSuccess: result.success
     });
 
     return {
-      success: true,
-      message: 'Notificaciones enviadas a todos',
+      success: result.success,
+      message: result.success ? 'Notificaciones enviadas a todos' : 'Error enviando notificaciones',
       total: users.length,
       enviadas: tokens.length,
       dbSaved: dbResults.length,
-      tickets
+      fcmResult: result
     };
 
   } catch (error) {
-    logger.errorWithContext('Error enviando notificaciones a todos', error, {
-      titulo,
-      mensaje,
-      roles
-    });
+    logger.error('Error enviando notificaciones a todos', { titulo, roles, error: error.message });
     return {
       success: false,
       message: error.message
@@ -333,7 +292,7 @@ const notificarVisitaRegistrada = async (visita) => {
 
     return resultado;
   } catch (error) {
-    logger.errorWithContext('Error notificando visita registrada', error);
+    logger.error('Error notificando visita registrada', { error: error.message });
     return { success: false, message: error.message };
   }
 };
@@ -372,7 +331,7 @@ const notificarAsistencia = async (asistencia, tipo) => {
 
     return resultado;
   } catch (error) {
-    logger.errorWithContext('Error notificando asistencia', error);
+    logger.error('Error notificando asistencia', { error: error.message });
     return { success: false, message: error.message };
   }
 };
@@ -411,7 +370,7 @@ const notificarNuevoDeposito = async (deposito, jefesSeleccionados) => {
 
     return resultado;
   } catch (error) {
-    logger.errorWithContext('Error notificando nuevo depósito', error);
+    logger.error('Error notificando nuevo depósito', { error: error.message });
     return { success: false, message: error.message };
   }
 };
@@ -422,13 +381,13 @@ const notificarNuevoDeposito = async (deposito, jefesSeleccionados) => {
 const notificarEstadoDeposito = async (deposito, estado, observaciones = '') => {
   try {
     const estadosMap = {
-      'APROBADO': { 
-        titulo: '✅ Depósito Aprobado', 
+      'APROBADO': {
+        titulo: '✅ Depósito Aprobado',
         emoji: '✅',
         mensaje: `Tu depósito de $${deposito.valor} ha sido APROBADO`
       },
-      'RECHAZADO': { 
-        titulo: '❌ Depósito Rechazado', 
+      'RECHAZADO': {
+        titulo: '❌ Depósito Rechazado',
         emoji: '❌',
         mensaje: `Tu depósito de $${deposito.valor} ha sido RECHAZADO`
       }
@@ -438,7 +397,7 @@ const notificarEstadoDeposito = async (deposito, estado, observaciones = '') => 
     if (!info) return { success: false, message: 'Estado no válido' };
 
     const titulo = info.titulo;
-    const mensaje = observaciones 
+    const mensaje = observaciones
       ? `${info.mensaje}. Motivo: ${observaciones}`
       : info.mensaje;
 
@@ -466,7 +425,7 @@ const notificarEstadoDeposito = async (deposito, estado, observaciones = '') => 
 
     return resultado;
   } catch (error) {
-    logger.errorWithContext('Error notificando estado de depósito', error);
+    logger.error('Error notificando estado de depósito', { error: error.message });
     return { success: false, message: error.message };
   }
 };
