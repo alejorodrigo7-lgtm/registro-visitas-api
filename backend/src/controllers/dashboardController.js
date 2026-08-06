@@ -21,59 +21,37 @@ exports.getDashboardStats = async (req, res) => {
     inicioSemana.setDate(hoy.getDate() - hoy.getDay());
     
     const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    
-    console.log('📊 Fechas:', { hoy, inicioSemana, inicioMes });
 
-    // 1. ESTADÍSTICAS DE USUARIOS
+    // 1. USUARIOS
     const totalUsuarios = await User.countDocuments();
     const usuariosActivos = await User.countDocuments({ activo: true });
     const usuariosInactivos = await User.countDocuments({ activo: false });
-    console.log('📊 Usuarios:', { totalUsuarios, usuariosActivos, usuariosInactivos });
 
-    // 2. ESTADÍSTICAS DE VISITAS
-    const visitasHoy = await Visita.countDocuments({
-      createdAt: { $gte: hoy }
-    });
-    const visitasSemana = await Visita.countDocuments({
-      createdAt: { $gte: inicioSemana }
-    });
-    const visitasMes = await Visita.countDocuments({
-      createdAt: { $gte: inicioMes }
-    });
+    // 2. VISITAS
+    const visitasHoy = await Visita.countDocuments({ createdAt: { $gte: hoy } });
+    const visitasSemana = await Visita.countDocuments({ createdAt: { $gte: inicioSemana } });
+    const visitasMes = await Visita.countDocuments({ createdAt: { $gte: inicioMes } });
     const totalVisitas = await Visita.countDocuments();
-    console.log('📊 Visitas:', { visitasHoy, visitasSemana, visitasMes, totalVisitas });
 
-    // 3. ESTADÍSTICAS DE ASISTENCIAS
-    const asistenciasHoy = await Asistencia.countDocuments({
-      fecha: { $gte: hoy }
-    });
-    const asistenciasSemana = await Asistencia.countDocuments({
-      fecha: { $gte: inicioSemana }
-    });
-    const asistenciasMes = await Asistencia.countDocuments({
-      fecha: { $gte: inicioMes }
-    });
+    // 3. ASISTENCIAS
+    const asistenciasHoy = await Asistencia.countDocuments({ fecha: { $gte: hoy } });
+    const asistenciasSemana = await Asistencia.countDocuments({ fecha: { $gte: inicioSemana } });
+    const asistenciasMes = await Asistencia.countDocuments({ fecha: { $gte: inicioMes } });
     const totalAsistencias = await Asistencia.countDocuments();
-    console.log('📊 Asistencias:', { asistenciasHoy, asistenciasSemana, asistenciasMes, totalAsistencias });
 
-    // 4. ESTADÍSTICAS DE SERVICIOS POR ESTADO
-    console.log('📊 Consultando servicios...');
+    // 4. SERVICIOS POR ESTADO
     const serviciosTomado = await Servicio.countDocuments({ estado: 'TOMADO' });
     const serviciosEjecutado = await Servicio.countDocuments({ estado: 'EJECUTADO' });
     const serviciosPendiente = await Servicio.countDocuments({ estado: 'PENDIENTE' });
     const serviciosRetroalimentado = await Servicio.countDocuments({ estado: 'RETROALIMENTADO' });
-    console.log('📊 Servicios:', { serviciosTomado, serviciosEjecutado, serviciosPendiente, serviciosRetroalimentado });
 
-    // 5. ESTADÍSTICAS DE TRANSFERENCIAS POR ESTADO
-    console.log('📊 Consultando transferencias...');
+    // 5. TRANSFERENCIAS POR ESTADO
     const transferenciasSubida = await Transferencia.countDocuments({ estado: 'SUBIDA' });
     const transferenciasAprobado = await Transferencia.countDocuments({ estado: 'APROBADO' });
     const transferenciasDenegado = await Transferencia.countDocuments({ estado: 'DENEGADO' });
     const transferenciasIngresado = await Transferencia.countDocuments({ estado: 'INGRESADO' });
-    console.log('📊 Transferencias:', { transferenciasSubida, transferenciasAprobado, transferenciasDenegado, transferenciasIngresado });
 
-    // 6. ESTADÍSTICAS DE DESCONEXIONES/RECONEXIONES
-    console.log('📊 Consultando desconexiones...');
+    // 6. DESCONEXIONES/RECONEXIONES
     const desconexionesTomadas = await Desconexion.countDocuments({ 
       tipo: 'DESCONEXION',
       estado: 'PENDIENTE' 
@@ -90,18 +68,15 @@ exports.getDashboardStats = async (req, res) => {
       tipo: 'RECONEXION',
       estado: 'EJECUTADO' 
     });
-    console.log('📊 Desconexiones:', { desconexionesTomadas, reconexionesTomadas, desconexionesEjecutadas, reconexionesEjecutadas });
 
-    // 7. ESTADÍSTICAS DE NOTIFICACIONES
+    // 7. NOTIFICACIONES
     const notificacionesNoLeidas = await Notificacion.countDocuments({ leida: false });
     const totalNotificaciones = await Notificacion.countDocuments();
-    console.log('📊 Notificaciones:', { notificacionesNoLeidas, totalNotificaciones });
 
-    // 8. ESTADÍSTICAS DE AUSENCIAS
+    // 8. AUSENCIAS
     const ausenciasPendientes = await Ausencia.countDocuments({ estado: 'PENDIENTE' });
     const ausenciasAprobadas = await Ausencia.countDocuments({ estado: 'APROBADA' });
     const ausenciasRechazadas = await Ausencia.countDocuments({ estado: 'RECHAZADA' });
-    console.log('📊 Ausencias:', { ausenciasPendientes, ausenciasAprobadas, ausenciasRechazadas });
 
     // 9. RANKINGS
     const tecnicosMasActivos = await Visita.aggregate([
@@ -109,9 +84,19 @@ exports.getDashboardStats = async (req, res) => {
       { $sort: { count: -1 } },
       { $limit: 5 }
     ]);
-    console.log('📊 Técnicos activos:', tecnicosMasActivos.length);
 
-    // 10. RESPONDER CON TODOS LOS DATOS
+    const usuariosMasAsistencias = await Asistencia.aggregate([
+      { $group: { _id: '$usuarioNombre', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
+
+    const tiposVisita = await Visita.aggregate([
+      { $group: { _id: '$tipo', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // 10. RESPUESTA COMPLETA
     const responseData = {
       success: true,
       data: {
@@ -164,15 +149,8 @@ exports.getDashboardStats = async (req, res) => {
         },
         rankings: {
           tecnicosMasActivos: tecnicosMasActivos,
-          usuariosMasAsistencias: await Asistencia.aggregate([
-            { $group: { _id: '$usuarioNombre', count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-            { $limit: 5 }
-          ]),
-          tiposVisita: await Visita.aggregate([
-            { $group: { _id: '$tipo', count: { $sum: 1 } } },
-            { $sort: { count: -1 } }
-          ]),
+          usuariosMasAsistencias: usuariosMasAsistencias,
+          tiposVisita: tiposVisita,
         },
         fechas: {
           hoy: hoy.toISOString().split('T')[0],
@@ -183,7 +161,7 @@ exports.getDashboardStats = async (req, res) => {
       }
     };
 
-    console.log('📊 Enviando respuesta con todos los datos');
+    console.log('📊 Enviando respuesta con todas las secciones');
     res.json(responseData);
     
   } catch (error) {
