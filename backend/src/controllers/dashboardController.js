@@ -57,11 +57,15 @@ exports.getDashboardStats = async (req, res) => {
     const serviciosPendiente = await Servicio.countDocuments({ estado: 'PENDIENTE' });
     const serviciosRetroalimentado = await Servicio.countDocuments({ estado: 'RETROALIMENTADO' });
     
+    console.log(`📊 Servicios: Tomado=${serviciosTomado}, Ejecutado=${serviciosEjecutado}, Pendiente=${serviciosPendiente}, Retroalimentado=${serviciosRetroalimentado}`);
+    
     // 5. ESTADÍSTICAS DE TRANSFERENCIAS POR ESTADO
     const transferenciasSubida = await Transferencia.countDocuments({ estado: 'SUBIDA' });
     const transferenciasAprobado = await Transferencia.countDocuments({ estado: 'APROBADO' });
     const transferenciasDenegado = await Transferencia.countDocuments({ estado: 'DENEGADO' });
     const transferenciasIngresado = await Transferencia.countDocuments({ estado: 'INGRESADO' });
+    
+    console.log(`📊 Transferencias: Subida=${transferenciasSubida}, Aprobado=${transferenciasAprobado}, Denegado=${transferenciasDenegado}, Ingresado=${transferenciasIngresado}`);
     
     // 6. ESTADÍSTICAS DE DESCONEXIONES/RECONEXIONES
     const desconexionesTomadas = await Desconexion.countDocuments({ 
@@ -80,6 +84,8 @@ exports.getDashboardStats = async (req, res) => {
       tipo: 'RECONEXION',
       estado: 'EJECUTADO' 
     });
+    
+    console.log(`📊 Desconexiones: DesTomadas=${desconexionesTomadas}, RecTomadas=${reconexionesTomadas}, DesEjecutadas=${desconexionesEjecutadas}, RecEjecutadas=${reconexionesEjecutadas}`);
     
     // 7. ESTADÍSTICAS DE NOTIFICACIONES
     const notificacionesNoLeidas = await Notificacion.countDocuments({ leida: false });
