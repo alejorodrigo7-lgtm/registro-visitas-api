@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const connectDB = require('./config/database');
 const { protect, authorize } = require('./middleware/auth');
 const User = require('./models/User');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs'); // ✅ CAMBIADO: bcrypt → bcryptjs
 
 // ============================================
 // RATE LIMITING
@@ -219,41 +219,33 @@ app.post('/api/test-transferencia-push', protect, async (req, res) => {
       });
     }
     
-    if (!user.expoPushToken) {
+    if (!user.pushToken) { // ✅ CAMBIADO: expoPushToken → pushToken
       return res.status(400).json({
         success: false,
         message: 'Usuario no tiene token push registrado'
       });
     }
     
-    const { Expo } = require('expo-server-sdk');
-    const expo = new Expo();
-    
-    const messages = [{
-      to: user.expoPushToken,
-      sound: 'default',
-      title: titulo || 'Prueba de Notificacion',
-      body: mensaje || 'Esta es una notificacion de prueba',
-      data: { tipo: 'test' },
-    }];
-    
-    const chunks = expo.chunkPushNotifications(messages);
-    const tickets = [];
-    for (const chunk of chunks) {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      tickets.push(ticketChunk);
-    }
+    // Usar FCM en lugar de Expo
+    const fcmService = require('./services/fcmService');
+    const result = await fcmService.sendFCMNotification(
+      user.pushToken,
+      titulo || 'Prueba de Notificacion',
+      mensaje || 'Esta es una notificacion de prueba',
+      { tipo: 'test' }
+    );
     
     logger.info(`Push de prueba enviado a ${user.email}`, {
       usuario: user.email,
-      userId: user._id
+      userId: user._id,
+      success: result.success
     });
     console.log(`Push de prueba enviado a ${user.email}`);
     
     res.json({
-      success: true,
-      message: 'Notificacion de prueba enviada',
-      tickets,
+      success: result.success,
+      message: result.success ? 'Notificacion de prueba enviada' : 'Error enviando notificacion',
+      data: result
     });
   } catch (error) {
     logger.errorWithContext('Error en test push', error, {
@@ -352,7 +344,6 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`/api/test-transferencia-push`);
   logger.info(`/api/notificaciones`);
   logger.info(`/api/dashboard`);
-  // NUEVO: LOG DE RUTAS DE DESCONEXIONES
   logger.info(`/api/desconexiones`);
 });
 
