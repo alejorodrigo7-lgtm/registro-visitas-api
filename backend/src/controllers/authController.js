@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs'); // ✅ CAMBIADO: bcrypt → bcryptjs
 const logger = require('../config/logger');
 
 // ============================================
@@ -143,7 +143,7 @@ exports.login = async (req, res) => {
         telefono: user.telefono || '',
         especialidad: user.especialidad || '',
         activo: user.activo,
-        expoPushToken: user.expoPushToken || null,
+        pushToken: user.pushToken || null, // ✅ CAMBIADO: expoPushToken → pushToken
       },
     });
   } catch (error) {
@@ -487,7 +487,7 @@ exports.registrarPushToken = async (req, res) => {
       });
     }
 
-    user.expoPushToken = token;
+    user.pushToken = token; // ✅ CAMBIADO: expoPushToken → pushToken
     await user.save();
 
     logger.info(`Token push registrado para ${user.email}`, {
