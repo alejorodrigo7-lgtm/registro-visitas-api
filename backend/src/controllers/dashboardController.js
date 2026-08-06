@@ -5,12 +5,11 @@ const Servicio = require('../models/Servicio');
 const Transferencia = require('../models/Transferencia');
 const Desconexion = require('../models/Desconexion');
 const Notificacion = require('../models/Notificacion');
-const Ausencia = require('../models/Ausencia');
 
 // ============================================
 // 📊 OBTENER ESTADÍSTICAS DEL DASHBOARD
 // ============================================
-exports.getDashboardStats = async (req, res) => {
+const getDashboardStats = async (req, res) => {
   try {
     console.log('📊 Dashboard solicitado');
     
@@ -73,12 +72,7 @@ exports.getDashboardStats = async (req, res) => {
     const notificacionesNoLeidas = await Notificacion.countDocuments({ leida: false });
     const totalNotificaciones = await Notificacion.countDocuments();
 
-    // 8. AUSENCIAS
-    const ausenciasPendientes = await Ausencia.countDocuments({ estado: 'PENDIENTE' });
-    const ausenciasAprobadas = await Ausencia.countDocuments({ estado: 'APROBADA' });
-    const ausenciasRechazadas = await Ausencia.countDocuments({ estado: 'RECHAZADA' });
-
-    // 9. RANKINGS
+    // 8. RANKINGS
     const tecnicosMasActivos = await Visita.aggregate([
       { $group: { _id: '$tecnico', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
@@ -96,8 +90,7 @@ exports.getDashboardStats = async (req, res) => {
       { $sort: { count: -1 } }
     ]);
 
-    // 10. RESPUESTA COMPLETA
-    const responseData = {
+    res.json({
       success: true,
       data: {
         resumen: {
@@ -122,11 +115,6 @@ exports.getDashboardStats = async (req, res) => {
           notificaciones: {
             noLeidas: notificacionesNoLeidas,
             total: totalNotificaciones,
-          },
-          ausencias: {
-            pendientes: ausenciasPendientes,
-            aprobadas: ausenciasAprobadas,
-            rechazadas: ausenciasRechazadas,
           },
         },
         servicios: {
@@ -159,10 +147,7 @@ exports.getDashboardStats = async (req, res) => {
         },
         actualizado: new Date().toISOString(),
       }
-    };
-
-    console.log('📊 Enviando respuesta con todas las secciones');
-    res.json(responseData);
+    });
     
   } catch (error) {
     console.error('❌ Error en dashboard:', error);
@@ -173,4 +158,81 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
+// ============================================
+// 📊 OBTENER ESTADÍSTICAS COMPLETAS DEL DASHBOARD
+// ============================================
+const getDashboardCompleto = async (req, res) => {
+  try {
+    console.log('📊 Dashboard completo solicitado');
+    
+    // 1. SERVICIOS POR ESTADO
+    const serviciosTomado = await Servicio.countDocuments({ estado: 'TOMADO' });
+    const serviciosEjecutado = await Servicio.countDocuments({ estado: 'EJECUTADO' });
+    const serviciosPendiente = await Servicio.countDocuments({ estado: 'PENDIENTE' });
+    const serviciosRetroalimentado = await Servicio.countDocuments({ estado: 'RETROALIMENTADO' });
+    console.log('📊 Servicios:', { serviciosTomado, serviciosEjecutado, serviciosPendiente, serviciosRetroalimentado });
 
+    // 2. TRANSFERENCIAS POR ESTADO
+    const transferenciasSubida = await Transferencia.countDocuments({ estado: 'SUBIDA' });
+    const transferenciasAprobado = await Transferencia.countDocuments({ estado: 'APROBADO' });
+    const transferenciasDenegado = await Transferencia.countDocuments({ estado: 'DENEGADO' });
+    const transferenciasIngresado = await Transferencia.countDocuments({ estado: 'INGRESADO' });
+    console.log('📊 Transferencias:', { transferenciasSubida, transferenciasAprobado, transferenciasDenegado, transferenciasIngresado });
+
+    // 3. DESCONEXIONES/RECONEXIONES
+    const desconexionesTomadas = await Desconexion.countDocuments({ 
+      tipo: 'DESCONEXION',
+      estado: 'PENDIENTE' 
+    });
+    const reconexionesTomadas = await Desconexion.countDocuments({ 
+      tipo: 'RECONEXION',
+      estado: 'PENDIENTE' 
+    });
+    const desconexionesEjecutadas = await Desconexion.countDocuments({ 
+      tipo: 'DESCONEXION',
+      estado: 'EJECUTADO' 
+    });
+    const reconexionesEjecutadas = await Desconexion.countDocuments({ 
+      tipo: 'RECONEXION',
+      estado: 'EJECUTADO' 
+    });
+    console.log('📊 Desconexiones:', { desconexionesTomadas, reconexionesTomadas, desconexionesEjecutadas, reconexionesEjecutadas });
+
+    res.json({
+      success: true,
+      data: {
+        servicios: {
+          tomado: serviciosTomado,
+          ejecutado: serviciosEjecutado,
+          pendiente: serviciosPendiente,
+          retroalimentado: serviciosRetroalimentado,
+        },
+        transferencias: {
+          subida: transferenciasSubida,
+          aprobado: transferenciasAprobado,
+          denegado: transferenciasDenegado,
+          ingresado: transferenciasIngresado,
+        },
+        desconexiones: {
+          desconexionesTomadas: desconexionesTomadas,
+          reconexionesTomadas: reconexionesTomadas,
+          desconexionesEjecutadas: desconexionesEjecutadas,
+          reconexionesEjecutadas: reconexionesEjecutadas,
+        },
+        actualizado: new Date().toISOString(),
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en dashboard completo:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+module.exports = {
+  getDashboardStats,
+  getDashboardCompleto,
+};
