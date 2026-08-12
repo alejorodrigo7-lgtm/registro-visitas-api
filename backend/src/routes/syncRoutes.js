@@ -1,7 +1,6 @@
 // src/routes/syncRoutes.js
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
 const Bodega = require('../models/Bodega');
 const Servicio = require('../models/Servicio');
 const User = require('../models/User');
@@ -9,7 +8,7 @@ const User = require('../models/User');
 // ============================================
 // 📦 SINCRONIZAR BODEGAS CON SERVICIOS EXISTENTES
 // ============================================
-router.post('/sync-bodegas', protect, authorize('Admin', 'Jefe'), async (req, res) => {
+router.post('/sync-bodegas', async (req, res) => {
   try {
     console.log('📦 Iniciando sincronización de bodegas...');
     
@@ -107,7 +106,7 @@ router.post('/sync-bodegas', protect, authorize('Admin', 'Jefe'), async (req, re
 // ============================================
 // 📊 VERIFICAR ESTADO DE BODEGAS
 // ============================================
-router.get('/check-bodegas', protect, authorize('Admin', 'Jefe'), async (req, res) => {
+router.get('/check-bodegas', async (req, res) => {
   try {
     const tecnicos = await User.find({ rol: 'Tecnico' });
     const resultados = [];
