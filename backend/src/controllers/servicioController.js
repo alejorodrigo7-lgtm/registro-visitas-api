@@ -1,8 +1,8 @@
-// ✅ CONTROLADOR CORREGIDO - VERSIÓN CON ACTUALIZACIÓN DE BODEGA
+// ✅ CONTROLADOR CORREGIDO - VERSIÓN CON ACTUALIZACIÓN DE BODEGA (RESTANDO MATERIALES)
 
 const Servicio = require('../models/Servicio');
 const User = require('../models/User');
-const Bodega = require('../models/Bodega'); // 👈 NUEVO - Modelo de Bodega
+const Bodega = require('../models/Bodega');
 const { enviarNotificacionPush } = require('../services/pushService');
 
 // ✅ Función para asegurar que la imagen tenga el prefijo correcto
@@ -13,12 +13,12 @@ const formatearImagen = (imagen) => {
 };
 
 // ============================================
-// 📦 ACTUALIZAR BODEGA DEL TÉCNICO - NUEVA FUNCIÓN
+// 📦 ACTUALIZAR BODEGA DEL TÉCNICO (RESTANDO MATERIALES)
 // ============================================
-const actualizarBodegaTecnico = async (tecnicoId, materiales) => {
+const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'restar') => {
   try {
-    console.log(`📦 Actualizando bodega del técnico ${tecnicoId}`);
-    console.log(`📦 Materiales a agregar:`, materiales);
+    console.log(`📦 Actualizando bodega del técnico ${tecnicoId} (${operacion})`);
+    console.log(`📦 Materiales a procesar:`, materiales);
     
     // Buscar la bodega del técnico
     let bodega = await Bodega.findOne({ usuario: tecnicoId });
@@ -38,7 +38,12 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales) => {
       console.log('✅ Bodega creada');
     }
     
-    // Actualizar cada material
+    // Mostrar materiales actuales en bodega
+    console.log('📦 Materiales actuales en bodega:');
+    bodega.materiales.forEach(m => {
+      console.log(`   ${m.nombre}: ${m.cantidad}`);
+    });
+    
     let actualizados = 0;
     for (const material of materiales) {
       const nombre = material.nombre;
@@ -50,20 +55,26 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales) => {
       const materialExistente = bodega.materiales.find(m => m.nombre === nombre);
       
       if (materialExistente) {
-        // Sumar la cantidad
-        materialExistente.cantidad = (parseFloat(materialExistente.cantidad) || 0) + cantidad;
+        // 👇 RESTAR (para egresos de materiales usados en servicios)
+        if (operacion === 'restar') {
+          materialExistente.cantidad = (parseFloat(materialExistente.cantidad) || 0) - cantidad;
+          console.log(`✅ Material restado: ${nombre} → ${materialExistente.cantidad}`);
+        } else {
+          materialExistente.cantidad = (parseFloat(materialExistente.cantidad) || 0) + cantidad;
+          console.log(`✅ Material sumado: ${nombre} → ${materialExistente.cantidad}`);
+        }
         materialExistente.fechaActualizacion = new Date();
-        console.log(`✅ Material actualizado: ${nombre} → ${materialExistente.cantidad}`);
       } else {
-        // Agregar nuevo material
+        // Si no existe, crearlo con cantidad negativa (si es egreso)
+        const nuevaCantidad = operacion === 'restar' ? -cantidad : cantidad;
         bodega.materiales.push({
           nombre: nombre,
-          cantidad: cantidad,
+          cantidad: nuevaCantidad,
           minimo: 0,
           fechaAsignacion: new Date(),
           fechaActualizacion: new Date(),
         });
-        console.log(`✅ Nuevo material agregado: ${nombre} → ${cantidad}`);
+        console.log(`✅ Nuevo material agregado: ${nombre} → ${nuevaCantidad}`);
       }
       actualizados++;
     }
@@ -72,8 +83,6 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales) => {
       bodega.updatedAt = new Date();
       await bodega.save();
       console.log(`✅ Bodega actualizada con ${actualizados} materiales`);
-    } else {
-      console.log('⚠️ No se actualizó ningún material');
     }
     
     return { success: true, actualizados };
@@ -383,7 +392,7 @@ exports.getServicio = async (req, res) => {
 };
 
 // ============================================
-// EJECUTAR SERVICIO - MODIFICADO CON ACTUALIZACIÓN DE BODEGA ✅
+// EJECUTAR SERVICIO - CON ACTUALIZACIÓN DE BODEGA (RESTANDO) ✅
 // ============================================
 exports.ejecutarServicio = async (req, res) => {
   try {
@@ -439,15 +448,15 @@ exports.ejecutarServicio = async (req, res) => {
     console.log(`✅ Servicio ${id} ejecutado correctamente`);
 
     // ============================================
-    // 📦 ACTUALIZAR BODEGA DEL TÉCNICO - NUEVO CÓDIGO
+    // 📦 ACTUALIZAR BODEGA DEL TÉCNICO - RESTANDO MATERIALES
     // ============================================
     if (materiales && materiales.length > 0) {
-      console.log(`📦 Actualizando bodega del técnico...`);
+      console.log(`📦 Actualizando bodega del técnico (RESTANDO)...`);
       const tecnicoId = servicio.tecnico?._id || req.user._id;
-      const resultadoBodega = await actualizarBodegaTecnico(tecnicoId, materiales);
+      const resultadoBodega = await actualizarBodegaTecnico(tecnicoId, materiales, 'restar'); // ✅ CON 'restar'
       
       if (resultadoBodega.success) {
-        console.log(`✅ Bodega actualizada: ${resultadoBodega.actualizados} materiales`);
+        console.log(`✅ Bodega actualizada: ${resultadoBodega.actualizados} materiales restados`);
       } else {
         console.error('❌ Error actualizando bodega:', resultadoBodega.error);
       }
@@ -525,7 +534,7 @@ exports.pendienteServicio = async (req, res) => {
 
     console.log(`✅ Servicio ${id} marcado como pendiente`);
 
-    const jefe = await User.findById(servicio.jefe);
+    const jefe = await User.findById(servicio.jefe?._id || servicio.jefe);
     const responsable = await User.findById(servicio.responsableId);
 
     const mensajePush = `⚠️ ALERTA: El servicio "${servicio.nombreServicio}" de ${servicio.cliente} está en estado PENDIENTE`;
