@@ -1,7 +1,8 @@
-// ✅ CONTROLADOR CORREGIDO - VERSIÓN FINAL
+// ✅ CONTROLADOR CORREGIDO - VERSIÓN CON ACTUALIZACIÓN DE BODEGA
 
 const Servicio = require('../models/Servicio');
 const User = require('../models/User');
+const Bodega = require('../models/Bodega'); // 👈 NUEVO - Modelo de Bodega
 const { enviarNotificacionPush } = require('../services/pushService');
 
 // ✅ Función para asegurar que la imagen tenga el prefijo correcto
@@ -9,6 +10,77 @@ const formatearImagen = (imagen) => {
   if (!imagen) return '';
   if (imagen.startsWith('data:image')) return imagen;
   return `data:image/jpeg;base64,${imagen}`;
+};
+
+// ============================================
+// 📦 ACTUALIZAR BODEGA DEL TÉCNICO - NUEVA FUNCIÓN
+// ============================================
+const actualizarBodegaTecnico = async (tecnicoId, materiales) => {
+  try {
+    console.log(`📦 Actualizando bodega del técnico ${tecnicoId}`);
+    console.log(`📦 Materiales a agregar:`, materiales);
+    
+    // Buscar la bodega del técnico
+    let bodega = await Bodega.findOne({ usuario: tecnicoId });
+    
+    if (!bodega) {
+      console.log('⚠️ Bodega no encontrada, creando una nueva...');
+      const user = await User.findById(tecnicoId);
+      bodega = new Bodega({
+        usuario: tecnicoId,
+        usuarioNombre: user?.nombre || 'Técnico',
+        nombre: `Bodega de ${user?.nombre || 'Técnico'}`,
+        materiales: [],
+        estado: 'ACTIVA',
+        creadoPor: tecnicoId,
+      });
+      await bodega.save();
+      console.log('✅ Bodega creada');
+    }
+    
+    // Actualizar cada material
+    let actualizados = 0;
+    for (const material of materiales) {
+      const nombre = material.nombre;
+      const cantidad = parseFloat(material.cantidad) || 1;
+      
+      if (!nombre) continue;
+      
+      // Buscar el material en la bodega
+      const materialExistente = bodega.materiales.find(m => m.nombre === nombre);
+      
+      if (materialExistente) {
+        // Sumar la cantidad
+        materialExistente.cantidad = (parseFloat(materialExistente.cantidad) || 0) + cantidad;
+        materialExistente.fechaActualizacion = new Date();
+        console.log(`✅ Material actualizado: ${nombre} → ${materialExistente.cantidad}`);
+      } else {
+        // Agregar nuevo material
+        bodega.materiales.push({
+          nombre: nombre,
+          cantidad: cantidad,
+          minimo: 0,
+          fechaAsignacion: new Date(),
+          fechaActualizacion: new Date(),
+        });
+        console.log(`✅ Nuevo material agregado: ${nombre} → ${cantidad}`);
+      }
+      actualizados++;
+    }
+    
+    if (actualizados > 0) {
+      bodega.updatedAt = new Date();
+      await bodega.save();
+      console.log(`✅ Bodega actualizada con ${actualizados} materiales`);
+    } else {
+      console.log('⚠️ No se actualizó ningún material');
+    }
+    
+    return { success: true, actualizados };
+  } catch (error) {
+    console.error('❌ Error actualizando bodega:', error.message);
+    return { success: false, error: error.message };
+  }
 };
 
 // ============================================
@@ -311,7 +383,7 @@ exports.getServicio = async (req, res) => {
 };
 
 // ============================================
-// EJECUTAR SERVICIO
+// EJECUTAR SERVICIO - MODIFICADO CON ACTUALIZACIÓN DE BODEGA ✅
 // ============================================
 exports.ejecutarServicio = async (req, res) => {
   try {
@@ -320,6 +392,7 @@ exports.ejecutarServicio = async (req, res) => {
 
     console.log(`🔧 Ejecutando servicio ID: ${id}`);
     console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log(`📦 Materiales recibidos:`, materiales);
 
     const servicio = await Servicio.findById(id);
     if (!servicio) {
@@ -365,6 +438,24 @@ exports.ejecutarServicio = async (req, res) => {
 
     console.log(`✅ Servicio ${id} ejecutado correctamente`);
 
+    // ============================================
+    // 📦 ACTUALIZAR BODEGA DEL TÉCNICO - NUEVO CÓDIGO
+    // ============================================
+    if (materiales && materiales.length > 0) {
+      console.log(`📦 Actualizando bodega del técnico...`);
+      const tecnicoId = servicio.tecnico?._id || req.user._id;
+      const resultadoBodega = await actualizarBodegaTecnico(tecnicoId, materiales);
+      
+      if (resultadoBodega.success) {
+        console.log(`✅ Bodega actualizada: ${resultadoBodega.actualizados} materiales`);
+      } else {
+        console.error('❌ Error actualizando bodega:', resultadoBodega.error);
+      }
+    } else {
+      console.log('⚠️ No hay materiales para actualizar la bodega');
+    }
+
+    // Notificaciones push
     try {
       await enviarNotificacionPush(servicio.responsableId, {
         title: '✅ Servicio Ejecutado',
@@ -593,7 +684,7 @@ exports.buscarServicios = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO - AGREGADA ✅
+// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO
 // ============================================
 exports.getServiciosTomadosByTecnico = async (req, res) => {
   try {
