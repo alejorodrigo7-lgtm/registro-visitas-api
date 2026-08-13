@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const {
   getSolicitudes,
   crearSolicitud,
@@ -10,7 +10,7 @@ const {
 } = require('../controllers/solicitudReciboController');
 
 // Todas las rutas requieren autenticación
-router.use(authMiddleware);
+router.use(protect);  // ✅ CORRECTO: protect es la función del middleware
 
 // Rutas públicas (todos los roles autenticados)
 router.get('/clientes/buscar', buscarClientes);
