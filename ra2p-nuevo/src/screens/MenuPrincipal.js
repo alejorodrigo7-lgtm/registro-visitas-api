@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,8 @@ import {
 import { verificarEstadoSincronizacion } from '../services/syncService';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
+import api from '../services/api';
 
 const MenuPrincipal = ({ navigation }) => {
   const { user, logout, unreadCount } = useAuth();
@@ -28,11 +30,136 @@ const MenuPrincipal = ({ navigation }) => {
   const [pendientes, setPendientes] = useState({ total: 0 });
   const [conectado, setConectado] = useState(true);
   const [clientesCargados, setClientesCargados] = useState(false);
+  
+  // Estado para diagnóstico
+  const [logs, setLogs] = useState([]);
+  const [mostrarLogs, setMostrarLogs] = useState(false);
+  
+  // Estado para registro de token
+  const [registrandoToken, setRegistrandoToken] = useState(false);
+
+  // ============================================
+  // 📱 REGISTRAR TOKEN MANUALMENTE
+  // ============================================
+  const registrarTokenManual = async () => {
+    try {
+      setRegistrandoToken(true);
+      console.log('📱 Registrando token manualmente...');
+      
+      // 1. Solicitar permisos
+      const { status } = await Notifications.requestPermissionsAsync();
+      console.log('📱 Estado de permisos:', status);
+      
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Ve a Configuración > Apps > RA2P > Permisos para activar notificaciones');
+        setRegistrandoToken(false);
+        return;
+      }
+      
+      // 2. Obtener token
+      const token = await Notifications.getExpoPushTokenAsync({
+        projectId: 'c498ddad-89aa-41ae-9f7d-e0f2e31df324'
+      });
+      
+      console.log('✅ Token obtenido:', token.data);
+      
+      // 3. Guardar en el servidor
+      const response = await api.post('/usuarios/guardar-token', {
+        pushToken: token.data
+      });
+      
+      console.log('✅ Token guardado en el servidor');
+      Alert.alert('✅ Éxito', 'Token registrado correctamente');
+      
+    } catch (error) {
+      console.error('❌ Error:', error);
+      Alert.alert('Error', error.message || 'Error al registrar token');
+    } finally {
+      setRegistrandoToken(false);
+    }
+  };
+
+  // ============================================
+  // 🩺 DIAGNÓSTICO DE NOTIFICACIONES
+  // ============================================
+  const agregarLog = (mensaje, tipo = 'info') => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs(prev => [...prev, { timestamp, mensaje, tipo }]);
+  };
+  
+  const ejecutarDiagnostico = async () => {
+    setLogs([]);
+    setMostrarLogs(true);
+    agregarLog('🚀 INICIANDO DIAGNOSTICO...', 'info');
+    
+    try {
+      // 1. Verificar permisos
+      agregarLog('📱 1. Verificando permisos...', 'info');
+      const { status } = await Notifications.getPermissionsAsync();
+      agregarLog(`📱 Estado de permisos: ${status}`, status === 'granted' ? 'success' : 'error');
+      
+      if (status !== 'granted') {
+        agregarLog('⚠️ Solicitando permisos...', 'warning');
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        agregarLog(`📱 Nuevo estado: ${newStatus}`, newStatus === 'granted' ? 'success' : 'error');
+        
+        if (newStatus !== 'granted') {
+          agregarLog('❌ PERMISO DENEGADO - Ve a Configuración > Apps > RA2P > Permisos', 'error');
+          return;
+        }
+      }
+      
+      // 2. Obtener token
+      agregarLog('🔑 2. Obteniendo token...', 'info');
+      const token = await Notifications.getExpoPushTokenAsync({
+        projectId: 'c498ddad-89aa-41ae-9f7d-e0f2e31df324'
+      });
+      
+      if (token && token.data) {
+        agregarLog(`✅ Token obtenido: ${token.data.substring(0, 30)}...`, 'success');
+      } else {
+        agregarLog('❌ No se pudo obtener token', 'error');
+        return;
+      }
+      
+      // 3. Guardar en el servidor
+      agregarLog('📤 3. Guardando token en servidor...', 'info');
+      const response = await api.post('/usuarios/guardar-token', {
+        pushToken: token.data
+      });
+      
+      if (response.data.success) {
+        agregarLog('✅ Token guardado en servidor', 'success');
+        agregarLog(`📧 Usuario: ${user?.email}`, 'info');
+      } else {
+        agregarLog('❌ Error al guardar en servidor', 'error');
+      }
+      
+      // 4. Verificar en el servidor
+      agregarLog('🔍 4. Verificando en servidor...', 'info');
+      const usuariosResponse = await api.get('/usuarios');
+      const usuarioActual = usuariosResponse.data.data.find(u => u.email === user?.email);
+      
+      if (usuarioActual?.expoPushToken) {
+        agregarLog('✅ Token verificado en servidor', 'success');
+        agregarLog(`📱 Token: ${usuarioActual.expoPushToken.substring(0, 30)}...`, 'info');
+      } else {
+        agregarLog('❌ Token NO encontrado en servidor', 'error');
+      }
+      
+      agregarLog('🎉 DIAGNOSTICO COMPLETADO', 'success');
+      
+    } catch (error) {
+      agregarLog(`❌ Error: ${error.message}`, 'error');
+      console.error('Error en diagnostico:', error);
+    }
+  };
 
   useEffect(() => {
     const registerPush = async () => {
       try {
         await registerForPushNotificationsAsync();
+        console.log('✅ registerForPushNotificationsAsync ejecutado');
       } catch (error) {
         console.log('⚠️ Error registrando push:', error);
       }
@@ -102,8 +229,6 @@ const MenuPrincipal = ({ navigation }) => {
 
   const isAdmin = user?.rol === 'Admin';
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
-  const isCoordinador = user?.rol === 'Coordinador';
-  const isTecnico = user?.rol === 'Tecnico';
 
   // ============================================
   // 🎨 FUNCIÓN PARA CAMBIAR TEMA
@@ -140,7 +265,6 @@ const MenuPrincipal = ({ navigation }) => {
     { id: 'MapasMenu', label: 'Mapas', icon: 'map-outline', show: isAdminOrJefe },
     { id: 'UsuarioNuevoScreen', label: 'Usuario Nuevo', icon: 'person-add-outline', show: isAdminOrJefe },
     { id: 'CambiarContraseña', label: 'Cambiar Contraseña', icon: 'lock-closed-outline', show: true },
-    // 🔌 DESCONEXIONES/RECONEXIONES (NUEVO)
     { 
       id: 'DesconexionesMenu', 
       label: '🔌 Desconexiones/Reconexiones', 
@@ -239,6 +363,52 @@ const MenuPrincipal = ({ navigation }) => {
             </View>
           )}
         </View>
+
+        {/* ✅ BOTÓN REGISTRAR TOKEN - VERDE */}
+        <TouchableOpacity
+          style={[styles.tokenButton, { backgroundColor: '#00B894' }]}
+          onPress={registrarTokenManual}
+          disabled={registrandoToken}
+        >
+          <Ionicons name="cloud-upload-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.tokenButtonText}>
+            {registrandoToken ? '⏳ Registrando...' : '📱 Registrar Token'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* ✅ BOTÓN DIAGNÓSTICO - ROJO */}
+        <TouchableOpacity
+          style={[styles.tokenButton, { backgroundColor: '#E17055' }]}
+          onPress={ejecutarDiagnostico}
+        >
+          <Ionicons name="medkit-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.tokenButtonText}>🩺 Diagnóstico Push</Text>
+        </TouchableOpacity>
+
+        {/* LOGS DEL DIAGNÓSTICO */}
+        {mostrarLogs && (
+          <View style={styles.logsContainer}>
+            <View style={styles.logsHeader}>
+              <Text style={styles.logsTitle}>📋 LOGS EN TIEMPO REAL</Text>
+              <TouchableOpacity onPress={() => setMostrarLogs(false)}>
+                <Text style={styles.logsCerrar}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.logsScroll} nestedScrollEnabled={true}>
+              {logs.map((log, index) => (
+                <View key={index} style={[
+                  styles.logItem,
+                  log.tipo === 'error' && styles.logError,
+                  log.tipo === 'success' && styles.logSuccess,
+                  log.tipo === 'warning' && styles.logWarning,
+                ]}>
+                  <Text style={styles.logTimestamp}>{log.timestamp}</Text>
+                  <Text style={styles.logMensaje}>{log.mensaje}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
 
       {/* MENÚ - TODOS LOS BOTONES IGUALES */}
@@ -309,7 +479,7 @@ const MenuPrincipal = ({ navigation }) => {
           <Ionicons name="chevron-forward-outline" size={16} color="rgba(255,255,255,0.25)" />
         </TouchableOpacity>
 
-        {/* ✅ Footer */}
+        {/* Footer */}
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
           <Text style={[styles.lehaim, { color: colors.textSecondary }]}>לחיים</Text>
           <Text style={[styles.footerText, { color: colors.textSecondary }]}>🔥 RA²P v1.0.7 🔥</Text>
@@ -321,6 +491,94 @@ const MenuPrincipal = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  // ============================================
+  // 📋 ESTILOS DE LOGS
+  // ============================================
+  logsContainer: {
+    backgroundColor: '#1A1A2E',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 12,
+    maxHeight: 300,
+  },
+  logsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logsTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  logsCerrar: {
+    color: '#FF6B6B',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  logsScroll: {
+    maxHeight: 250,
+  },
+  logItem: {
+    paddingVertical: 4,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  logTimestamp: {
+    color: '#636E72',
+    fontSize: 10,
+    fontFamily: 'monospace',
+  },
+  logMensaje: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'monospace',
+  },
+  logError: {
+    backgroundColor: 'rgba(255,107,107,0.1)',
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  logSuccess: {
+    backgroundColor: 'rgba(0,184,148,0.1)',
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  logWarning: {
+    backgroundColor: 'rgba(253,203,110,0.1)',
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  // ============================================
+  // ✅ ESTILOS DE BOTONES
+  // ============================================
+  tokenButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 10,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tokenButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // ============================================
+  // 📱 ESTILOS PRINCIPALES
+  // ============================================
   container: {
     flex: 1,
   },

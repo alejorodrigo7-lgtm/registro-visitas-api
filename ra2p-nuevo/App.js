@@ -94,6 +94,12 @@ import Ejecucion from './src/screens/Ejecucion';
 // ✅ CORREGIDO: BuscarDesRec en lugar de BuscarDesconexiones
 import BuscarDesRec from './src/screens/BuscarDesRec';
 
+// ✅ NUEVAS PANTALLAS - SOLICITAR RECIBO
+import SolicitarReciboMenu from './src/screens/SolicitarReciboMenu';
+import SolicitarRecibo from './src/screens/SolicitarRecibo';
+import SubirRecibo from './src/screens/SubirRecibo';
+import DescargarRecibo from './src/screens/DescargarRecibo';
+
 const Stack = createStackNavigator();
 
 // ============================================
@@ -197,6 +203,11 @@ const ThemedNavigation = () => {
         <Stack.Screen name="Ejecucion" component={Ejecucion} options={{ title: '3️⃣ Ejecución' }} />
         {/* ✅ CORREGIDO: BuscarDesRec */}
         <Stack.Screen name="BuscarDesRec" component={BuscarDesRec} options={{ title: '4️⃣ Buscar Des/Rec' }} />
+       // ✅ NUEVAS PANTALLAS - SOLICITAR RECIBO
+        <Stack.Screen name="SolicitarReciboMenu" component={SolicitarReciboMenu} />
+        <Stack.Screen name="SolicitarRecibo" component={SolicitarRecibo} />
+        <Stack.Screen name="SubirRecibo" component={SubirRecibo} />
+        <Stack.Screen name="DescargarRecibo" component={DescargarRecibo} />
       </Stack.Navigator>
     </NavigationContainer>
   );

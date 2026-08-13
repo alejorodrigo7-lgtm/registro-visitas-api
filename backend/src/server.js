@@ -59,6 +59,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const desconexionRoutes = require('./routes/desconexionRoutes');
 const userRoutes = require('./routes/userRoutes');
 const syncRoutes = require('./routes/syncRoutes'); // 👈 NUEVA RUTA
+const solicitudReciboRoutes = require('./routes/solicitudReciboRoutes');
 
 // ============================================
 // CREAR APP
@@ -186,6 +187,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/desconexiones', desconexionRoutes);
 app.use('/api/usuarios', userRoutes);
 app.use('/api/sync', syncRoutes); // 👈 NUEVA RUTA DE SINCRONIZACIÓN
+app.use('/api/solicitudes-recibo', solicitudReciboRoutes);
 
 // ============================================
 // RATE LIMITING
