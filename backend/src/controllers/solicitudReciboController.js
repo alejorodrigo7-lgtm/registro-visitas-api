@@ -82,18 +82,17 @@ const crearSolicitud = async (req, res) => {
   }
 };
 
-// ✅ APROBAR SOLICITUD - CON SOPORTE PARA Base64
+// ✅ APROBAR SOLICITUD - CORREGIDO PARA GUARDAR BASE64
 const aprobarSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
-    const { archivoNombre, archivoBase64, archivoUrl, archivoPublicId } = req.body;
+    const { archivoNombre, archivoBase64, archivoPublicId } = req.body;
     const usuarioId = req.user.id;
 
     console.log('📤 ===== APROBANDO SOLICITUD =====');
     console.log('📤 Solicitud ID:', id);
     console.log('📤 Archivo nombre:', archivoNombre);
-    console.log('📤 archivoBase64 length:', archivoBase64?.length || 0);
-    console.log('📤 archivoUrl length:', archivoUrl?.length || 0);
+    console.log('📤 archivoBase64 recibido:', archivoBase64 ? `SI (${archivoBase64.length} chars)` : 'NO');
 
     const solicitud = await SolicitudRecibo.findById(id);
     if (!solicitud) {
@@ -109,17 +108,17 @@ const aprobarSolicitud = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
-    // ✅ SOPORTE PARA Base64 Y URL
-    let contenidoArchivo = archivoUrl || '';
-    if (archivoBase64 && archivoBase64.length > 0) {
-      contenidoArchivo = archivoBase64;
-      console.log('✅ Usando archivoBase64, length:', contenidoArchivo.length);
+    // ✅ VERIFICAR QUE TENEMOS EL ARCHIVO
+    if (!archivoBase64 || archivoBase64.length === 0) {
+      console.log('❌ No se recibió archivo Base64');
+      return res.status(400).json({ success: false, message: 'No se recibió el archivo' });
     }
 
+    // ✅ GUARDAR EL BASE64 COMPLETO
     solicitud.estado = 'APROBADO';
     solicitud.archivo = {
       nombre: archivoNombre || 'recibo.pdf',
-      url: contenidoArchivo,
+      url: archivoBase64,  // ← GUARDAR EL BASE64 COMPLETO
       publicId: archivoPublicId || `recibo_${id}_${Date.now()}`
     };
     solicitud.aprobadoPor = {
@@ -132,8 +131,8 @@ const aprobarSolicitud = async (req, res) => {
     await solicitud.save();
 
     console.log('✅ Solicitud aprobada exitosamente');
-    console.log('✅ Archivo guardado:', solicitud.archivo.nombre);
-    console.log('✅ URL length:', solicitud.archivo.url?.length || 0);
+    console.log('✅ Archivo guardado - Nombre:', solicitud.archivo.nombre);
+    console.log('✅ Archivo guardado - Length:', solicitud.archivo.url?.length || 0);
 
     res.json({
       success: true,
