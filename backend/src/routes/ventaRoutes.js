@@ -1,13 +1,9 @@
 ﻿const express = require('express');
 const router = express.Router();
-
-console.log('⚠️ ventaRoutes.js cargado (versión de prueba)');
-
-// TEMPORALMENTE COMENTADO PARA QUE EL SERVIDOR PUEDA INICIAR
-/*
 const ventaController = require('../controllers/ventaController');
 const auth = require('../middleware/auth');
 
+// Función de verificación de roles
 const checkRole = (roles) => {
   return (req, res, next) => {
     try {
@@ -27,18 +23,17 @@ const checkRole = (roles) => {
   };
 };
 
+// ============ VENTA NUEVA ============
 router.post('/venta', auth, ventaController.crearVenta);
 router.get('/ventas', auth, ventaController.obtenerVentas);
 router.put('/venta/:id/ingreso', auth, checkRole(['Admin', 'Jefe']), ventaController.actualizarIngresoVenta);
+
+// ============ REPORTE DE VENTA ============
 router.post('/reporte', auth, ventaController.crearReporteVenta);
 router.get('/reportes', auth, ventaController.obtenerReportesVenta);
+
+// ============ PAGO DE VENTA ============
 router.put('/reporte/:id/pago', auth, checkRole(['Admin', 'Jefe']), ventaController.registrarPago);
 router.get('/ventas-pagadas', auth, ventaController.obtenerVentasPagadas);
-*/
-
-// Ruta de prueba
-router.get('/test', (req, res) => {
-  res.json({ message: '✅ ventaRoutes.js funcionando (modo prueba)' });
-});
 
 module.exports = router;
