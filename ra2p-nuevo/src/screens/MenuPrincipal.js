@@ -250,7 +250,7 @@ const MenuPrincipal = ({ navigation }) => {
   };
 
   // ============================================
-  // 📋 CONFIGURACIÓN DE ÍTEMS DEL MENÚ
+  // 📋 CONFIGURACIÓN DE ÍTEMS DEL MENÚ (CORREGIDO)
   // ============================================
   const menuItems = [
     { id: 'RegistroVisita', label: 'Registrar Visita', icon: 'clipboard-outline', show: true, badge: pendientes.visitas },
@@ -263,8 +263,6 @@ const MenuPrincipal = ({ navigation }) => {
     { id: 'CajasMenu', label: 'Cajas', icon: 'cash-outline', show: isAdminOrJefe, badge: pendientes.cajas },
     { id: 'BodegaMenu', label: 'Bodegas', icon: 'business-outline', show: isAdminOrJefe, badge: pendientes.bodegas },
     { id: 'MapasMenu', label: 'Mapas', icon: 'map-outline', show: isAdminOrJefe },
-    { id: 'UsuarioNuevoScreen', label: 'Usuario Nuevo', icon: 'person-add-outline', show: isAdminOrJefe },
-    { id: 'CambiarContraseña', label: 'Cambiar Contraseña', icon: 'lock-closed-outline', show: true },
     { 
       id: 'DesconexionesMenu', 
       label: '🔌 Desconexiones/Reconexiones', 
@@ -272,6 +270,23 @@ const MenuPrincipal = ({ navigation }) => {
       show: true,
       badge: 0 
     },
+    // ✅ MÓDULO SOLICITAR RECIBO - AGREGADO
+    { 
+      id: 'SolicitarReciboMenu', 
+      label: '📄 Solicitar Recibo', 
+      icon: 'document-text-outline', 
+      show: true, 
+      badge: 0 
+    },
+    // ✅ MÓDULO RECUPERACIÓN DE EQUIPOS - AGREGADO
+    { 
+      id: 'RecuperacionMenu', 
+      label: '📦 Recuperación de Equipos', 
+      icon: 'construct-outline', 
+      show: true 
+    },
+    { id: 'UsuarioNuevoScreen', label: 'Usuario Nuevo', icon: 'person-add-outline', show: isAdminOrJefe },
+    { id: 'CambiarContraseña', label: 'Cambiar Contraseña', icon: 'lock-closed-outline', show: true },
   ];
 
   const visibleItems = menuItems.filter(item => item.show);
@@ -291,6 +306,8 @@ const MenuPrincipal = ({ navigation }) => {
       { bg: '#34495E', text: '#FFFFFF' },
       { bg: '#2C3E50', text: '#FFFFFF' },
       { bg: '#34495E', text: '#FFFFFF' },
+      { bg: '#2C3E50', text: '#FFFFFF' }, // Solicitar Recibo
+      { bg: '#34495E', text: '#FFFFFF' }, // Recuperación de Equipos
     ];
     return colorsList[index % colorsList.length];
   };

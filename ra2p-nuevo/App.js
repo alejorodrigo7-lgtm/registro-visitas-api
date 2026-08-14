@@ -94,11 +94,23 @@ import Ejecucion from './src/screens/Ejecucion';
 // ✅ CORREGIDO: BuscarDesRec en lugar de BuscarDesconexiones
 import BuscarDesRec from './src/screens/BuscarDesRec';
 
-// ✅ NUEVAS PANTALLAS - SOLICITAR RECIBO
+// ============================================
+// 📄 SOLICITAR RECIBO
+// ============================================
 import SolicitarReciboMenu from './src/screens/SolicitarReciboMenu';
 import SolicitarRecibo from './src/screens/SolicitarRecibo';
 import SubirRecibo from './src/screens/SubirRecibo';
 import DescargarRecibo from './src/screens/DescargarRecibo';
+
+// ============================================
+// 📦 RECUPERACIÓN DE EQUIPOS - ✅ NUEVO
+// ============================================
+import RecuperacionMenu from './src/screens/RecuperacionMenu';
+import SubirOrden from './src/screens/SubirOrden';
+import EjecutarOrden from './src/screens/EjecutarOrden';
+import PendientesRetirar from './src/screens/PendientesRetirar';
+import Retirados from './src/screens/Retirados';
+import RevisarOrdenes from './src/screens/RevisarOrdenes';
 
 const Stack = createStackNavigator();
 
@@ -203,11 +215,24 @@ const ThemedNavigation = () => {
         <Stack.Screen name="Ejecucion" component={Ejecucion} options={{ title: '3️⃣ Ejecución' }} />
         {/* ✅ CORREGIDO: BuscarDesRec */}
         <Stack.Screen name="BuscarDesRec" component={BuscarDesRec} options={{ title: '4️⃣ Buscar Des/Rec' }} />
-       // ✅ NUEVAS PANTALLAS - SOLICITAR RECIBO
-        <Stack.Screen name="SolicitarReciboMenu" component={SolicitarReciboMenu} />
-        <Stack.Screen name="SolicitarRecibo" component={SolicitarRecibo} />
-        <Stack.Screen name="SubirRecibo" component={SubirRecibo} />
-        <Stack.Screen name="DescargarRecibo" component={DescargarRecibo} />
+
+        {/* ============================================
+            📄 SOLICITAR RECIBO
+            ============================================ */}
+        <Stack.Screen name="SolicitarReciboMenu" component={SolicitarReciboMenu} options={{ title: '📄 Solicitar Recibo' }} />
+        <Stack.Screen name="SolicitarRecibo" component={SolicitarRecibo} options={{ title: '📝 Solicitar Recibo' }} />
+        <Stack.Screen name="SubirRecibo" component={SubirRecibo} options={{ title: '📤 Subir Recibo' }} />
+        <Stack.Screen name="DescargarRecibo" component={DescargarRecibo} options={{ title: '📥 Descargar Recibo' }} />
+
+        {/* ============================================
+            📦 RECUPERACIÓN DE EQUIPOS - ✅ NUEVO
+            ============================================ */}
+        <Stack.Screen name="RecuperacionMenu" component={RecuperacionMenu} options={{ title: '📦 Recuperación de Equipos' }} />
+        <Stack.Screen name="SubirOrden" component={SubirOrden} options={{ title: '📤 Subir Orden' }} />
+        <Stack.Screen name="EjecutarOrden" component={EjecutarOrden} options={{ title: '⚙️ Ejecutar Orden' }} />
+        <Stack.Screen name="PendientesRetirar" component={PendientesRetirar} options={{ title: '⏳ Pendientes por Retirar' }} />
+        <Stack.Screen name="Retirados" component={Retirados} options={{ title: '✅ Retirados' }} />
+        <Stack.Screen name="RevisarOrdenes" component={RevisarOrdenes} options={{ title: '📋 Revisar Órdenes' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
