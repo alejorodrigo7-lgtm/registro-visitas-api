@@ -1,17 +1,16 @@
-const Venta = require('../models/Venta');
+﻿const Venta = require('../models/Venta');
 const ReporteVenta = require('../models/ReporteVenta');
 const User = require('../models/User');
 
 // ============ VENTA NUEVA ============
-exports.crearVenta = async (req, res) => {
+const crearVenta = async (req, res) => {
   try {
-    const { 
-      fecha, usuario, cedulaDelantera, cedulaTrasera, 
-      fotoDomicilio, selfieCedula, direccionCompleta, 
-      telefono1, telefono2, email, plan 
+    const {
+      fecha, usuario, cedulaDelantera, cedulaTrasera,
+      fotoDomicilio, selfieCedula, direccionCompleta,
+      telefono1, telefono2, email, plan
     } = req.body;
 
-    // Verificar que el usuario existe
     const userExists = await User.findById(usuario);
     if (!userExists) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
@@ -33,9 +32,9 @@ exports.crearVenta = async (req, res) => {
     });
 
     await nuevaVenta.save();
-    res.status(201).json({ 
-      message: 'Venta creada exitosamente', 
-      venta: nuevaVenta 
+    res.status(201).json({
+      message: 'Venta creada exitosamente',
+      venta: nuevaVenta
     });
   } catch (error) {
     console.error('Error al crear venta:', error);
@@ -43,11 +42,11 @@ exports.crearVenta = async (req, res) => {
   }
 };
 
-exports.obtenerVentas = async (req, res) => {
+const obtenerVentas = async (req, res) => {
   try {
     const { ingresada, fecha, usuario } = req.query;
     const filtro = {};
-    
+
     if (ingresada !== undefined) filtro.ingresada = ingresada === 'true';
     if (fecha) filtro.fecha = new Date(fecha);
     if (usuario) filtro.usuario = usuario;
@@ -64,7 +63,7 @@ exports.obtenerVentas = async (req, res) => {
   }
 };
 
-exports.actualizarIngresoVenta = async (req, res) => {
+const actualizarIngresoVenta = async (req, res) => {
   try {
     const { id } = req.params;
     const { ingresada } = req.body;
@@ -87,22 +86,20 @@ exports.actualizarIngresoVenta = async (req, res) => {
 };
 
 // ============ REPORTE DE VENTA ============
-exports.crearReporteVenta = async (req, res) => {
+const crearReporteVenta = async (req, res) => {
   try {
-    const { 
-      fechaVenta, codigo, cedula, usuario, producto, valorPagar, ventaAsociada 
+    const {
+      fechaVenta, codigo, cedula, usuario, producto, valorPagar, ventaAsociada
     } = req.body;
 
-    // Verificar que el usuario existe
     const userExists = await User.findById(usuario);
     if (!userExists) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    // Verificar que el código no esté duplicado
     const existeCodigo = await ReporteVenta.findOne({ codigo });
     if (existeCodigo) {
-      return res.status(400).json({ message: 'El código ya existe' });
+      return res.status(400).json({ message: 'El cÃ³digo ya existe' });
     }
 
     const nuevoReporte = new ReporteVenta({
@@ -117,9 +114,9 @@ exports.crearReporteVenta = async (req, res) => {
     });
 
     await nuevoReporte.save();
-    res.status(201).json({ 
-      message: 'Reporte de venta creado exitosamente', 
-      reporte: nuevoReporte 
+    res.status(201).json({
+      message: 'Reporte de venta creado exitosamente',
+      reporte: nuevoReporte
     });
   } catch (error) {
     console.error('Error al crear reporte:', error);
@@ -127,15 +124,15 @@ exports.crearReporteVenta = async (req, res) => {
   }
 };
 
-exports.obtenerReportesVenta = async (req, res) => {
+const obtenerReportesVenta = async (req, res) => {
   try {
     const { pagado, fechaInicio, fechaFin, producto, usuario } = req.query;
     const filtro = {};
-    
+
     if (pagado !== undefined) filtro.pagado = pagado === 'true';
     if (producto) filtro.producto = producto;
     if (usuario) filtro.usuario = usuario;
-    
+
     if (fechaInicio || fechaFin) {
       filtro.fechaVenta = {};
       if (fechaInicio) filtro.fechaVenta.$gte = new Date(fechaInicio);
@@ -156,7 +153,7 @@ exports.obtenerReportesVenta = async (req, res) => {
 };
 
 // ============ PAGO DE VENTA ============
-exports.registrarPago = async (req, res) => {
+const registrarPago = async (req, res) => {
   try {
     const { id } = req.params;
     const { valorPagado, responsable, formaPago } = req.body;
@@ -167,7 +164,7 @@ exports.registrarPago = async (req, res) => {
     }
 
     if (reporte.pagado) {
-      return res.status(400).json({ message: 'Este reporte ya está pagado' });
+      return res.status(400).json({ message: 'Este reporte ya estÃ¡ pagado' });
     }
 
     reporte.pagado = true;
@@ -180,9 +177,9 @@ exports.registrarPago = async (req, res) => {
 
     await reporte.save();
 
-    res.json({ 
-      message: 'Pago registrado exitosamente', 
-      reporte 
+    res.json({
+      message: 'Pago registrado exitosamente',
+      reporte
     });
   } catch (error) {
     console.error('Error al registrar pago:', error);
@@ -190,14 +187,14 @@ exports.registrarPago = async (req, res) => {
   }
 };
 
-exports.obtenerVentasPagadas = async (req, res) => {
+const obtenerVentasPagadas = async (req, res) => {
   try {
     const { fechaInicio, fechaFin, producto, usuario } = req.query;
     const filtro = { pagado: true };
-    
+
     if (producto) filtro.producto = producto;
     if (usuario) filtro.usuario = usuario;
-    
+
     if (fechaInicio || fechaFin) {
       filtro.fechaVenta = {};
       if (fechaInicio) filtro.fechaVenta.$gte = new Date(fechaInicio);
@@ -215,4 +212,14 @@ exports.obtenerVentasPagadas = async (req, res) => {
     console.error('Error al obtener ventas pagadas:', error);
     res.status(500).json({ message: 'Error al obtener ventas pagadas', error: error.message });
   }
+};
+
+module.exports = {
+  crearVenta,
+  obtenerVentas,
+  actualizarIngresoVenta,
+  crearReporteVenta,
+  obtenerReportesVenta,
+  registrarPago,
+  obtenerVentasPagadas
 };
