@@ -58,13 +58,15 @@ const notificationRoutes = require('./routes/notificacionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const desconexionRoutes = require('./routes/desconexionRoutes');
 const userRoutes = require('./routes/userRoutes');
-const syncRoutes = require('./routes/syncRoutes'); // 👈 NUEVA RUTA
+const syncRoutes = require('./routes/syncRoutes');
 const solicitudReciboRoutes = require('./routes/solicitudReciboRoutes');
+// ✅ RECUPERACIÓN DE EQUIPOS
+const recuperacionRoutes = require('./routes/recuperacionRoutes');
 
 // ============================================
 // CREAR APP
 // ============================================
-const app = express(); // 👈 app SE DEFINE AQUÍ
+const app = express();
 
 // ============================================
 // CONECTAR A MONGODB
@@ -186,8 +188,10 @@ app.use('/api/notificaciones', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/desconexiones', desconexionRoutes);
 app.use('/api/usuarios', userRoutes);
-app.use('/api/sync', syncRoutes); // 👈 NUEVA RUTA DE SINCRONIZACIÓN
+app.use('/api/sync', syncRoutes);
 app.use('/api/solicitudes-recibo', solicitudReciboRoutes);
+// ✅ RECUPERACIÓN DE EQUIPOS
+app.use('/api/recuperacion', recuperacionRoutes);
 
 // ============================================
 // RATE LIMITING
@@ -345,7 +349,9 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`/api/dashboard`);
   logger.info(`/api/desconexiones`);
   logger.info(`/api/usuarios`);
-  logger.info(`/api/sync`); // 👈 NUEVA RUTA
+  logger.info(`/api/sync`);
+  // ✅ RECUPERACIÓN DE EQUIPOS
+  logger.info(`/api/recuperacion`);
 });
 
 // ============================================
