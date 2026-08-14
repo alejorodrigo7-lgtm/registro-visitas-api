@@ -5,9 +5,8 @@ const Cliente = require('../models/Cliente');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const csv = require('csv-parser'); // ✅ Agregar esta importación
+const csv = require('csv-parser');
 
-// Configurar multer para archivos CSV
 const upload = multer({ dest: 'uploads/' });
 
 // ============================================
@@ -15,23 +14,64 @@ const upload = multer({ dest: 'uploads/' });
 // ============================================
 const normalizarTelefono = (telefono) => {
     if (!telefono) return '';
-    
-    // Si es array, tomar el primer elemento
     if (Array.isArray(telefono)) {
         return telefono.length > 0 ? String(telefono[0]).trim() : '';
     }
-    
-    // Si es string, limpiar directamente
     if (typeof telefono === 'string') {
         return telefono.trim();
     }
-    
-    // Si es número u otro tipo, convertir a string
     return String(telefono).trim();
 };
 
 // ============================================
-// 🔍 BUSCAR CLIENTE POR IDENTIFICADOR
+// ✅ RUTA DE BÚSQUEDA POR TÉRMINO - CORREGIDA
+// ============================================
+router.get('/buscar', protect, async (req, res) => {
+  try {
+    const { termino } = req.query;
+    
+    console.log('🔍 Buscando cliente con término:', termino);
+    
+    if (!termino || termino.length < 2) {
+      return res.json({ success: true, data: [] });
+    }
+    
+    const clientes = await Cliente.find({
+      $or: [
+        { nombre: { $regex: termino, $options: 'i' } },
+        { identificador: { $regex: termino, $options: 'i' } },
+        { barrio: { $regex: termino, $options: 'i' } },
+        { direccion: { $regex: termino, $options: 'i' } },
+        { telefono: { $regex: termino, $options: 'i' } }
+      ]
+    })
+    .limit(10)
+    .lean();
+
+    console.log(`📋 Encontrados ${clientes.length} clientes`);
+
+    const resultados = clientes.map(c => ({
+      nombre: c.nombre || 'Sin nombre',
+      codigo: c.identificador || c._id.toString(),
+      direccion: c.direccion || c.barrio || '',
+      telefono: c.telefono || ''
+    }));
+
+    res.json({
+      success: true,
+      data: resultados
+    });
+  } catch (error) {
+    console.error('❌ Error en buscar:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// ============================================
+// 🔍 BUSCAR CLIENTE POR IDENTIFICADOR (ruta antigua - mantener por compatibilidad)
 // ============================================
 router.get('/buscar/:identificador', protect, async (req, res) => {
   try {
@@ -61,7 +101,7 @@ router.get('/buscar/:identificador', protect, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error en buscar:', error);
+    console.error('❌ Error en buscar por identificador:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -148,7 +188,7 @@ router.get('/todos-sin-limite', protect, async (req, res) => {
 });
 
 // ============================================
-// 👤 CREAR NUEVO CLIENTE (Admin/Jefe) - CORREGIDO
+// 👤 CREAR NUEVO CLIENTE (Admin/Jefe)
 // ============================================
 router.post('/', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
@@ -156,60 +196,45 @@ router.post('/', protect, authorize('Admin', 'Jefe'), async (req, res) => {
 
     console.log('📝 [CLIENTE] Recibida solicitud POST /api/clientes');
     console.log('📝 [CLIENTE] Body recibido:', JSON.stringify(req.body, null, 2));
-    console.log('📝 [CLIENTE] Usuario:', req.user?.email, 'Rol:', req.user?.rol);
 
-    // Validar campos obligatorios
     if (!nombre || !nombre.trim()) {
-      console.log('❌ [CLIENTE] Error: Nombre vacío');
       return res.status(400).json({
         success: false,
         message: 'El nombre es obligatorio'
       });
     }
     if (!identificador || !identificador.trim()) {
-      console.log('❌ [CLIENTE] Error: Identificador vacío');
       return res.status(400).json({
         success: false,
         message: 'El identificador es obligatorio'
       });
     }
 
-    console.log(`🔍 [CLIENTE] Verificando si existe cliente con identificador: ${identificador.trim()}`);
-    
-    // Verificar si ya existe un cliente con ese identificador
     const existeCliente = await Cliente.findOne({ 
       identificador: identificador.trim() 
     });
     
     if (existeCliente) {
-      console.log(`❌ [CLIENTE] Cliente ya existe: ${existeCliente.nombre}`);
       return res.status(400).json({
         success: false,
         message: `Ya existe un cliente con el identificador ${identificador}`
       });
     }
 
-    // ✅ CORREGIDO: Normalizar teléfono
     const telefonoLimpio = normalizarTelefono(telefono);
     console.log('📝 [CLIENTE] Teléfono normalizado:', telefonoLimpio);
 
-    console.log('📝 [CLIENTE] Creando nuevo cliente...');
-    
     const nuevoCliente = new Cliente({
       nombre: nombre.trim(),
       identificador: identificador.trim(),
       barrio: barrio?.trim() || '',
       direccion: direccion?.trim() || '',
-      telefono: telefonoLimpio, // ✅ Usar teléfono normalizado
+      telefono: telefonoLimpio,
     });
 
-    console.log('📝 [CLIENTE] Cliente a guardar:', JSON.stringify(nuevoCliente, null, 2));
-
-    console.log('💾 [CLIENTE] Guardando en MongoDB...');
     await nuevoCliente.save();
     
-    console.log(`✅ [CLIENTE] Nuevo cliente registrado: ${nuevoCliente.nombre} (${nuevoCliente.identificador})`);
-    console.log(`✅ [CLIENTE] ID: ${nuevoCliente._id}`);
+    console.log(`✅ [CLIENTE] Nuevo cliente registrado: ${nuevoCliente.nombre}`);
 
     res.status(201).json({
       success: true,
@@ -219,11 +244,9 @@ router.post('/', protect, authorize('Admin', 'Jefe'), async (req, res) => {
 
   } catch (error) {
     console.error('❌ [CLIENTE] Error al crear cliente:', error);
-    console.error('❌ [CLIENTE] Stack:', error.stack);
     res.status(500).json({
       success: false,
       message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 });
@@ -272,7 +295,6 @@ router.post('/cargar-csv', protect, authorize('Admin'), upload.single('archivo')
       try {
         const existe = await Cliente.findOne({ identificador: cliente.identificador });
         if (!existe) {
-          // ✅ CORREGIDO: Normalizar teléfono al importar CSV
           const telefonoLimpio = normalizarTelefono(cliente.telefono);
           await Cliente.create({
             ...cliente,
@@ -336,14 +358,13 @@ router.delete('/:id', protect, authorize('Admin'), async (req, res) => {
 });
 
 // ============================================
-// 📋 ACTUALIZAR CLIENTE (Admin/Jefe) - CORREGIDO
+// 📋 ACTUALIZAR CLIENTE (Admin/Jefe)
 // ============================================
 router.put('/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
   try {
     const { nombre, identificador, barrio, direccion, telefono } = req.body;
     
     console.log('📝 [CLIENTE] Actualizando cliente:', req.params.id);
-    console.log('📝 [CLIENTE] Datos recibidos:', JSON.stringify(req.body, null, 2));
     
     const cliente = await Cliente.findById(req.params.id);
     
@@ -366,15 +387,13 @@ router.put('/:id', protect, authorize('Admin', 'Jefe'), async (req, res) => {
       }
     }
 
-    // ✅ CORREGIDO: Normalizar teléfono al actualizar
     const telefonoLimpio = normalizarTelefono(telefono);
-    console.log('📝 [CLIENTE] Teléfono normalizado:', telefonoLimpio);
 
     cliente.nombre = nombre || cliente.nombre;
     cliente.identificador = identificador || cliente.identificador;
     cliente.barrio = barrio || cliente.barrio;
     cliente.direccion = direccion || cliente.direccion;
-    cliente.telefono = telefonoLimpio || cliente.telefono; // ✅ Usar teléfono normalizado
+    cliente.telefono = telefonoLimpio || cliente.telefono;
     
     await cliente.save();
     
