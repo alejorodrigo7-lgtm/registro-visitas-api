@@ -3,7 +3,7 @@ const ReporteVenta = require('../models/ReporteVenta');
 const User = require('../models/User');
 
 // ============ VENTA NUEVA ============
-const crearVenta = async (req, res) => {
+exports.crearVenta = async (req, res) => {
   try {
     const {
       fecha, usuario, cedulaDelantera, cedulaTrasera,
@@ -42,7 +42,7 @@ const crearVenta = async (req, res) => {
   }
 };
 
-const obtenerVentas = async (req, res) => {
+exports.obtenerVentas = async (req, res) => {
   try {
     const { ingresada, fecha, usuario } = req.query;
     const filtro = {};
@@ -63,7 +63,7 @@ const obtenerVentas = async (req, res) => {
   }
 };
 
-const actualizarIngresoVenta = async (req, res) => {
+exports.actualizarIngresoVenta = async (req, res) => {
   try {
     const { id } = req.params;
     const { ingresada } = req.body;
@@ -86,7 +86,7 @@ const actualizarIngresoVenta = async (req, res) => {
 };
 
 // ============ REPORTE DE VENTA ============
-const crearReporteVenta = async (req, res) => {
+exports.crearReporteVenta = async (req, res) => {
   try {
     const {
       fechaVenta, codigo, cedula, usuario, producto, valorPagar, ventaAsociada
@@ -99,7 +99,7 @@ const crearReporteVenta = async (req, res) => {
 
     const existeCodigo = await ReporteVenta.findOne({ codigo });
     if (existeCodigo) {
-      return res.status(400).json({ message: 'El cÃ³digo ya existe' });
+      return res.status(400).json({ message: 'El código ya existe' });
     }
 
     const nuevoReporte = new ReporteVenta({
@@ -124,7 +124,7 @@ const crearReporteVenta = async (req, res) => {
   }
 };
 
-const obtenerReportesVenta = async (req, res) => {
+exports.obtenerReportesVenta = async (req, res) => {
   try {
     const { pagado, fechaInicio, fechaFin, producto, usuario } = req.query;
     const filtro = {};
@@ -153,7 +153,7 @@ const obtenerReportesVenta = async (req, res) => {
 };
 
 // ============ PAGO DE VENTA ============
-const registrarPago = async (req, res) => {
+exports.registrarPago = async (req, res) => {
   try {
     const { id } = req.params;
     const { valorPagado, responsable, formaPago } = req.body;
@@ -164,7 +164,7 @@ const registrarPago = async (req, res) => {
     }
 
     if (reporte.pagado) {
-      return res.status(400).json({ message: 'Este reporte ya estÃ¡ pagado' });
+      return res.status(400).json({ message: 'Este reporte ya está pagado' });
     }
 
     reporte.pagado = true;
@@ -187,7 +187,7 @@ const registrarPago = async (req, res) => {
   }
 };
 
-const obtenerVentasPagadas = async (req, res) => {
+exports.obtenerVentasPagadas = async (req, res) => {
   try {
     const { fechaInicio, fechaFin, producto, usuario } = req.query;
     const filtro = { pagado: true };
@@ -212,14 +212,4 @@ const obtenerVentasPagadas = async (req, res) => {
     console.error('Error al obtener ventas pagadas:', error);
     res.status(500).json({ message: 'Error al obtener ventas pagadas', error: error.message });
   }
-};
-
-module.exports = {
-  crearVenta,
-  obtenerVentas,
-  actualizarIngresoVenta,
-  crearReporteVenta,
-  obtenerReportesVenta,
-  registrarPago,
-  obtenerVentasPagadas
 };
