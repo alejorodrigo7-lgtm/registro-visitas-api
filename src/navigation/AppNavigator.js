@@ -30,6 +30,43 @@ import DashboardScreen from '../screens/DashboardScreen';
 // ✅ AGREGAR EJECUCION SERVICIO
 import EjecucionServicio from '../screens/EjecucionServicio';
 
+// ============================================
+// 📱 IMPORTAR PANTALLAS DEL MÓDULO VENTAS
+// ============================================
+import VentasMenu from '../screens/VentasMenu';
+import VentaNueva from '../screens/VentaNueva';
+import IngresoVenta from '../screens/IngresoVenta';
+import ReporteVenta from '../screens/ReporteVenta';
+import PagoVenta from '../screens/PagoVenta';
+import BuscarVentasPagadas from '../screens/BuscarVentasPagadas';
+
+// ============================================
+// 📱 IMPORTAR PANTALLAS DE RECUPERACIÓN DE EQUIPOS
+// ============================================
+import RecuperacionMenu from '../screens/RecuperacionMenu';
+import SubirOrden from '../screens/SubirOrden';
+import EjecutarOrden from '../screens/EjecutarOrden';
+import PendientesRetirar from '../screens/PendientesRetirar';
+import Retirados from '../screens/Retirados';
+import RevisarOrdenes from '../screens/RevisarOrdenes';
+
+// ============================================
+// 📱 IMPORTAR PANTALLAS DE DESCONEXIONES
+// ============================================
+import DesconexionesMenu from '../screens/DesconexionesMenu';
+import RegistrarDesconexion from '../screens/RegistrarDesconexion';
+import RegistrarReconexion from '../screens/RegistrarReconexion';
+import Ejecucion from '../screens/Ejecucion';
+import BuscarDesRec from '../screens/BuscarDesRec';
+
+// ============================================
+// 📱 IMPORTAR PANTALLAS DE SOLICITAR RECIBO
+// ============================================
+import SolicitarReciboMenu from '../screens/SolicitarReciboMenu';
+import SolicitarRecibo from '../screens/SolicitarRecibo';
+import SubirRecibo from '../screens/SubirRecibo';
+import DescargarRecibo from '../screens/DescargarRecibo';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -175,7 +212,127 @@ const AppNavigator = () => {
         component={EjecucionServicio}
         options={{ headerShown: true, title: '⚙️ Ejecutar Servicio' }}
       />
-      
+
+      {/* ============================================
+          📱 MÓDULO DESCONEXIONES
+          ============================================ */}
+      <Stack.Screen 
+        name="DesconexionesMenu" 
+        component={DesconexionesMenu}
+        options={{ headerShown: true, title: '🔌 Desconexiones' }}
+      />
+      <Stack.Screen 
+        name="RegistrarDesconexion" 
+        component={RegistrarDesconexion}
+        options={{ headerShown: true, title: 'Registrar Desconexión' }}
+      />
+      <Stack.Screen 
+        name="RegistrarReconexion" 
+        component={RegistrarReconexion}
+        options={{ headerShown: true, title: 'Registrar Reconexión' }}
+      />
+      <Stack.Screen 
+        name="Ejecucion" 
+        component={Ejecucion}
+        options={{ headerShown: true, title: 'Ejecutar Solicitudes' }}
+      />
+      <Stack.Screen 
+        name="BuscarDesRec" 
+        component={BuscarDesRec}
+        options={{ headerShown: true, title: 'Buscar Des/Rec' }}
+      />
+
+      {/* ============================================
+          📱 MÓDULO SOLICITAR RECIBO
+          ============================================ */}
+      <Stack.Screen 
+        name="SolicitarReciboMenu" 
+        component={SolicitarReciboMenu}
+        options={{ headerShown: true, title: '📄 Solicitar Recibo' }}
+      />
+      <Stack.Screen 
+        name="SolicitarRecibo" 
+        component={SolicitarRecibo}
+        options={{ headerShown: true, title: 'Solicitar Recibo' }}
+      />
+      <Stack.Screen 
+        name="SubirRecibo" 
+        component={SubirRecibo}
+        options={{ headerShown: true, title: 'Subir Recibo' }}
+      />
+      <Stack.Screen 
+        name="DescargarRecibo" 
+        component={DescargarRecibo}
+        options={{ headerShown: true, title: 'Descargar Recibo' }}
+      />
+
+      {/* ============================================
+          📱 MÓDULO RECUPERACIÓN DE EQUIPOS
+          ============================================ */}
+      <Stack.Screen 
+        name="RecuperacionMenu" 
+        component={RecuperacionMenu}
+        options={{ headerShown: true, title: '📦 Recuperación de Equipos' }}
+      />
+      <Stack.Screen 
+        name="SubirOrden" 
+        component={SubirOrden}
+        options={{ headerShown: true, title: 'Subir Orden' }}
+      />
+      <Stack.Screen 
+        name="EjecutarOrden" 
+        component={EjecutarOrden}
+        options={{ headerShown: true, title: 'Ejecutar Visita' }}
+      />
+      <Stack.Screen 
+        name="PendientesRetirar" 
+        component={PendientesRetirar}
+        options={{ headerShown: true, title: 'Pendientes por Retirar' }}
+      />
+      <Stack.Screen 
+        name="Retirados" 
+        component={Retirados}
+        options={{ headerShown: true, title: 'Equipos Retirados' }}
+      />
+      <Stack.Screen 
+        name="RevisarOrdenes" 
+        component={RevisarOrdenes}
+        options={{ headerShown: true, title: 'Revisar Órdenes' }}
+      />
+
+      {/* ============================================
+          📱 MÓDULO VENTAS
+          ============================================ */}
+      <Stack.Screen 
+        name="VentasMenu" 
+        component={VentasMenu}
+        options={{ headerShown: true, title: '💰 Ventas' }}
+      />
+      <Stack.Screen 
+        name="VentaNueva" 
+        component={VentaNueva}
+        options={{ headerShown: true, title: '📝 Venta Nueva' }}
+      />
+      <Stack.Screen 
+        name="IngresoVenta" 
+        component={IngresoVenta}
+        options={{ headerShown: true, title: '✅ Ingreso de Venta' }}
+      />
+      <Stack.Screen 
+        name="ReporteVenta" 
+        component={ReporteVenta}
+        options={{ headerShown: true, title: '📊 Reporte de Venta' }}
+      />
+      <Stack.Screen 
+        name="PagoVenta" 
+        component={PagoVenta}
+        options={{ headerShown: true, title: '💳 Pago de Venta' }}
+      />
+      <Stack.Screen 
+        name="BuscarVentasPagadas" 
+        component={BuscarVentasPagadas}
+        options={{ headerShown: true, title: '🔍 Ventas Pagadas' }}
+      />
     </Stack.Navigator>
   );
 };

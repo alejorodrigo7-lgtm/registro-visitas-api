@@ -60,13 +60,6 @@ const EjecucionServicio = ({ navigation }) => {
   const isAdmin = user?.rol === 'Admin';
   const isJefe = user?.rol === 'Jefe';
 
-  // ✅ Función para formatear imagen (base64 puro o con prefijo)
-  const formatearImagen = (imagen) => {
-    if (!imagen) return null;
-    if (imagen.startsWith('data:image')) return imagen;
-    return `data:image/jpeg;base64,${imagen}`;
-  };
-
   // ============================================
   // 📱 ENVIAR NOTIFICACIONES PUSH A TODOS LOS INVOLUCRADOS
   // ============================================
@@ -181,7 +174,8 @@ const EjecucionServicio = ({ navigation }) => {
           return;
         }
         console.log('📱 Cargando servicios PENDIENTES para TÉCNICO:', userId);
-        response = await api.get(`/servicios?estado=PENDIENTE&tecnico=${userId}`, {
+        // ✅ CORREGIDO: Usar 'tecnico' en lugar de 'tecnicoId'
+        response = await api.get(`/visitas?estado=PENDIENTE&tecnico=${userId}`, {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
@@ -618,11 +612,10 @@ const EjecucionServicio = ({ navigation }) => {
                 </View>
               </View>
 
-              {/* ✅ IMAGEN CON FORMATEADOR */}
               {servicio.imagen && (
                 <View style={styles.imagenContainer}>
                   <Image 
-                    source={{ uri: formatearImagen(servicio.imagen) }} 
+                    source={{ uri: servicio.imagen }} 
                     style={styles.imagenMiniatura}
                     resizeMode="cover"
                   />
