@@ -1,5 +1,6 @@
 const SolicitudRecibo = require('../models/SolicitudRecibo');
 const User = require('../models/User');
+const Cliente = require('../models/Cliente');
 
 // Obtener todas las solicitudes
 const getSolicitudes = async (req, res) => {
@@ -34,7 +35,7 @@ const getSolicitudes = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error en getSolicitudes:', error);
     res.status(500).json({ success: false, message: 'Error al obtener solicitudes' });
   }
 };
@@ -76,17 +77,23 @@ const crearSolicitud = async (req, res) => {
       data: nuevaSolicitud
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error en crearSolicitud:', error);
     res.status(500).json({ success: false, message: 'Error al crear la solicitud' });
   }
 };
 
-// Aprobar solicitud
+// ✅ APROBAR SOLICITUD - CON SOPORTE PARA Base64
 const aprobarSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
-    const { archivoNombre, archivoUrl, archivoPublicId } = req.body;
+    const { archivoNombre, archivoBase64, archivoUrl, archivoPublicId } = req.body;
     const usuarioId = req.user.id;
+
+    console.log('📤 ===== APROBANDO SOLICITUD =====');
+    console.log('📤 Solicitud ID:', id);
+    console.log('📤 Archivo nombre:', archivoNombre);
+    console.log('📤 archivoBase64 length:', archivoBase64?.length || 0);
+    console.log('📤 archivoUrl length:', archivoUrl?.length || 0);
 
     const solicitud = await SolicitudRecibo.findById(id);
     if (!solicitud) {
@@ -102,11 +109,18 @@ const aprobarSolicitud = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
+    // ✅ SOPORTE PARA Base64 Y URL
+    let contenidoArchivo = archivoUrl || '';
+    if (archivoBase64 && archivoBase64.length > 0) {
+      contenidoArchivo = archivoBase64;
+      console.log('✅ Usando archivoBase64, length:', contenidoArchivo.length);
+    }
+
     solicitud.estado = 'APROBADO';
     solicitud.archivo = {
-      nombre: archivoNombre,
-      url: archivoUrl,
-      publicId: archivoPublicId
+      nombre: archivoNombre || 'recibo.pdf',
+      url: contenidoArchivo,
+      publicId: archivoPublicId || `recibo_${id}_${Date.now()}`
     };
     solicitud.aprobadoPor = {
       usuarioId: usuario._id,
@@ -117,14 +131,18 @@ const aprobarSolicitud = async (req, res) => {
 
     await solicitud.save();
 
+    console.log('✅ Solicitud aprobada exitosamente');
+    console.log('✅ Archivo guardado:', solicitud.archivo.nombre);
+    console.log('✅ URL length:', solicitud.archivo.url?.length || 0);
+
     res.json({
       success: true,
       message: 'Solicitud aprobada exitosamente',
       data: solicitud
     });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ success: false, message: 'Error al aprobar la solicitud' });
+    console.error('❌ Error en aprobarSolicitud:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -133,6 +151,8 @@ const denegarSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
     const usuarioId = req.user.id;
+
+    console.log('📤 Denegando solicitud:', id);
 
     const solicitud = await SolicitudRecibo.findById(id);
     if (!solicitud) {
@@ -158,49 +178,61 @@ const denegarSolicitud = async (req, res) => {
 
     await solicitud.save();
 
+    console.log('✅ Solicitud denegada');
+
     res.json({
       success: true,
       message: 'Solicitud denegada',
       data: solicitud
     });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ success: false, message: 'Error al denegar la solicitud' });
+    console.error('Error en denegarSolicitud:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Buscar clientes
+// ✅ BUSCAR CLIENTES - Busca en la colección de Clientes
 const buscarClientes = async (req, res) => {
   try {
     const { termino } = req.query;
+    
+    console.log('🔍 Buscando cliente con término:', termino);
+    
     if (!termino || termino.length < 2) {
       return res.json({ success: true, data: [] });
     }
 
-    const solicitudes = await SolicitudRecibo.find({
+    const clientes = await Cliente.find({
       $or: [
-        { 'cliente.nombre': { $regex: termino, $options: 'i' } },
-        { 'cliente.codigo': { $regex: termino, $options: 'i' } }
+        { nombre: { $regex: termino, $options: 'i' } },
+        { identificador: { $regex: termino, $options: 'i' } },
+        { cedula: { $regex: termino, $options: 'i' } },
+        { telefono: { $regex: termino, $options: 'i' } },
+        { barrio: { $regex: termino, $options: 'i' } }
       ]
     })
     .limit(10)
-    .sort({ fechaSolicitud: -1 });
+    .lean();
 
-    const clientesMap = new Map();
-    solicitudes.forEach(s => {
-      const key = s.cliente.codigo;
-      if (!clientesMap.has(key)) {
-        clientesMap.set(key, s.cliente);
-      }
-    });
+    console.log(`📋 Encontrados ${clientes.length} clientes`);
+
+    const resultados = clientes.map(c => ({
+      nombre: c.nombre || 'Sin nombre',
+      codigo: c.identificador || c.cedula || c._id.toString(),
+      direccion: c.direccion || c.barrio || '',
+      telefono: c.telefono || ''
+    }));
 
     res.json({
       success: true,
-      data: Array.from(clientesMap.values())
+      data: resultados
     });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ success: false, message: 'Error al buscar clientes' });
+    console.error('❌ Error en buscarClientes:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 };
 
