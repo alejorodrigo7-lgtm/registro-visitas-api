@@ -60,8 +60,10 @@ const desconexionRoutes = require('./routes/desconexionRoutes');
 const userRoutes = require('./routes/userRoutes');
 const syncRoutes = require('./routes/syncRoutes');
 const solicitudReciboRoutes = require('./routes/solicitudReciboRoutes');
-// ✅ RECUPERACIÓN DE EQUIPOS
 const recuperacionRoutes = require('./routes/recuperacionRoutes');
+
+// ✅ NUEVO: IMPORTAR RUTAS DE VENTAS
+const ventaRoutes = require('./routes/ventaRoutes');
 
 // ============================================
 // CREAR APP
@@ -190,8 +192,10 @@ app.use('/api/desconexiones', desconexionRoutes);
 app.use('/api/usuarios', userRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/solicitudes-recibo', solicitudReciboRoutes);
-// ✅ RECUPERACIÓN DE EQUIPOS
 app.use('/api/recuperacion', recuperacionRoutes);
+
+// ✅ NUEVO: RUTAS DE VENTAS
+app.use('/api/ventas', ventaRoutes);
 
 // ============================================
 // RATE LIMITING
@@ -350,8 +354,9 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`/api/desconexiones`);
   logger.info(`/api/usuarios`);
   logger.info(`/api/sync`);
-  // ✅ RECUPERACIÓN DE EQUIPOS
   logger.info(`/api/recuperacion`);
+  // ✅ NUEVO: LOG DE VENTAS
+  logger.info(`/api/ventas`);
 });
 
 // ============================================
@@ -382,4 +387,5 @@ process.on('unhandledRejection', (reason, promise) => {
     reason: reason?.message || reason,
     stack: reason?.stack
   });
-});
+});#   F o r z a r   d e p l o y  
+ 
