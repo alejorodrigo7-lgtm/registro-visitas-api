@@ -62,9 +62,6 @@ const syncRoutes = require('./routes/syncRoutes');
 const solicitudReciboRoutes = require('./routes/solicitudReciboRoutes');
 const recuperacionRoutes = require('./routes/recuperacionRoutes');
 
-// ✅ NUEVO: IMPORTAR RUTAS DE VENTAS
-const ventaRoutes = require('./routes/ventaRoutes');
-
 // ============================================
 // CREAR APP
 // ============================================
@@ -193,9 +190,6 @@ app.use('/api/usuarios', userRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/solicitudes-recibo', solicitudReciboRoutes);
 app.use('/api/recuperacion', recuperacionRoutes);
-
-// ✅ NUEVO: RUTAS DE VENTAS
-app.use('/api/ventas', ventaRoutes);
 
 // ============================================
 // RATE LIMITING
@@ -355,7 +349,6 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`/api/usuarios`);
   logger.info(`/api/sync`);
   logger.info(`/api/recuperacion`);
-  logger.info(`/api/ventas`);
 });
 
 // ============================================
