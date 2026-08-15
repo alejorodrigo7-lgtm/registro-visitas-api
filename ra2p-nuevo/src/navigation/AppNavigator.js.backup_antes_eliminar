@@ -27,6 +27,12 @@ import DashboardScreen from '../screens/DashboardScreen';
 import EjecucionServicio from '../screens/EjecucionServicio';
 
 // ✅ MÓDULO VENTAS
+import VentasMenu from '../screens/VentasMenu';
+import VentaNueva from '../screens/VentaNueva';
+import IngresoVenta from '../screens/IngresoVenta';
+import ReporteVenta from '../screens/ReporteVenta';
+import PagoVenta from '../screens/PagoVenta';
+import BuscarVentasPagadas from '../screens/BuscarVentasPagadas';
 
 // ✅ OTROS MÓDULOS
 import RecuperacionMenu from '../screens/RecuperacionMenu';
@@ -44,8 +50,6 @@ import SolicitarReciboMenu from '../screens/SolicitarReciboMenu';
 import SolicitarRecibo from '../screens/SolicitarRecibo';
 import SubirRecibo from '../screens/SubirRecibo';
 import DescargarRecibo from '../screens/DescargarRecibo';
-
-// ✅ MÓDULO VENTAS (NUEVO)
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -97,40 +101,7 @@ const AppNavigator = () => {
     >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="RoleSelection" component={RoleSelection} />
-      
-      {/* ============================================
-          📱 MÓDULO VENTAS (NUEVO)
-          ============================================ */}
-      <Stack.Screen 
-        name="VentasMenu" 
-        component={VentasMenu}
-        options={{ headerShown: true, title: '💰 Ventas' }}
-      />
-      <Stack.Screen 
-        name="NuevaVenta" 
-        component={NuevaVenta}
-        options={{ headerShown: true, title: '📝 Nueva Venta' }}
-      />
-      <Stack.Screen 
-        name="IngresarVenta" 
-        component={IngresarVenta}
-        options={{ headerShown: true, title: '✅ Ingresar Venta' }}
-      />
-      <Stack.Screen 
-        name="ReporteVenta" 
-        component={ReporteVenta}
-        options={{ headerShown: true, title: '📊 Reporte de Venta' }}
-      />
-      <Stack.Screen 
-        name="PagarVenta" 
-        component={PagarVenta}
-        options={{ headerShown: true, title: '💳 Pagar Venta' }}
-      />
-      <Stack.Screen 
-        name="VentasPagadas" 
-        component={VentasPagadas}
-        options={{ headerShown: true, title: '🔍 Ventas Pagadas' }}
-      />
+      <Stack.Screen name="Main" component={MainTabs} />
       
       {/* ============================================
           📱 MÓDULO VENTAS - REGISTRADO EN EL STACK
@@ -211,8 +182,3 @@ const AppNavigator = () => {
 };
 
 export default AppNavigator;
-
-
-
-
-

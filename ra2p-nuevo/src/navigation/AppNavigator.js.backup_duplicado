@@ -46,6 +46,12 @@ import SubirRecibo from '../screens/SubirRecibo';
 import DescargarRecibo from '../screens/DescargarRecibo';
 
 // ✅ MÓDULO VENTAS (NUEVO)
+import VentasMenu from '../screens/VentasMenu';
+import NuevaVenta from '../screens/NuevaVenta';
+import IngresarVenta from '../screens/IngresarVenta';
+import ReporteVenta from '../screens/ReporteVenta';
+import PagarVenta from '../screens/PagarVenta';
+import VentasPagadas from '../screens/VentasPagadas';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -211,8 +217,6 @@ const AppNavigator = () => {
 };
 
 export default AppNavigator;
-
-
 
 
 
