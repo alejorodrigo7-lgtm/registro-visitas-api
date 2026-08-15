@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "RA睵",
+    "name": "RA虏P",
     "slug": "ra2p-nuevo",
     "version": "1.0.9",
+    "runtimeVersion": "1.0.9",
     "newArchEnabled": true,
     "updates": {
       "url": "https://u.expo.dev/c498ddad-89aa-41ae-9f7d-e0f2e31df324",
@@ -20,10 +21,12 @@
         "googleMapsApiKey": "AQ.Ab8RN6Kn8LSOqYchqr9n9XFjKn7AVgHuUZ3YxKIEKNzKbLlrng"
       },
       "infoPlist": {
-        "UIBackgroundModes": ["location"],
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "RA睵 necesita acceder a tu ubicaci髇 para mostrar tu posici髇 en el mapa en tiempo real",
-        "NSLocationWhenInUseUsageDescription": "RA睵 necesita acceder a tu ubicaci髇 para mostrar tu posici髇 en el mapa",
-        "NSLocationAlwaysUsageDescription": "RA睵 necesita acceder a tu ubicaci髇 en segundo plano para mantener actualizada tu posici髇"
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "RA虏P necesita acceder a tu ubicaci贸n para mostrar tu posici贸n en el mapa en tiempo real",
+        "NSLocationWhenInUseUsageDescription": "RA虏P necesita acceder a tu ubicaci贸n para mostrar tu posici贸n en el mapa",
+        "NSLocationAlwaysUsageDescription": "RA虏P necesita acceder a tu ubicaci贸n en segundo plano para mantener actualizada tu posici贸n"
       }
     },
     "android": {
@@ -34,6 +37,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.ra2p.app",
+      "googleServicesFile": "./android/app/google-services.json",
       "config": {
         "googleMaps": {
           "apiKey": "AQ.Ab8RN6Kn8LSOqYchqr9n9XFjKn7AVgHuUZ3YxKIEKNzKbLlrng"
@@ -66,9 +70,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "RA睵 necesita acceder a tu ubicaci髇 para mostrar tu posici髇 en el mapa en tiempo real",
-          "locationAlwaysPermission": "RA睵 necesita acceder a tu ubicaci髇 en segundo plano para mantener actualizada tu posici髇",
-          "locationWhenInUsePermission": "RA睵 necesita acceder a tu ubicaci髇 para mostrar tu posici髇 en el mapa"
+          "locationAlwaysAndWhenInUsePermission": "RA虏P necesita acceder a tu ubicaci贸n para mostrar tu posici贸n en el mapa en tiempo real",
+          "locationAlwaysPermission": "RA虏P necesita acceder a tu ubicaci贸n en segundo plano para mantener actualizada tu posici贸n",
+          "locationWhenInUsePermission": "RA虏P necesita acceder a tu ubicaci贸n para mostrar tu posici贸n en el mapa"
         }
       ],
       [
@@ -80,15 +84,15 @@
             "ACCESS_COARSE_LOCATION"
           ]
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      "expo-build-properties"
     ],
     "extra": {
       "eas": {
         "projectId": "c498ddad-89aa-41ae-9f7d-e0f2e31df324"
       }
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
     }
   }
 }
