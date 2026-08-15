@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "726724772516",
+    "project_id": "ra2p-527af",
+    "storage_bucket": "ra2p-527af.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:726724772516:android:1ac71b0c434af653f09c31",
+        "android_client_info": {
+          "package_name": "com.ra2p.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCe-DMoK7ftlRJQqkZoiKozWNu56v-je0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
