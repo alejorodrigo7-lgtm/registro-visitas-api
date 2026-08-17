@@ -70,20 +70,20 @@ const Reportes = ({ navigation }) => {
     try {
       let url = '';
       
-      // 🔥 CONSTRUIR URL SEGÚN TIPO DE REPORTE
+      // 🔥 CONSTRUIR URL SEGÚN TIPO DE REPORTE - CORREGIDO CON /api/
       if (tipoReporte === 'monserrath') {
-        url = `/monserrath/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        url = `/api/monserrath/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtroEstado) url += `&estado=${filtroEstado}`;
         if (filtro) url += `&tecnico=${filtro}`;
       } else if (tipoReporte === 'asistencia') {
-        url = `/asistencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        url = `/api/asistencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtro) url += `&usuario=${filtro}`;
       } else if (tipoReporte === 'ausencias') {
-        url = `/pedir-ausencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        url = `/api/pedir-ausencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtro) url += `&usuario=${filtro}`;
         if (filtroEstado) url += `&estado=${filtroEstado}`;
       } else {
-        url = `/reportes/${tipoReporte}?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        url = `/api/reportes/${tipoReporte}?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtro) url += `&${getFiltroParam()}=${filtro}`;
         if (filtroZona) url += `&zona=${filtroZona}`;
         if (filtroEstado) url += `&estado=${filtroEstado}`;
@@ -126,8 +126,29 @@ const Reportes = ({ navigation }) => {
       }
 
     } catch (error) {
-      console.error('Error al generar reporte:', error);
-      Alert.alert('Error', 'No se pudo generar el reporte: ' + (error.response?.data?.message || error.message));
+      console.error('❌ Error al generar reporte:', error);
+      
+      // Manejo de errores mejorado
+      let errorMessage = 'No se pudo generar el reporte';
+      
+      if (error.response) {
+        // El servidor respondió con un error
+        if (error.response.status === 401) {
+          errorMessage = 'No autorizado. Inicia sesión nuevamente.';
+        } else if (error.response.status === 403) {
+          errorMessage = 'No tienes permisos para generar este reporte.';
+        } else if (error.response.status === 404) {
+          errorMessage = 'El endpoint del reporte no existe. Verifica la URL.';
+        } else {
+          errorMessage = error.response.data?.message || `Error ${error.response.status}`;
+        }
+      } else if (error.request) {
+        errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión.';
+      } else {
+        errorMessage = error.message || 'Error desconocido';
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -286,6 +307,30 @@ const Reportes = ({ navigation }) => {
     return null;
   };
 
+  // Verificar permisos
+  const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
+  if (!isAdminOrJefe) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>📊 Reportes</Text>
+          <Text style={styles.subtitle}>Acceso denegado</Text>
+        </View>
+        <View style={styles.content}>
+          <View style={[styles.form, { alignItems: 'center', padding: 30 }]}>
+            <Text style={{ fontSize: 48, marginBottom: 20 }}>🔒</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3436' }}>
+              Acceso Restringido
+            </Text>
+            <Text style={{ fontSize: 14, color: '#636E72', textAlign: 'center', marginTop: 10 }}>
+              Solo administradores y jefes pueden generar reportes.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -343,7 +388,7 @@ const Reportes = ({ navigation }) => {
           {renderFiltros()}
 
           <TouchableOpacity
-            style={styles.generarButton}
+            style={[styles.generarButton, loading && styles.disabledButton]}
             onPress={generarReporte}
             disabled={loading}
           >
@@ -458,6 +503,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 10,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   monserrathButton: {
     backgroundColor: '#9C27B0',

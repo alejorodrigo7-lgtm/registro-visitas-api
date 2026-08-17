@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -32,11 +33,8 @@ const MenuPrincipal = ({ navigation }) => {
   const [conectado, setConectado] = useState(true);
   const [clientesCargados, setClientesCargados] = useState(false);
   
-  // Estado para diagnóstico
   const [logs, setLogs] = useState([]);
   const [mostrarLogs, setMostrarLogs] = useState(false);
-  
-  // Estado para registro de token
   const [registrandoToken, setRegistrandoToken] = useState(false);
 
   // ============================================
@@ -47,7 +45,6 @@ const MenuPrincipal = ({ navigation }) => {
       setRegistrandoToken(true);
       console.log('📱 Registrando token manualmente...');
       
-      // 1. Solicitar permisos
       const { status } = await Notifications.requestPermissionsAsync();
       console.log('📱 Estado de permisos:', status);
       
@@ -57,14 +54,12 @@ const MenuPrincipal = ({ navigation }) => {
         return;
       }
       
-      // 2. Obtener token
       const token = await Notifications.getExpoPushTokenAsync({
         projectId: 'c498ddad-89aa-41ae-9f7d-e0f2e31df324'
       });
       
       console.log('✅ Token obtenido:', token.data);
       
-      // 3. Guardar en el servidor
       const response = await api.post('/usuarios/guardar-token', {
         pushToken: token.data
       });
@@ -94,7 +89,6 @@ const MenuPrincipal = ({ navigation }) => {
     agregarLog('🚀 INICIANDO DIAGNOSTICO...', 'info');
     
     try {
-      // 1. Verificar permisos
       agregarLog('📱 1. Verificando permisos...', 'info');
       const { status } = await Notifications.getPermissionsAsync();
       agregarLog(`📱 Estado de permisos: ${status}`, status === 'granted' ? 'success' : 'error');
@@ -110,7 +104,6 @@ const MenuPrincipal = ({ navigation }) => {
         }
       }
       
-      // 2. Obtener token
       agregarLog('🔑 2. Obteniendo token...', 'info');
       const token = await Notifications.getExpoPushTokenAsync({
         projectId: 'c498ddad-89aa-41ae-9f7d-e0f2e31df324'
@@ -123,7 +116,6 @@ const MenuPrincipal = ({ navigation }) => {
         return;
       }
       
-      // 3. Guardar en el servidor
       agregarLog('📤 3. Guardando token en servidor...', 'info');
       const response = await api.post('/usuarios/guardar-token', {
         pushToken: token.data
@@ -136,7 +128,6 @@ const MenuPrincipal = ({ navigation }) => {
         agregarLog('❌ Error al guardar en servidor', 'error');
       }
       
-      // 4. Verificar en el servidor
       agregarLog('🔍 4. Verificando en servidor...', 'info');
       const usuariosResponse = await api.get('/usuarios');
       const usuarioActual = usuariosResponse.data.data.find(u => u.email === user?.email);
@@ -231,9 +222,6 @@ const MenuPrincipal = ({ navigation }) => {
   const isAdmin = user?.rol === 'Admin';
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
-  // ============================================
-  // 🎨 FUNCIÓN PARA CAMBIAR TEMA
-  // ============================================
   const toggleTheme = () => {
     if (themeMode === 'light') {
       setTheme('dark');
@@ -284,21 +272,12 @@ const MenuPrincipal = ({ navigation }) => {
       icon: 'construct-outline', 
       show: true 
     },
-    // ✅ MÓDULO VENTAS - AGREGADO
-    { 
-      id: 'VentasMenu', 
-      label: '💰 Ventas', 
-      icon: 'cart-outline', 
-      show: true,
-      badge: 0 
-    },
     { id: 'UsuarioNuevoScreen', label: 'Usuario Nuevo', icon: 'person-add-outline', show: isAdminOrJefe },
     { id: 'CambiarContraseña', label: 'Cambiar Contraseña', icon: 'lock-closed-outline', show: true },
   ];
 
   const visibleItems = menuItems.filter(item => item.show);
 
-  // Colores elegantes - TODOS IGUALES
   const getItemColors = (index) => {
     const colorsList = [
       { bg: '#2C3E50', text: '#FFFFFF' },
@@ -315,7 +294,6 @@ const MenuPrincipal = ({ navigation }) => {
       { bg: '#34495E', text: '#FFFFFF' },
       { bg: '#2C3E50', text: '#FFFFFF' },
       { bg: '#34495E', text: '#FFFFFF' },
-      { bg: '#2C3E50', text: '#FFFFFF' }, // Ventas
     ];
     return colorsList[index % colorsList.length];
   };
@@ -329,13 +307,32 @@ const MenuPrincipal = ({ navigation }) => {
     return user.nombre.substring(0, 2).toUpperCase();
   };
 
+  // ============================================
+  // 🧭 FUNCIÓN DE NAVEGACIÓN - CORREGIDA
+  // ============================================
+  const navigateToScreen = (screenId) => {
+    try {
+      console.log('📍 [NAVEGACIÓN] Navegando a:', screenId);
+      navigation.navigate(screenId);
+      console.log('✅ [NAVEGACIÓN] Navegación a', screenId, 'completada');
+    } catch (error) {
+      console.error('❌ [NAVEGACIÓN] Error navegando a:', screenId, error);
+      try {
+        navigation.navigate(screenId);
+      } catch (e) {
+        console.error('❌ [NAVEGACIÓN] Fallback falló:', e);
+      }
+    }
+  };
+
+  console.log('🚀 [MENU] MenuPrincipal montado');
+  console.log('📱 [MENU] navigation:', navigation ? '✅ existe' : '❌ NO existe');
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
       
-      {/* HEADER - Negro suave #1A1A2E */}
       <View style={[styles.header, { backgroundColor: '#1A1A2E' }]}>
-        {/* Fila superior */}
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={styles.themeButton} onPress={toggleTheme}>
             <Ionicons name={getThemeIcon()} size={13} color="#D4A574" />
@@ -352,7 +349,6 @@ const MenuPrincipal = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* RA²P */}
         <View style={styles.appNameContainer}>
           <Text style={styles.appName}>
             R<Text style={styles.appNameAccent}>A</Text>²P
@@ -361,7 +357,6 @@ const MenuPrincipal = ({ navigation }) => {
           <Text style={styles.appNameSub}>SYSTEM</Text>
         </View>
         
-        {/* Usuario */}
         <View style={styles.userContainer}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
@@ -374,7 +369,6 @@ const MenuPrincipal = ({ navigation }) => {
           </View>
         </View>
         
-        {/* Estado */}
         <View style={styles.syncStatus}>
           <View style={[styles.statusBadge, { backgroundColor: conectado ? 'rgba(46,204,113,0.12)' : 'rgba(255,107,107,0.12)' }]}>
             <View style={[styles.statusDot, { backgroundColor: conectado ? '#2ECC71' : '#FF6B6B' }]} />
@@ -389,7 +383,6 @@ const MenuPrincipal = ({ navigation }) => {
           )}
         </View>
 
-        {/* ✅ BOTÓN REGISTRAR TOKEN - VERDE */}
         <TouchableOpacity
           style={[styles.tokenButton, { backgroundColor: '#00B894' }]}
           onPress={registrarTokenManual}
@@ -401,7 +394,6 @@ const MenuPrincipal = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
 
-        {/* ✅ BOTÓN DIAGNÓSTICO - ROJO */}
         <TouchableOpacity
           style={[styles.tokenButton, { backgroundColor: '#E17055' }]}
           onPress={ejecutarDiagnostico}
@@ -410,7 +402,6 @@ const MenuPrincipal = ({ navigation }) => {
           <Text style={styles.tokenButtonText}>🩺 Diagnóstico Push</Text>
         </TouchableOpacity>
 
-        {/* LOGS DEL DIAGNÓSTICO */}
         {mostrarLogs && (
           <View style={styles.logsContainer}>
             <View style={styles.logsHeader}>
@@ -436,11 +427,19 @@ const MenuPrincipal = ({ navigation }) => {
         )}
       </View>
 
-      {/* MENÚ - TODOS LOS BOTONES IGUALES */}
+      {/* ✅ MODIFICADO: ScrollView con soporte para scroll en web */}
       <ScrollView
         style={styles.menuScrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.menuContentContainer, { backgroundColor: colors.background }]}
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={[
+          styles.menuContentContainer, 
+          { backgroundColor: colors.background },
+          // ✅ NUEVO: Estilos específicos para web
+          Platform.OS === 'web' && styles.webScrollContent
+        ]}
+        // ✅ NUEVO: Props para scroll en web
+        bounces={true}
+        overScrollMode="always"
       >
         {visibleItems.map((item, index) => {
           const colorStyle = getItemColors(index);
@@ -458,7 +457,10 @@ const MenuPrincipal = ({ navigation }) => {
                   shadowOpacity: 0.04,
                 }
               ]}
-              onPress={() => navigation.navigate(item.id)}
+              onPress={() => {
+                console.log(`👆 [MENU] Botón presionado: ${item.id} - ${item.label}`);
+                navigateToScreen(item.id);
+              }}
               activeOpacity={0.7}
             >
               <View style={styles.menuItemLeft}>
@@ -489,7 +491,6 @@ const MenuPrincipal = ({ navigation }) => {
           );
         })}
 
-        {/* Cerrar Sesión */}
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutButton]}
           onPress={handleLogout}
@@ -504,7 +505,6 @@ const MenuPrincipal = ({ navigation }) => {
           <Ionicons name="chevron-forward-outline" size={16} color="rgba(255,255,255,0.25)" />
         </TouchableOpacity>
 
-        {/* Footer */}
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
           <Text style={[styles.lehaim, { color: colors.textSecondary }]}>לחיים</Text>
           <Text style={[styles.footerText, { color: colors.textSecondary }]}>🔥 RA²P v1.0.7 🔥</Text>
@@ -516,9 +516,6 @@ const MenuPrincipal = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  // ============================================
-  // 📋 ESTILOS DE LOGS
-  // ============================================
   logsContainer: {
     backgroundColor: '#1A1A2E',
     borderRadius: 10,
@@ -576,9 +573,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 4,
   },
-  // ============================================
-  // ✅ ESTILOS DE BOTONES
-  // ============================================
   tokenButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -601,9 +595,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  // ============================================
-  // 📱 ESTILOS PRINCIPALES
-  // ============================================
   container: {
     flex: 1,
   },
@@ -761,6 +752,11 @@ const styles = StyleSheet.create({
   },
   menuScrollView: {
     flex: 1,
+  },
+  // ✅ NUEVO: Estilos específicos para web
+  webScrollContent: {
+    minHeight: '100%',
+    paddingBottom: 40,
   },
   menuContentContainer: {
     padding: 14,

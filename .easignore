@@ -1,18 +1,1 @@
-# Excluir archivos innecesarios para ahorrar memoria
-backend/
-mongodb-database-tools-*
-actualizar_kmz.js
-actualizar.js
-clientes_final.csv
-*.kmz
-nuevocsv_*.csv
-*.log
-.git/
-*.md
-*.sqlite
-assets/videos/
-assets/audio/
-node_modules/.cache/
-.expo/
-.idea/
-.vscode/
+﻿!android/app/google-services.json

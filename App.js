@@ -1,18 +1,33 @@
 import React, { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-// ✅ AGREGAR: ThemeProvider
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
-import { setupNotificationListeners } from './src/services/notificationService';
 import { initDatabase } from './src/services/database';
 import { iniciarSincronizacionAutomatica, detenerSincronizacionAutomatica } from './src/services/syncService';
-// ✅ AGREGADO: Servicio de ubicación en tiempo real
 import { iniciarSeguimientoUbicacion, detenerSeguimientoUbicacion } from './src/services/ubicacionService';
-// ✅ AGREGADO: Sistema de actualizaciones OTA
-import { checkUpdateOnStart } from './src/services/updateService';
 import ScreenCaptureBlocker from './src/components/ScreenCaptureBlocker';
+
+// ============================================
+// 📦 IMPORTAR SERVICIOS SEGÚN PLATAFORMA
+// ============================================
+let setupNotificationListeners;
+let checkUpdateOnStart;
+
+if (Platform.OS === 'web') {
+  // Web: usar mocks
+  const notificationServiceWeb = require('./src/services/notificationService.web');
+  setupNotificationListeners = notificationServiceWeb.setupNotificationListeners;
+  checkUpdateOnStart = () => console.log('🌐 OTA updates: no disponibles en web');
+} else {
+  // Nativo: usar servicios reales
+  const notificationService = require('./src/services/notificationService');
+  setupNotificationListeners = notificationService.setupNotificationListeners;
+  const updateService = require('./src/services/updateService');
+  checkUpdateOnStart = updateService.checkUpdateOnStart;
+}
 
 // Pantallas principales
 import RoleSelection from './src/screens/RoleSelection';
@@ -40,7 +55,6 @@ import TomarServicio from './src/screens/TomarServicio';
 import EjecucionServicio from './src/screens/EjecucionServicio';
 import RetroalimentacionServicio from './src/screens/RetroalimentacionServicio';
 import RevisionServicios from './src/screens/RevisionServicios';
-// ✅ AGREGAR: BuscarServicio
 import BuscarServicio from './src/screens/BuscarServicio';
 
 // Cajas
@@ -79,7 +93,7 @@ import GestionAusencias from './src/screens/GestionAusencias';
 import ReporteAsistencia from './src/screens/ReporteAsistencia';
 import ReporteAusencias from './src/screens/ReporteAusencias';
 
-// ✅ Usuarios - CAMBIADO DE CrearUsuario a CrearCliente
+// Usuarios
 import CrearCliente from './src/screens/CrearCliente';
 import CambiarContraseña from './src/screens/CambiarContraseña';
 
@@ -89,10 +103,26 @@ import CambiarContraseña from './src/screens/CambiarContraseña';
 import DesconexionesMenu from './src/screens/DesconexionesMenu';
 import RegistrarDesconexion from './src/screens/RegistrarDesconexion';
 import RegistrarReconexion from './src/screens/RegistrarReconexion';
-// ✅ CORREGIDO: Ejecucion en lugar de EjecucionDesconexiones
 import Ejecucion from './src/screens/Ejecucion';
-// ✅ CORREGIDO: BuscarDesRec en lugar de BuscarDesconexiones
 import BuscarDesRec from './src/screens/BuscarDesRec';
+
+// ============================================
+// 📄 SOLICITAR RECIBO
+// ============================================
+import SolicitarReciboMenu from './src/screens/SolicitarReciboMenu';
+import SolicitarRecibo from './src/screens/SolicitarRecibo';
+import SubirRecibo from './src/screens/SubirRecibo';
+import DescargarRecibo from './src/screens/DescargarRecibo';
+
+// ============================================
+// 📦 RECUPERACIÓN DE EQUIPOS
+// ============================================
+import RecuperacionMenu from './src/screens/RecuperacionMenu';
+import SubirOrden from './src/screens/SubirOrden';
+import EjecutarOrden from './src/screens/EjecutarOrden';
+import PendientesRetirar from './src/screens/PendientesRetirar';
+import Retirados from './src/screens/Retirados';
+import RevisarOrdenes from './src/screens/RevisarOrdenes';
 
 const Stack = createStackNavigator();
 
@@ -130,7 +160,6 @@ const ThemedNavigation = () => {
         <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
         <Stack.Screen name="MenuPrincipal" component={MenuPrincipal} options={{ title: 'RA²P', headerLeft: null }} />
         
-        {/* ✅ NUEVAS PANTALLAS */}
         <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: '📊 Dashboard' }} />
         <Stack.Screen name="Notificaciones" component={NotificacionesScreen} options={{ title: '🔔 Notificaciones' }} />
         
@@ -150,7 +179,6 @@ const ThemedNavigation = () => {
         <Stack.Screen name="EjecucionServicio" component={EjecucionServicio} options={{ title: 'Ejecución' }} />
         <Stack.Screen name="RetroalimentacionServicio" component={RetroalimentacionServicio} options={{ title: 'Retroalimentación' }} />
         <Stack.Screen name="RevisionServicios" component={RevisionServicios} options={{ title: 'Revisar Servicios' }} />
-        {/* ✅ BuscarServicio */}
         <Stack.Screen name="BuscarServicio" component={BuscarServicio} options={{ title: '🔍 Buscar Servicio' }} />
 
         <Stack.Screen name="CajasMenu" component={CajasMenu} options={{ title: 'Cajas' }} />
@@ -183,20 +211,29 @@ const ThemedNavigation = () => {
         <Stack.Screen name="ReporteAsistencia" component={ReporteAsistencia} options={{ title: 'Reporte Asistencia' }} />
         <Stack.Screen name="ReporteAusencias" component={ReporteAusencias} options={{ title: 'Reporte Ausencias' }} />
 
-        {/* ✅ CORREGIDO: UsuarioNuevoScreen */}
         <Stack.Screen name="UsuarioNuevoScreen" component={CrearCliente} options={{ title: 'Crear Usuario' }} />
         <Stack.Screen name="CambiarContraseña" component={CambiarContraseña} options={{ title: 'Cambiar Contraseña' }} />
 
-        {/* ============================================
-            🔌 DESCONEXIONES/RECONEXIONES (CORREGIDO)
-            ============================================ */}
+        {/* DESCONEXIONES/RECONEXIONES */}
         <Stack.Screen name="DesconexionesMenu" component={DesconexionesMenu} options={{ title: '🔌 Desconexiones/Reconexiones' }} />
         <Stack.Screen name="RegistrarDesconexion" component={RegistrarDesconexion} options={{ title: '1️⃣ Registrar Desconexión' }} />
         <Stack.Screen name="RegistrarReconexion" component={RegistrarReconexion} options={{ title: '2️⃣ Registrar Reconexión' }} />
-        {/* ✅ CORREGIDO: Ejecucion */}
         <Stack.Screen name="Ejecucion" component={Ejecucion} options={{ title: '3️⃣ Ejecución' }} />
-        {/* ✅ CORREGIDO: BuscarDesRec */}
         <Stack.Screen name="BuscarDesRec" component={BuscarDesRec} options={{ title: '4️⃣ Buscar Des/Rec' }} />
+
+        {/* SOLICITAR RECIBO */}
+        <Stack.Screen name="SolicitarReciboMenu" component={SolicitarReciboMenu} options={{ title: '📄 Solicitar Recibo' }} />
+        <Stack.Screen name="SolicitarRecibo" component={SolicitarRecibo} options={{ title: '📝 Solicitar Recibo' }} />
+        <Stack.Screen name="SubirRecibo" component={SubirRecibo} options={{ title: '📤 Subir Recibo' }} />
+        <Stack.Screen name="DescargarRecibo" component={DescargarRecibo} options={{ title: '📥 Descargar Recibo' }} />
+
+        {/* RECUPERACIÓN DE EQUIPOS */}
+        <Stack.Screen name="RecuperacionMenu" component={RecuperacionMenu} options={{ title: '📦 Recuperación de Equipos' }} />
+        <Stack.Screen name="SubirOrden" component={SubirOrden} options={{ title: '📤 Subir Orden' }} />
+        <Stack.Screen name="EjecutarOrden" component={EjecutarOrden} options={{ title: '⚙️ Ejecutar Orden' }} />
+        <Stack.Screen name="PendientesRetirar" component={PendientesRetirar} options={{ title: '⏳ Pendientes por Retirar' }} />
+        <Stack.Screen name="Retirados" component={Retirados} options={{ title: '✅ Retirados' }} />
+        <Stack.Screen name="RevisarOrdenes" component={RevisarOrdenes} options={{ title: '📋 Revisar Órdenes' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -208,6 +245,7 @@ const ThemedNavigation = () => {
 const AppInitializer = ({ children }) => {
   const { user } = useAuth();
   const syncUnsubscribeRef = useRef(null);
+  const locationWatchIdRef = useRef(null);
 
   useEffect(() => {
     const inicializarApp = async () => {
@@ -218,17 +256,25 @@ const AppInitializer = ({ children }) => {
         if (user) {
           console.log('👤 Usuario autenticado:', user.email);
           
-          // 🔄 Sincronización automática
-          console.log('🔄 Iniciando sincronización automática...');
-          syncUnsubscribeRef.current = await iniciarSincronizacionAutomatica((result) => {
-            if (result.sincronizados > 0) {
-              console.log(`✅ ${result.sincronizados} elementos sincronizados`);
-            }
-          });
+          // 🔄 Sincronización automática (solo en nativo)
+          if (Platform.OS !== 'web') {
+            console.log('🔄 Iniciando sincronización automática...');
+            syncUnsubscribeRef.current = await iniciarSincronizacionAutomatica((result) => {
+              if (result.sincronizados > 0) {
+                console.log(`✅ ${result.sincronizados} elementos sincronizados`);
+              }
+            });
+          } else {
+            console.log('🌐 Sincronización automática: no disponible en web');
+          }
           
-          // 📍 Iniciar ubicación en tiempo real
-          console.log('📍 Iniciando ubicación en tiempo real...');
-          await iniciarSeguimientoUbicacion();
+          // 📍 Iniciar ubicación en tiempo real (solo en nativo)
+          if (Platform.OS !== 'web') {
+            console.log('📍 Iniciando ubicación en tiempo real...');
+            locationWatchIdRef.current = await iniciarSeguimientoUbicacion();
+          } else {
+            console.log('🌐 Ubicación en tiempo real: no disponible en web (usar geolocation manual)');
+          }
         }
       } catch (error) {
         console.error('❌ Error al inicializar app:', error);
@@ -241,9 +287,12 @@ const AppInitializer = ({ children }) => {
       if (syncUnsubscribeRef.current) {
         syncUnsubscribeRef.current();
       }
-      detenerSincronizacionAutomatica();
-      // ✅ Detener ubicación al cerrar
-      detenerSeguimientoUbicacion();
+      if (Platform.OS !== 'web') {
+        detenerSincronizacionAutomatica();
+        detenerSeguimientoUbicacion();
+      } else {
+        console.log('🌐 Limpieza de servicios web completada');
+      }
     };
   }, [user]);
 
@@ -255,21 +304,44 @@ const AppInitializer = ({ children }) => {
 // ============================================
 export default function App() {
   useEffect(() => {
-    // Notificaciones
-    const { subscription, responseSubscription } = setupNotificationListeners();
+    // 📱 Notificaciones (solo en nativo)
+    let subscription = null;
+    let responseSubscription = null;
+
+    if (Platform.OS !== 'web') {
+      const result = setupNotificationListeners();
+      if (result) {
+        subscription = result.subscription;
+        responseSubscription = result.responseSubscription;
+      }
+    } else {
+      console.log('🌐 Notificaciones: no disponibles en web');
+      // Intentar registrar para notificaciones web (opcional)
+      if ('Notification' in window && Notification.permission === 'granted') {
+        console.log('🌐 Notificaciones web disponibles');
+      }
+    }
     
-    // ✅ Verificar actualizaciones OTA al iniciar
-    checkUpdateOnStart();
+    // ✅ Verificar actualizaciones OTA al iniciar (solo en nativo)
+    if (Platform.OS !== 'web') {
+      checkUpdateOnStart();
+    } else {
+      console.log('🌐 OTA updates: no disponibles en web');
+    }
     
     return () => {
-      subscription?.remove();
-      responseSubscription?.remove();
+      if (subscription) {
+        subscription?.remove();
+      }
+      if (responseSubscription) {
+        responseSubscription?.remove();
+      }
     };
   }, []);
 
   return (
     <AuthProvider>
-      <ThemeProvider>  {/* ✅ ThemeProvider DENTRO de AuthProvider */}
+      <ThemeProvider>
         <StatusBar style="auto" />
         <AppInitializer>
           <ScreenCaptureBlocker>
