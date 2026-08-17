@@ -1,241 +1,47 @@
-import * as SQLite from 'expo-sqlite';
+// src/services/database.js
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
-let db;
+// ============================================
+// IMPORTAR MÓDULOS SEGÚN PLATAFORMA
+// ============================================
+let SQLite;
+let WebSQLite;
+
+if (Platform.OS === 'web') {
+  WebSQLite = require('../utils/expo-sqlite.mock').default;
+  SQLite = WebSQLite;
+  console.log('🌐 Usando mock de SQLite para web');
+} else {
+  SQLite = require('expo-sqlite');
+  console.log('📱 Usando SQLite nativo');
+}
+
+let dbInstance = null;
+let dbInitialized = false;
 
 // ============================================
 // 🗄️ INICIALIZAR BASE DE DATOS
 // ============================================
 export const initDatabase = async () => {
   try {
-    const isFirstTime = await AsyncStorage.getItem('@db_initialized');
-    
-    db = await SQLite.openDatabaseAsync('registro_visitas.db');
-    
-    if (!isFirstTime) {
-      await db.execAsync(`
-        PRAGMA journal_mode = WAL;
-        
-        -- ============================================
-        -- 📋 VISITAS
-        -- ============================================
-        CREATE TABLE IF NOT EXISTS visitas_pendientes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          cliente TEXT NOT NULL,
-          identificador TEXT NOT NULL,
-          barrio TEXT NOT NULL,
-          direccion TEXT NOT NULL,
-          telefono TEXT NOT NULL,
-          tipo TEXT NOT NULL,
-          monto REAL DEFAULT 0,
-          observaciones TEXT NOT NULL,
-          foto TEXT,
-          tecnico TEXT NOT NULL,
-          tecnicoNombre TEXT NOT NULL,
-          ubicacion_lat REAL,
-          ubicacion_lng REAL,
-          ubicacion_address TEXT,
-          fecha_creacion TEXT NOT NULL,
-          sincronizado INTEGER DEFAULT 0,
-          intentos INTEGER DEFAULT 0,
-          error TEXT
-        );
-        
-        -- ============================================
-        -- 💰 TRANSFERENCIAS
-        -- ============================================
-        CREATE TABLE IF NOT EXISTS transferencias_pendientes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          cliente TEXT NOT NULL,
-          identificador TEXT NOT NULL,
-          barrio TEXT NOT NULL,
-          direccion TEXT NOT NULL,
-          telefono TEXT NOT NULL,
-          monto REAL NOT NULL,
-          metodo TEXT NOT NULL,
-          banco TEXT,
-          numero_cuenta TEXT,
-          titular TEXT,
-          observaciones TEXT,
-          foto_comprobante TEXT,
-          tecnico TEXT NOT NULL,
-          tecnicoNombre TEXT NOT NULL,
-          ubicacion_lat REAL,
-          ubicacion_lng REAL,
-          ubicacion_address TEXT,
-          fecha_creacion TEXT NOT NULL,
-          sincronizado INTEGER DEFAULT 0,
-          intentos INTEGER DEFAULT 0,
-          error TEXT
-        );
-        
-        -- ============================================
-        -- 🛠️ SERVICIOS
-        -- ============================================
-        CREATE TABLE IF NOT EXISTS servicios_pendientes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          cliente TEXT NOT NULL,
-          identificador TEXT NOT NULL,
-          barrio TEXT NOT NULL,
-          direccion TEXT NOT NULL,
-          telefono TEXT NOT NULL,
-          tipo_servicio TEXT NOT NULL,
-          descripcion TEXT NOT NULL,
-          materiales TEXT,
-          tiempo_estimado INTEGER,
-          prioridad TEXT DEFAULT 'Normal',
-          tecnico TEXT NOT NULL,
-          tecnicoNombre TEXT NOT NULL,
-          ubicacion_lat REAL,
-          ubicacion_lng REAL,
-          ubicacion_address TEXT,
-          fecha_creacion TEXT NOT NULL,
-          sincronizado INTEGER DEFAULT 0,
-          intentos INTEGER DEFAULT 0,
-          error TEXT
-        );
-        
-        -- ============================================
-        -- 💰 CAJAS
-        -- ============================================
-        CREATE TABLE IF NOT EXISTS cajas_pendientes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          tipo TEXT NOT NULL,
-          monto REAL NOT NULL,
-          descripcion TEXT NOT NULL,
-          categoria TEXT NOT NULL,
-          metodo TEXT NOT NULL,
-          referencia TEXT,
-          tecnico TEXT NOT NULL,
-          tecnicoNombre TEXT NOT NULL,
-          ubicacion_lat REAL,
-          ubicacion_lng REAL,
-          ubicacion_address TEXT,
-          fecha_creacion TEXT NOT NULL,
-          sincronizado INTEGER DEFAULT 0,
-          intentos INTEGER DEFAULT 0,
-          error TEXT
-        );
-        
-        -- ============================================
-        -- 🏪 BODEGAS
-        -- ============================================
-        CREATE TABLE IF NOT EXISTS bodegas_pendientes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          nombre TEXT NOT NULL,
-          ubicacion TEXT NOT NULL,
-          responsable TEXT NOT NULL,
-          telefono TEXT NOT NULL,
-          tipo TEXT NOT NULL,
-          capacidad TEXT,
-          observaciones TEXT,
-          tecnico TEXT NOT NULL,
-          tecnicoNombre TEXT NOT NULL,
-          ubicacion_lat REAL,
-          ubicacion_lng REAL,
-          ubicacion_address TEXT,
-          fecha_creacion TEXT NOT NULL,
-          sincronizado INTEGER DEFAULT 0,
-          intentos INTEGER DEFAULT 0,
-          error TEXT
-        );
-        
-        -- ============================================
-        -- 📋 HORARIOS
-        -- ============================================
-        CREATE TABLE IF NOT EXISTS horarios_pendientes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          tecnico TEXT NOT NULL,
-          tecnicoNombre TEXT NOT NULL,
-          dia_semana TEXT NOT NULL,
-          hora_inicio TEXT NOT NULL,
-          hora_fin TEXT NOT NULL,
-          tipo TEXT DEFAULT 'Normal',
-          ubicacion TEXT,
-          observaciones TEXT,
-          fecha_creacion TEXT NOT NULL,
-          sincronizado INTEGER DEFAULT 0,
-          intentos INTEGER DEFAULT 0,
-          error TEXT
-        );
-        
-        -- ============================================
-        -- 👥 USUARIOS (CACHE)
-        -- ============================================
-        CREATE TABLE IF NOT EXISTS usuarios_cache (
-          id TEXT PRIMARY KEY,
-          nombre TEXT NOT NULL,
-          email TEXT NOT NULL,
-          rol TEXT NOT NULL,
-          telefono TEXT,
-          fecha_actualizacion TEXT NOT NULL
-        );
-        
-        -- ============================================
-        -- 📋 CLIENTES (CACHE)
-        -- ============================================
-        CREATE TABLE IF NOT EXISTS clientes_cache (
-          id TEXT PRIMARY KEY,
-          nombre TEXT NOT NULL,
-          identificador TEXT NOT NULL,
-          barrio TEXT NOT NULL,
-          direccion TEXT NOT NULL,
-          telefono TEXT NOT NULL,
-          fecha_actualizacion TEXT NOT NULL
-        );
-        
-        -- ============================================
-        -- ÍNDICES
-        -- ============================================
-        CREATE INDEX IF NOT EXISTS idx_visitas_sincronizado ON visitas_pendientes(sincronizado);
-        CREATE INDEX IF NOT EXISTS idx_transferencias_sincronizado ON transferencias_pendientes(sincronizado);
-        CREATE INDEX IF NOT EXISTS idx_servicios_sincronizado ON servicios_pendientes(sincronizado);
-        CREATE INDEX IF NOT EXISTS idx_cajas_sincronizado ON cajas_pendientes(sincronizado);
-        CREATE INDEX IF NOT EXISTS idx_bodegas_sincronizado ON bodegas_pendientes(sincronizado);
-        CREATE INDEX IF NOT EXISTS idx_horarios_sincronizado ON horarios_pendientes(sincronizado);
-        CREATE INDEX IF NOT EXISTS idx_clientes_identificador ON clientes_cache(identificador);
-        CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes_cache(nombre);
-      `);
-      
-      await AsyncStorage.setItem('@db_initialized', 'true');
-      console.log('✅ Base de datos local inicializada');
+    if (dbInitialized && dbInstance) {
+      console.log('✅ Base de datos ya inicializada');
+      return dbInstance;
     }
-    
-    // ============================================
-    // 🔧 VERIFICAR/CREAR TABLA MONSERRATH
-    // ============================================
-    try {
-      await db.execAsync(`
-        CREATE TABLE IF NOT EXISTS monserrath_pendientes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          cliente TEXT NOT NULL,
-          identificador TEXT NOT NULL,
-          barrio TEXT NOT NULL,
-          direccion TEXT NOT NULL,
-          telefono TEXT NOT NULL,
-          fecha TEXT NOT NULL,
-          hora_llegada TEXT NOT NULL,
-          hora_salida TEXT NOT NULL,
-          material_usado TEXT,
-          observaciones TEXT,
-          tecnico TEXT NOT NULL,
-          tecnicoNombre TEXT NOT NULL,
-          ubicacion_lat REAL,
-          ubicacion_lng REAL,
-          ubicacion_address TEXT,
-          sincronizado INTEGER DEFAULT 0,
-          intentos INTEGER DEFAULT 0,
-          error TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_monserrath_sincronizado ON monserrath_pendientes(sincronizado);
-      `);
-      console.log('✅ Tabla monserrath_pendientes verificada/creada');
-    } catch (error) {
-      console.error('❌ Error creando tabla monserrath_pendientes:', error);
+
+    if (Platform.OS === 'web') {
+      console.log('🌐 Abriendo base de datos web (localStorage)');
+      dbInstance = await SQLite.openDatabaseAsync('registro_visitas.db');
+    } else {
+      console.log('📱 Abriendo base de datos nativa');
+      dbInstance = await SQLite.openDatabaseAsync('registro_visitas.db');
     }
-    
-    return db;
+
+    dbInitialized = true;
+    console.log('✅ Base de datos local inicializada');
+    return dbInstance;
   } catch (error) {
     console.error('❌ Error al inicializar BD:', error);
     throw error;
@@ -243,34 +49,240 @@ export const initDatabase = async () => {
 };
 
 // ============================================
+// 📋 FUNCIONES DE COMPATIBILIDAD
+// ============================================
+
+export const getDb = async () => {
+  if (!dbInitialized) {
+    await initDatabase();
+  }
+  return dbInstance;
+};
+
+export const executeQuery = async (sql, params = []) => {
+  const db = await getDb();
+  
+  if (Platform.OS === 'web') {
+    if (sql.toLowerCase().includes('select')) {
+      return await db.getAllAsync(sql, params);
+    } else {
+      return await db.runAsync(sql, params);
+    }
+  } else {
+    return new Promise((resolve, reject) => {
+      db.transaction(tx => {
+        tx.executeSql(
+          sql,
+          params,
+          (_, result) => resolve(result),
+          (_, error) => reject(error)
+        );
+      });
+    });
+  }
+};
+
+// ============================================
+// 📋 CONTAR PENDIENTES
+// ============================================
+const contarPendientesFn = async () => {
+  try {
+    let total = 0;
+    try {
+      const sql = 'SELECT COUNT(*) as total FROM visitas_pendientes WHERE sincronizado = 0';
+      const result = await executeQuery(sql);
+      if (Platform.OS === 'web') {
+        total = result?.total || 0;
+      } else {
+        total = result?.rows?.item(0)?.total || 0;
+      }
+    } catch (e) {
+      console.log('⚠️ Tabla visitas_pendientes no existe aún');
+    }
+    return { total };
+  } catch (error) {
+    console.error('❌ Error contando pendientes:', error);
+    return { total: 0 };
+  }
+};
+
+// ============================================
+// 🔄 SINCRONIZAR CLIENTES
+// ============================================
+const sincronizarClientesFn = async (apiInstance) => {
+  try {
+    console.log('🔄 Sincronizando clientes...');
+    const api = apiInstance || (await import('./api')).default;
+    
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      console.log('📋 Sin conexión, usando caché local');
+      const clientes = await getClientesCacheFn();
+      return { success: true, count: clientes.length, cache: true };
+    }
+    
+    const response = await api.get('/clientes/todos');
+    if (response.data.success) {
+      const clientes = response.data.data || [];
+      console.log(`✅ ${clientes.length} clientes sincronizados`);
+      await guardarClientesCacheFn(clientes);
+      return { success: true, count: clientes.length, cache: false };
+    }
+    return { success: false, error: 'Error al obtener clientes' };
+  } catch (error) {
+    console.error('❌ Error sincronizando clientes:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ============================================
+// 📋 CACHE DE CLIENTES (TODAS USAN executeQuery)
+// ============================================
+const getClientesCacheFn = async () => {
+  try {
+    const sql = 'SELECT * FROM clientes_cache ORDER BY nombre ASC';
+    const result = await executeQuery(sql);
+    
+    if (Platform.OS === 'web') {
+      return result || [];
+    } else {
+      const rows = [];
+      if (result?.rows) {
+        for (let i = 0; i < result.rows.length; i++) {
+          rows.push(result.rows.item(i));
+        }
+      }
+      return rows;
+    }
+  } catch (error) {
+    console.error('❌ Error obteniendo clientes caché:', error);
+    return [];
+  }
+};
+
+const guardarClientesCacheFn = async (clientes) => {
+  try {
+    for (const cliente of clientes) {
+      const id = cliente._id || cliente.id;
+      if (!id) continue;
+      
+      const sql = `
+        INSERT OR REPLACE INTO clientes_cache 
+        (id, nombre, identificador, barrio, direccion, telefono, fecha_actualizacion)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+      
+      const params = [
+        id,
+        cliente.nombre || '',
+        cliente.identificador || '',
+        cliente.barrio || '',
+        cliente.direccion || '',
+        cliente.telefono || '',
+        new Date().toISOString(),
+      ];
+      
+      await executeQuery(sql, params);
+    }
+    console.log(`✅ ${clientes.length} clientes guardados en caché`);
+  } catch (error) {
+    console.error('❌ Error guardando clientes caché:', error);
+  }
+};
+
+const contarClientesCacheFn = async () => {
+  try {
+    const sql = 'SELECT COUNT(*) as total FROM clientes_cache';
+    const result = await executeQuery(sql);
+    
+    if (Platform.OS === 'web') {
+      return result?.total || 0;
+    } else {
+      return result?.rows?.item(0)?.total || 0;
+    }
+  } catch (error) {
+    console.error('❌ Error contando clientes caché:', error);
+    return 0;
+  }
+};
+
+const buscarClienteCacheFn = async (identificador) => {
+  try {
+    const sql = 'SELECT * FROM clientes_cache WHERE identificador = ?';
+    const result = await executeQuery(sql, [identificador]);
+    
+    if (Platform.OS === 'web') {
+      return result || null;
+    } else {
+      return result?.rows?.item(0) || null;
+    }
+  } catch (error) {
+    console.error('❌ Error buscando cliente en caché:', error);
+    return null;
+  }
+};
+
+const buscarClientesPorNombreCacheFn = async (texto) => {
+  try {
+    const sql = `
+      SELECT * FROM clientes_cache 
+      WHERE nombre LIKE ? OR identificador LIKE ? 
+      ORDER BY nombre ASC LIMIT 20
+    `;
+    const params = [`%${texto}%`, `%${texto}%`];
+    const result = await executeQuery(sql, params);
+    
+    if (Platform.OS === 'web') {
+      return result || [];
+    } else {
+      const rows = [];
+      if (result?.rows) {
+        for (let i = 0; i < result.rows.length; i++) {
+          rows.push(result.rows.item(i));
+        }
+      }
+      return rows;
+    }
+  } catch (error) {
+    console.error('❌ Error buscando clientes por nombre:', error);
+    return [];
+  }
+};
+
+// ============================================
 // 📋 GUARDAR VISITA OFFLINE
 // ============================================
-export const guardarVisitaOffline = async (data) => {
+const guardarVisitaOfflineFn = async (data) => {
   try {
-    if (!db) await initDatabase();
-    
-    const {
-      cliente, identificador, barrio, direccion, telefono, tipo, monto,
-      observaciones, foto, tecnico, tecnicoNombre, ubicacion,
-    } = data;
-    
-    const result = await db.runAsync(
-      `INSERT INTO visitas_pendientes (
+    const sql = `
+      INSERT INTO visitas_pendientes (
         cliente, identificador, barrio, direccion, telefono, tipo, monto,
         observaciones, foto, tecnico, tecnicoNombre,
         ubicacion_lat, ubicacion_lng, ubicacion_address,
         fecha_creacion, sincronizado
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-      [
-        cliente, identificador, barrio, direccion, telefono, tipo, monto || 0,
-        observaciones, foto || null, tecnico, tecnicoNombre || 'Usuario',
-        ubicacion?.latitude || null, ubicacion?.longitude || null, ubicacion?.address || null,
-        new Date().toISOString(),
-      ]
-    );
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    `;
     
-    console.log(`✅ Visita guardada offline ID: ${result.lastInsertRowId}`);
-    return result;
+    const params = [
+      data.cliente || '',
+      data.identificador || '',
+      data.barrio || '',
+      data.direccion || '',
+      data.telefono || '',
+      data.tipo || 'Visita',
+      data.monto || 0,
+      data.observaciones || '',
+      data.foto || null,
+      data.tecnico || '',
+      data.tecnicoNombre || 'Usuario',
+      data.ubicacion?.latitude || null,
+      data.ubicacion?.longitude || null,
+      data.ubicacion?.address || null,
+      new Date().toISOString(),
+    ];
+    
+    const result = await executeQuery(sql, params);
+    return { lastInsertRowId: result?.insertId || Date.now() };
   } catch (error) {
     console.error('❌ Error guardando visita offline:', error);
     throw error;
@@ -280,35 +292,38 @@ export const guardarVisitaOffline = async (data) => {
 // ============================================
 // 📋 GUARDAR MONSERRATH OFFLINE
 // ============================================
-export const guardarMonserrathOffline = async (data) => {
+const guardarMonserrathOfflineFn = async (data) => {
   try {
-    if (!db) await initDatabase();
-    
-    const {
-      cliente, identificador, barrio, direccion, telefono,
-      fecha, hora_llegada, hora_salida, material_usado,
-      observaciones, tecnico, tecnicoNombre, ubicacion,
-    } = data;
-    
-    const result = await db.runAsync(
-      `INSERT INTO monserrath_pendientes (
+    const sql = `
+      INSERT INTO monserrath_pendientes (
         cliente, identificador, barrio, direccion, telefono,
         fecha, hora_llegada, hora_salida, material_usado,
         observaciones, tecnico, tecnicoNombre,
         ubicacion_lat, ubicacion_lng, ubicacion_address,
         sincronizado
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-      [
-        cliente, identificador, barrio, direccion, telefono,
-        fecha || new Date().toISOString(), hora_llegada, hora_salida,
-        material_usado || '', observaciones || '',
-        tecnico, tecnicoNombre || 'Usuario',
-        ubicacion?.latitude || null, ubicacion?.longitude || null, ubicacion?.address || null,
-      ]
-    );
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    `;
     
-    console.log(`✅ Monserrath guardado offline ID: ${result.lastInsertRowId}`);
-    return result;
+    const params = [
+      data.cliente || '',
+      data.identificador || '',
+      data.barrio || '',
+      data.direccion || '',
+      data.telefono || '',
+      data.fecha || new Date().toISOString(),
+      data.hora_llegada || '',
+      data.hora_salida || '',
+      data.material_usado || '',
+      data.observaciones || '',
+      data.tecnico || '',
+      data.tecnicoNombre || 'Usuario',
+      data.ubicacion?.latitude || null,
+      data.ubicacion?.longitude || null,
+      data.ubicacion?.address || null,
+    ];
+    
+    const result = await executeQuery(sql, params);
+    return { lastInsertRowId: result?.insertId || Date.now() };
   } catch (error) {
     console.error('❌ Error guardando Monserrath offline:', error);
     throw error;
@@ -316,238 +331,67 @@ export const guardarMonserrathOffline = async (data) => {
 };
 
 // ============================================
-// 📋 CACHE DE CLIENTES - GUARDAR
-// ============================================
-export const guardarClientesCache = async (clientes) => {
-  try {
-    if (!db) await initDatabase();
-    
-    for (const cliente of clientes) {
-      await db.runAsync(
-        `INSERT OR REPLACE INTO clientes_cache 
-        (id, nombre, identificador, barrio, direccion, telefono, fecha_actualizacion)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          cliente._id || cliente.id,
-          cliente.nombre || '',
-          cliente.identificador || '',
-          cliente.barrio || '',
-          cliente.direccion || '',
-          cliente.telefono || '',
-          new Date().toISOString(),
-        ]
-      );
-    }
-    console.log(`✅ ${clientes.length} clientes guardados en caché`);
-  } catch (error) {
-    console.error('❌ Error guardando clientes caché:', error);
-  }
-};
-
-// ============================================
-// 📋 CACHE DE CLIENTES - OBTENER TODOS
-// ============================================
-export const getClientesCache = async () => {
-  try {
-    if (!db) await initDatabase();
-    const result = await db.getAllAsync('SELECT * FROM clientes_cache ORDER BY nombre ASC');
-    return result;
-  } catch (error) {
-    console.error('❌ Error obteniendo clientes caché:', error);
-    return [];
-  }
-};
-
-// ============================================
-// 📋 CACHE DE CLIENTES - CONTAR
-// ============================================
-export const contarClientesCache = async () => {
-  try {
-    if (!db) await initDatabase();
-    const result = await db.getFirstAsync('SELECT COUNT(*) as total FROM clientes_cache');
-    return result?.total || 0;
-  } catch (error) {
-    console.error('❌ Error contando clientes caché:', error);
-    return 0;
-  }
-};
-
-// ============================================
-// 📋 CACHE DE CLIENTES - BUSCAR POR IDENTIFICADOR
-// ============================================
-export const buscarClienteCache = async (identificador) => {
-  try {
-    if (!db) await initDatabase();
-    let result = await db.getFirstAsync(
-      'SELECT * FROM clientes_cache WHERE identificador = ?',
-      [identificador]
-    );
-    
-    if (!result) {
-      const resultados = await db.getAllAsync(
-        `SELECT * FROM clientes_cache 
-         WHERE identificador LIKE ? OR nombre LIKE ? 
-         ORDER BY nombre ASC LIMIT 1`,
-        [`%${identificador}%`, `%${identificador}%`]
-      );
-      if (resultados.length > 0) {
-        result = resultados[0];
-      }
-    }
-    
-    return result;
-  } catch (error) {
-    console.error('❌ Error buscando cliente en caché:', error);
-    return null;
-  }
-};
-
-// ============================================
-// 📋 CACHE DE CLIENTES - BUSCAR POR NOMBRE
-// ============================================
-export const buscarClientesPorNombreCache = async (texto) => {
-  try {
-    if (!db) await initDatabase();
-    const result = await db.getAllAsync(
-      `SELECT * FROM clientes_cache 
-       WHERE nombre LIKE ? OR identificador LIKE ? 
-       ORDER BY nombre ASC LIMIT 20`,
-      [`%${texto}%`, `%${texto}%`]
-    );
-    return result;
-  } catch (error) {
-    console.error('❌ Error buscando clientes por nombre:', error);
-    return [];
-  }
-};
-
-// ============================================
-// 🔄 SINCRONIZAR CLIENTES (TODOS - SIN LÍMITE)
-// ============================================
-let sincronizandoClientes = false;
-
-export const sincronizarClientes = async (apiInstance) => {
-  if (sincronizandoClientes) {
-    console.log('⏳ Sincronización de clientes ya en progreso...');
-    const clientes = await getClientesCache();
-    return { success: true, count: clientes.length, cache: true };
-  }
-  
-  sincronizandoClientes = true;
-  
-  try {
-    if (!db) await initDatabase();
-    
-    const netInfo = await NetInfo.fetch();
-    if (!netInfo.isConnected) {
-      console.log('📋 Sin conexión, usando caché local');
-      const clientes = await getClientesCache();
-      sincronizandoClientes = false;
-      return { success: true, count: clientes.length, cache: true };
-    }
-    
-    console.log('🔄 Sincronizando TODOS los clientes desde servidor...');
-    
-    const api = apiInstance || require('./api').default;
-    const response = await api.get('/clientes/todos');
-    
-    if (response.data.success) {
-      const clientes = response.data.data || [];
-      console.log(`📋 Recibidos ${clientes.length} clientes del servidor`);
-      
-      const batchSize = 500;
-      let guardados = 0;
-      for (let i = 0; i < clientes.length; i += batchSize) {
-        const batch = clientes.slice(i, i + batchSize);
-        await guardarClientesCache(batch);
-        guardados += batch.length;
-        console.log(`✅ Lote ${Math.floor(i / batchSize) + 1}: ${batch.length} clientes (${guardados} total)`);
-      }
-      
-      console.log(`✅ ${clientes.length} clientes sincronizados en caché`);
-      sincronizandoClientes = false;
-      return { success: true, count: clientes.length, cache: false };
-    }
-    sincronizandoClientes = false;
-    return { success: false, error: 'Error al obtener clientes' };
-  } catch (error) {
-    console.error('❌ Error sincronizando clientes:', error);
-    sincronizandoClientes = false;
-    const clientes = await getClientesCache();
-    return { success: true, count: clientes.length, cache: true, error: error.message };
-  }
-};
-
-// ============================================
-// 📊 CONTAR PENDIENTES
-// ============================================
-export const contarPendientes = async () => {
-  try {
-    if (!db) await initDatabase();
-    
-    const visitas = await db.getFirstAsync('SELECT COUNT(*) as total FROM visitas_pendientes WHERE sincronizado = 0');
-    const monserrath = await db.getFirstAsync('SELECT COUNT(*) as total FROM monserrath_pendientes WHERE sincronizado = 0');
-    const transferencias = await db.getFirstAsync('SELECT COUNT(*) as total FROM transferencias_pendientes WHERE sincronizado = 0');
-    const servicios = await db.getFirstAsync('SELECT COUNT(*) as total FROM servicios_pendientes WHERE sincronizado = 0');
-    const cajas = await db.getFirstAsync('SELECT COUNT(*) as total FROM cajas_pendientes WHERE sincronizado = 0');
-    const bodegas = await db.getFirstAsync('SELECT COUNT(*) as total FROM bodegas_pendientes WHERE sincronizado = 0');
-    const horarios = await db.getFirstAsync('SELECT COUNT(*) as total FROM horarios_pendientes WHERE sincronizado = 0');
-    
-    return {
-      visitas: visitas?.total || 0,
-      monserrath: monserrath?.total || 0,
-      transferencias: transferencias?.total || 0,
-      servicios: servicios?.total || 0,
-      cajas: cajas?.total || 0,
-      bodegas: bodegas?.total || 0,
-      horarios: horarios?.total || 0,
-      total: (visitas?.total || 0) + (monserrath?.total || 0) + (transferencias?.total || 0) + 
-             (servicios?.total || 0) + (cajas?.total || 0) + (bodegas?.total || 0) + (horarios?.total || 0),
-    };
-  } catch (error) {
-    console.error('❌ Error contando pendientes:', error);
-    return { visitas: 0, monserrath: 0, transferencias: 0, servicios: 0, cajas: 0, bodegas: 0, horarios: 0, total: 0 };
-  }
-};
-
-// ============================================
 // 📋 OBTENER TODAS LAS PENDIENTES
 // ============================================
-export const getTodasPendientes = async () => {
+const getTodasPendientesFn = async () => {
   try {
-    if (!db) await initDatabase();
+    const tables = [
+      { name: 'visitas_pendientes', key: 'visitas' },
+      { name: 'monserrath_pendientes', key: 'monserrath' },
+      { name: 'transferencias_pendientes', key: 'transferencias' },
+      { name: 'servicios_pendientes', key: 'servicios' },
+      { name: 'cajas_pendientes', key: 'cajas' },
+      { name: 'bodegas_pendientes', key: 'bodegas' },
+      { name: 'horarios_pendientes', key: 'horarios' },
+    ];
     
-    const visitas = await db.getAllAsync('SELECT *, "visita" as modulo FROM visitas_pendientes WHERE sincronizado = 0');
-    const monserrath = await db.getAllAsync('SELECT *, "monserrath" as modulo FROM monserrath_pendientes WHERE sincronizado = 0');
-    const transferencias = await db.getAllAsync('SELECT *, "transferencia" as modulo FROM transferencias_pendientes WHERE sincronizado = 0');
-    const servicios = await db.getAllAsync('SELECT *, "servicio" as modulo FROM servicios_pendientes WHERE sincronizado = 0');
-    const cajas = await db.getAllAsync('SELECT *, "caja" as modulo FROM cajas_pendientes WHERE sincronizado = 0');
-    const bodegas = await db.getAllAsync('SELECT *, "bodega" as modulo FROM bodegas_pendientes WHERE sincronizado = 0');
-    const horarios = await db.getAllAsync('SELECT *, "horario" as modulo FROM horarios_pendientes WHERE sincronizado = 0');
+    const result = {};
+    let total = 0;
     
-    return {
-      visitas,
-      monserrath,
-      transferencias,
-      servicios,
-      cajas,
-      bodegas,
-      horarios,
-      total: visitas.length + monserrath.length + transferencias.length + 
-             servicios.length + cajas.length + bodegas.length + horarios.length,
-    };
+    for (const table of tables) {
+      try {
+        const sql = `SELECT * FROM ${table.name} WHERE sincronizado = 0`;
+        const rows = await executeQuery(sql);
+        
+        let items = [];
+        if (Platform.OS === 'web') {
+          items = rows || [];
+        } else {
+          if (rows?.rows) {
+            for (let i = 0; i < rows.rows.length; i++) {
+              items.push(rows.rows.item(i));
+            }
+          }
+        }
+        result[table.key] = items;
+        total += items.length;
+      } catch (e) {
+        result[table.key] = [];
+      }
+    }
+    result.total = total;
+    return result;
   } catch (error) {
     console.error('❌ Error obteniendo pendientes:', error);
-    return { visitas: [], monserrath: [], transferencias: [], servicios: [], cajas: [], bodegas: [], horarios: [], total: 0 };
+    return {
+      visitas: [],
+      monserrath: [],
+      transferencias: [],
+      servicios: [],
+      cajas: [],
+      bodegas: [],
+      horarios: [],
+      total: 0
+    };
   }
 };
 
 // ============================================
-// 🔄 SINCRONIZAR VISITAS Y MONSERRATH PENDIENTES
+// 🔄 SINCRONIZAR VISITAS
 // ============================================
-export const sincronizarVisitas = async (apiInstance) => {
+const sincronizarVisitasFn = async (apiInstance) => {
   try {
-    const pendientes = await getTodasPendientes();
+    const pendientes = await getTodasPendientesFn();
     const total = pendientes.total;
     
     if (total === 0) {
@@ -556,14 +400,10 @@ export const sincronizarVisitas = async (apiInstance) => {
     }
     
     console.log(`🔄 Sincronizando ${total} elementos...`);
-    
-    const api = apiInstance || require('./api').default;
+    const api = apiInstance || (await import('./api')).default;
     let sincronizados = 0;
     let errores = 0;
     
-    // ============================================
-    // 📋 Sincronizar Visitas
-    // ============================================
     for (const item of pendientes.visitas) {
       try {
         const data = {
@@ -587,236 +427,12 @@ export const sincronizarVisitas = async (apiInstance) => {
         
         const response = await api.post('/visitas', data);
         if (response.data.success) {
-          await db.runAsync('UPDATE visitas_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
+          const sql = 'UPDATE visitas_pendientes SET sincronizado = 1 WHERE id = ?';
+          await executeQuery(sql, [item.id]);
           sincronizados++;
         }
       } catch (error) {
         errores++;
-        await db.runAsync(
-          'UPDATE visitas_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
-          [error.message, item.id]
-        );
-      }
-    }
-    
-    // ============================================
-    // 📋 Sincronizar Monserrath
-    // ============================================
-    for (const item of pendientes.monserrath) {
-      try {
-        const data = {
-          cliente: item.cliente,
-          identificador: item.identificador,
-          barrio: item.barrio,
-          direccion: item.direccion,
-          telefono: item.telefono,
-          fecha: item.fecha,
-          hora_llegada: item.hora_llegada,
-          hora_salida: item.hora_salida,
-          material_usado: item.material_usado || '',
-          observaciones: item.observaciones || '',
-          tecnico: item.tecnico,
-          ubicacion: {
-            latitude: item.ubicacion_lat,
-            longitude: item.ubicacion_lng,
-            address: item.ubicacion_address,
-          },
-          offline: true,
-        };
-        
-        const response = await api.post('/monserrath', data);
-        if (response.data.success) {
-          await db.runAsync('UPDATE monserrath_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
-          sincronizados++;
-        }
-      } catch (error) {
-        errores++;
-        await db.runAsync(
-          'UPDATE monserrath_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
-          [error.message, item.id]
-        );
-      }
-    }
-    
-    // ============================================
-    // 💰 Sincronizar Transferencias
-    // ============================================
-    for (const item of pendientes.transferencias) {
-      try {
-        const data = {
-          cliente: item.cliente,
-          identificador: item.identificador,
-          barrio: item.barrio,
-          direccion: item.direccion,
-          telefono: item.telefono,
-          monto: item.monto,
-          metodo: item.metodo,
-          banco: item.banco,
-          numero_cuenta: item.numero_cuenta,
-          titular: item.titular,
-          observaciones: item.observaciones,
-          foto_comprobante: item.foto_comprobante || '',
-          tecnico: item.tecnico,
-          ubicacion: {
-            latitude: item.ubicacion_lat,
-            longitude: item.ubicacion_lng,
-            address: item.ubicacion_address,
-          },
-          offline: true,
-        };
-        
-        const response = await api.post('/transferencias', data);
-        if (response.data.success) {
-          await db.runAsync('UPDATE transferencias_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
-          sincronizados++;
-        }
-      } catch (error) {
-        errores++;
-        await db.runAsync(
-          'UPDATE transferencias_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
-          [error.message, item.id]
-        );
-      }
-    }
-    
-    // ============================================
-    // 🛠️ Sincronizar Servicios
-    // ============================================
-    for (const item of pendientes.servicios) {
-      try {
-        const data = {
-          cliente: item.cliente,
-          identificador: item.identificador,
-          barrio: item.barrio,
-          direccion: item.direccion,
-          telefono: item.telefono,
-          tipo_servicio: item.tipo_servicio,
-          descripcion: item.descripcion,
-          materiales: item.materiales,
-          tiempo_estimado: item.tiempo_estimado,
-          prioridad: item.prioridad,
-          tecnico: item.tecnico,
-          ubicacion: {
-            latitude: item.ubicacion_lat,
-            longitude: item.ubicacion_lng,
-            address: item.ubicacion_address,
-          },
-          offline: true,
-        };
-        
-        const response = await api.post('/servicios', data);
-        if (response.data.success) {
-          await db.runAsync('UPDATE servicios_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
-          sincronizados++;
-        }
-      } catch (error) {
-        errores++;
-        await db.runAsync(
-          'UPDATE servicios_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
-          [error.message, item.id]
-        );
-      }
-    }
-    
-    // ============================================
-    // 💰 Sincronizar Cajas
-    // ============================================
-    for (const item of pendientes.cajas) {
-      try {
-        const data = {
-          tipo: item.tipo,
-          monto: item.monto,
-          descripcion: item.descripcion,
-          categoria: item.categoria,
-          metodo: item.metodo,
-          referencia: item.referencia,
-          tecnico: item.tecnico,
-          ubicacion: {
-            latitude: item.ubicacion_lat,
-            longitude: item.ubicacion_lng,
-            address: item.ubicacion_address,
-          },
-          offline: true,
-        };
-        
-        const response = await api.post('/cajas', data);
-        if (response.data.success) {
-          await db.runAsync('UPDATE cajas_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
-          sincronizados++;
-        }
-      } catch (error) {
-        errores++;
-        await db.runAsync(
-          'UPDATE cajas_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
-          [error.message, item.id]
-        );
-      }
-    }
-    
-    // ============================================
-    // 🏪 Sincronizar Bodegas
-    // ============================================
-    for (const item of pendientes.bodegas) {
-      try {
-        const data = {
-          nombre: item.nombre,
-          ubicacion: item.ubicacion,
-          responsable: item.responsable,
-          telefono: item.telefono,
-          tipo: item.tipo,
-          capacidad: item.capacidad,
-          observaciones: item.observaciones,
-          tecnico: item.tecnico,
-          ubicacion_data: {
-            latitude: item.ubicacion_lat,
-            longitude: item.ubicacion_lng,
-            address: item.ubicacion_address,
-          },
-          offline: true,
-        };
-        
-        const response = await api.post('/bodegas', data);
-        if (response.data.success) {
-          await db.runAsync('UPDATE bodegas_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
-          sincronizados++;
-        }
-      } catch (error) {
-        errores++;
-        await db.runAsync(
-          'UPDATE bodegas_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
-          [error.message, item.id]
-        );
-      }
-    }
-    
-    // ============================================
-    // 📋 Sincronizar Horarios
-    // ============================================
-    for (const item of pendientes.horarios) {
-      try {
-        const data = {
-          tecnico: item.tecnico,
-          tecnicoNombre: item.tecnicoNombre,
-          dia_semana: item.dia_semana,
-          hora_inicio: item.hora_inicio,
-          hora_fin: item.hora_fin,
-          tipo: item.tipo,
-          ubicacion: item.ubicacion,
-          observaciones: item.observaciones,
-          offline: true,
-        };
-        
-        const response = await api.post('/horarios', data);
-        if (response.data.success) {
-          await db.runAsync('UPDATE horarios_pendientes SET sincronizado = 1 WHERE id = ?', [item.id]);
-          sincronizados++;
-        }
-      } catch (error) {
-        errores++;
-        await db.runAsync(
-          'UPDATE horarios_pendientes SET intentos = intentos + 1, error = ? WHERE id = ?',
-          [error.message, item.id]
-        );
       }
     }
     
@@ -831,17 +447,38 @@ export const sincronizarVisitas = async (apiInstance) => {
 // ============================================
 // 📦 EXPORTAR
 // ============================================
-export default {
+export const db = {
+  getDb,
   initDatabase,
-  guardarVisitaOffline,
-  guardarMonserrathOffline,
-  contarPendientes,
-  getTodasPendientes,
-  sincronizarVisitas,
-  sincronizarClientes,
-  getClientesCache,
-  contarClientesCache,
-  buscarClienteCache,
-  buscarClientesPorNombreCache,
-  guardarClientesCache,
+  executeQuery,
+};
+
+// Exportar con nombres que espera MenuPrincipal
+export const contarPendientes = contarPendientesFn;
+export const sincronizarClientes = sincronizarClientesFn;
+export const getClientesCache = getClientesCacheFn;
+export const guardarClientesCache = guardarClientesCacheFn;
+export const contarClientesCache = contarClientesCacheFn;
+export const buscarClienteCache = buscarClienteCacheFn;
+export const buscarClientesPorNombreCache = buscarClientesPorNombreCacheFn;
+export const guardarVisitaOffline = guardarVisitaOfflineFn;
+export const guardarMonserrathOffline = guardarMonserrathOfflineFn;
+export const getTodasPendientes = getTodasPendientesFn;
+export const sincronizarVisitas = sincronizarVisitasFn;
+
+export default {
+  getDb,
+  initDatabase,
+  executeQuery,
+  contarPendientes: contarPendientesFn,
+  sincronizarClientes: sincronizarClientesFn,
+  getClientesCache: getClientesCacheFn,
+  guardarClientesCache: guardarClientesCacheFn,
+  contarClientesCache: contarClientesCacheFn,
+  buscarClienteCache: buscarClienteCacheFn,
+  buscarClientesPorNombreCache: buscarClientesPorNombreCacheFn,
+  guardarVisitaOffline: guardarVisitaOfflineFn,
+  guardarMonserrathOffline: guardarMonserrathOfflineFn,
+  getTodasPendientes: getTodasPendientesFn,
+  sincronizarVisitas: sincronizarVisitasFn,
 };

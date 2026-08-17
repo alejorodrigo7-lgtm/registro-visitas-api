@@ -3,6 +3,7 @@
     "name": "RA²P",
     "slug": "ra2p-nuevo",
     "version": "1.0.9",
+    "runtimeVersion": "1.0.9",
     "newArchEnabled": true,
     "updates": {
       "url": "https://u.expo.dev/c498ddad-89aa-41ae-9f7d-e0f2e31df324",
@@ -92,9 +93,6 @@
       "eas": {
         "projectId": "c498ddad-89aa-41ae-9f7d-e0f2e31df324"
       }
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
     }
   }
 }

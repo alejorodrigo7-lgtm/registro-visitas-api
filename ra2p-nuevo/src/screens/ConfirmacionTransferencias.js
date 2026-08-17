@@ -26,10 +26,35 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
   const cargarTransferencias = async () => {
     try {
+      console.log('🔍 Cargando transferencias...');
       const response = await api.get('/transferencias/estado/SUBIDA');
-      setTransferencias(response.data.data || []);
+      
+      // 🔥 CORRECCIÓN: La respuesta es directamente el array
+      console.log('📦 Respuesta completa:', response.data);
+      
+      // ✅ Si es array directo, usarlo
+      if (Array.isArray(response.data)) {
+        setTransferencias(response.data);
+        console.log('✅ Transferencias cargadas (array directo):', response.data.length);
+      } 
+      // ✅ Si tiene propiedad data (respaldo)
+      else if (response.data?.data && Array.isArray(response.data.data)) {
+        setTransferencias(response.data.data);
+        console.log('✅ Transferencias cargadas (data.data):', response.data.data.length);
+      } 
+      // ✅ Si tiene propiedad transferencias
+      else if (response.data?.transferencias && Array.isArray(response.data.transferencias)) {
+        setTransferencias(response.data.transferencias);
+        console.log('✅ Transferencias cargadas (transferencias):', response.data.transferencias.length);
+      } 
+      else {
+        console.warn('⚠️ Formato desconocido:', response.data);
+        setTransferencias([]);
+      }
+      
     } catch (error) {
-      console.error('Error al cargar transferencias:', error);
+      console.error('❌ Error al cargar transferencias:', error);
+      console.error('❌ Detalles:', error.response?.data);
       Alert.alert('Error', 'No se pudieron cargar las transferencias');
     } finally {
       setLoading(false);
@@ -230,7 +255,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                   <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado}</Text>
                 </View>
 
-                {/* ✅ IMAGEN DEL COMPROBANTE - VERIFICA AMBOS CAMPOS */}
+                {/* ✅ IMAGEN DEL COMPROBANTE */}
                 {(() => {
                   const imagenData = getImagen(transferenciaSeleccionada);
                   if (imagenData) {

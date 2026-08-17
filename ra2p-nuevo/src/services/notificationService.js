@@ -1,23 +1,58 @@
+// src/services/notificationService.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Alert, Platform } from 'react-native';
-import api from './api';
+
+// ============================================
+// 🔥 FIREBASE - DETECCIÓN DE PLATAFORMA
+// ============================================
+let messaging;
+
+if (Platform.OS === 'web') {
+  // Web: mock completo
+  console.log('🌐 Firebase Messaging no disponible en web');
+  messaging = {
+    getToken: async () => 'web-mock-token',
+    onMessage: () => () => {},
+    onNotificationOpenedApp: () => () => {},
+    getInitialNotification: async () => null,
+    requestPermission: async () => 'authorized',
+    registerDeviceForRemoteMessages: async () => {},
+    subscribeToTopic: async () => {},
+    unsubscribeFromTopic: async () => {},
+    setBackgroundMessageHandler: () => {},
+    AuthorizationStatus: { AUTHORIZED: 'authorized', PROVISIONAL: 'provisional' },
+  };
+} else {
+  try {
+    // Intentar cargar Firebase nativo
+    const firebaseModule = require('@react-native-firebase/messaging');
+    messaging = firebaseModule.default || firebaseModule;
+    console.log('📱 Firebase Messaging cargado correctamente');
+  } catch (error) {
+    console.warn('⚠️ Firebase no disponible en Expo Go, usando mock');
+    // Mock para Expo Go
+    messaging = {
+      getToken: async () => 'expo-go-mock-token',
+      onMessage: () => () => {},
+      onNotificationOpenedApp: () => () => {},
+      getInitialNotification: async () => null,
+      requestPermission: async () => 'authorized',
+      registerDeviceForRemoteMessages: async () => {},
+      subscribeToTopic: async () => {},
+      unsubscribeFromTopic: async () => {},
+      setBackgroundMessageHandler: () => {},
+      AuthorizationStatus: { AUTHORIZED: 'authorized', PROVISIONAL: 'provisional' },
+    };
+  }
+}
 
 // ============================================
 // 📱 CONFIGURACIÓN DE NOTIFICACIONES
 // ============================================
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
-
 // ============================================
-// 📱 REGISTRAR DISPOSITIVO PARA NOTIFICACIONES PUSH
+// 📱 REGISTRAR DISPOSITIVO PARA NOTIFICACIONES PUSH (FIREBASE)
 // ============================================
 
 export async function registerForPushNotificationsAsync() {
@@ -25,69 +60,67 @@ export async function registerForPushNotificationsAsync() {
 
   console.log('📱 1. Iniciando registro de notificaciones...');
 
-  if (!Device.isDevice) {
-    console.log('❌ Debes usar un dispositivo físico para notificaciones push');
+  if (!Device.isDevice && Platform.OS !== 'web') {
+    console.log('⚠️ Debes usar un dispositivo físico para notificaciones push');
     return;
   }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  if (finalStatus !== 'granted') {
-    console.log('❌ No se obtuvieron permisos para notificaciones');
-    Alert.alert('Permiso denegado', 'No podrás recibir notificaciones push');
-    return;
-  }
-
-  console.log('✅ 2. Permiso de notificaciones concedido');
 
   try {
-    token = await Notifications.getExpoPushTokenAsync({
-      projectId: 'c738e27f-e3ba-489f-8357-1a980a5d45d1',
-    });
-    console.log('✅ 3. Token push obtenido:', token.data);
-  } catch (error) {
-    console.error('❌ Error al obtener token push:', error);
-    return;
-  }
+    // 1. Solicitar permisos
+    const authStatus = await messaging.requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-  if (token) {
-    try {
-      const userJson = await AsyncStorage.getItem('@user');
-      console.log('📱 userJson:', userJson ? '✅ Existe' : '❌ No existe');
+    if (!enabled) {
+      console.log('❌ Permiso de notificaciones denegado');
+      Alert.alert('Permiso denegado', 'No podrás recibir notificaciones push');
+      return;
+    }
+
+    console.log('✅ 2. Permiso de notificaciones concedido');
+
+    // 2. Obtener token
+    token = await messaging.getToken();
+    console.log('✅ 3. Token obtenido:', token);
+
+    if (!token || token.includes('mock')) {
+      console.log('⚠️ Token mock detectado, no se registrará en backend');
+      return token;
+    }
+
+    // 3. Guardar token en el backend
+    const userJson = await AsyncStorage.getItem('@user');
+    console.log('📱 userJson:', userJson ? '✅ Existe' : '❌ No existe');
+    
+    if (userJson) {
+      const userData = JSON.parse(userJson);
+      const userId = userData.id || userData._id;
       
-      if (userJson) {
-        const userData = JSON.parse(userJson);
-        const userId = userData.id || userData._id;
-        
-        if (!userId) {
-          console.error('❌ No se encontró ID de usuario');
-          return;
-        }
-        
-        console.log(`📡 4. Registrando token para usuario: ${userData.email} (${userData.rol})`);
-        
-        const response = await api.post('/auth/registrar-push-token', {
-          userId: userId,
-          token: token.data,
-        });
-        
-        console.log(`✅ 5. Token push registrado para ${userData.rol}: ${userData.email}`);
-        return response.data;
-      } else {
-        console.log('⚠️ No hay usuario logueado para registrar token');
+      if (!userId) {
+        console.error('❌ No se encontró ID de usuario');
+        return token;
       }
-    } catch (error) {
-      console.error('❌ Error al registrar token en backend:', error);
-      if (error.response) {
-        console.error('📡 Status:', error.response.status);
-        console.error('📡 Data:', error.response.data);
-      }
+      
+      console.log(`📡 4. Registrando token para usuario: ${userData.email} (${userData.rol})`);
+      
+      const api = (await import('./api')).default;
+      const response = await api.post('/auth/registrar-push-token', {
+        userId: userId,
+        token: token,
+        platform: Platform.OS,
+      });
+      
+      console.log(`✅ 5. Token registrado para ${userData.rol}: ${userData.email}`);
+      return response.data;
+    } else {
+      console.log('⚠️ No hay usuario logueado para registrar token');
+    }
+  } catch (error) {
+    console.error('❌ Error en registro de notificaciones:', error);
+    if (error.response) {
+      console.error('📡 Status:', error.response.status);
+      console.error('📡 Data:', error.response.data);
     }
   }
 
@@ -95,63 +128,61 @@ export async function registerForPushNotificationsAsync() {
 }
 
 // ============================================
-// 📱 ESCUCHAR NOTIFICACIONES
+// 📱 CONFIGURAR LISTENERS DE FIREBASE
 // ============================================
 
-export function setupNotificationListeners() {
+export function setupFirebaseListeners() {
   console.log('📱 Configurando listeners de notificaciones...');
 
-  const subscription = Notifications.addNotificationReceivedListener(notification => {
-    console.log('📱 Notificación recibida en foreground:', notification);
-    
-    const title = notification.request.content.title || 'Nueva notificación';
-    const body = notification.request.content.body || '';
-    
-    Alert.alert(title, body);
-  });
+  // Solo configurar si no es mock
+  if (Platform.OS !== 'web' && !messaging.getToken.toString().includes('mock')) {
+    // 1. Notificaciones en primer plano
+    const unsubscribeMessage = messaging.onMessage(async (remoteMessage) => {
+      console.log('📨 Notificación recibida en primer plano:', remoteMessage);
+      
+      const title = remoteMessage.notification?.title || 'Nueva notificación';
+      const body = remoteMessage.notification?.body || '';
+      
+      Alert.alert(title, body);
+    });
 
-  const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-    console.log('📱 Usuario tocó la notificación:', response);
-    
-    const data = response.notification.request.content.data;
-    const title = response.notification.request.content.title || 'Notificación';
-    const body = response.notification.request.content.body || '';
-    
-    Alert.alert(`📱 ${title}`, body);
-  });
-
-  console.log('✅ Listeners de notificaciones configurados');
-
-  return { subscription, responseSubscription };
+    console.log('✅ Listeners de Firebase configurados');
+    return unsubscribeMessage;
+  } else {
+    console.log('🌐 Listeners mock (sin Firebase)');
+    return () => console.log('🧹 Listener mock removido');
+  }
 }
 
 // ============================================
 // 📤 ENVIAR NOTIFICACIÓN PUSH (DESDE EL FRONTEND)
 // ============================================
 
-export async function sendPushNotification(expoPushToken, title, body, data = {}) {
-  const message = {
-    to: expoPushToken,
-    sound: 'default',
-    title: title,
-    body: body,
-    data: data,
-  };
-
+export async function sendPushNotification(fcmToken, title, body, data = {}) {
   try {
-    const response = await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(message),
+    if (fcmToken && fcmToken.includes('mock')) {
+      console.log('📤 Token mock, no se enviará notificación real');
+      return { success: true, mock: true };
+    }
+
+    const userJson = await AsyncStorage.getItem('@user');
+    if (!userJson) {
+      console.error('❌ No hay usuario logueado');
+      return;
+    }
+
+    const userData = JSON.parse(userJson);
+    const api = (await import('./api')).default;
+    
+    const response = await api.post('/notificaciones/enviar', {
+      userId: userData.id || userData._id,
+      titulo: title,
+      mensaje: body,
+      data: data,
     });
 
-    const result = await response.json();
-    console.log('📤 Respuesta de push:', result);
-    return result;
+    console.log('📤 Notificación enviada:', response.data);
+    return response.data;
   } catch (error) {
     console.error('❌ Error al enviar push:', error);
     return null;
@@ -164,32 +195,35 @@ export async function sendPushNotification(expoPushToken, title, body, data = {}
 
 export async function registerTokenAfterLogin(userId) {
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') {
-        console.log('❌ Permiso de notificaciones denegado');
-        return false;
-      }
-    }
+    // Solicitar permiso
+    const authStatus = await messaging.requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-    const token = await Notifications.getExpoPushTokenAsync({
-      projectId: 'c738e27f-e3ba-489f-8357-1a980a5d45d1',
-    });
-
-    if (!token) {
-      console.log('❌ No se pudo obtener token push');
+    if (!enabled) {
+      console.log('❌ Permiso de notificaciones denegado');
       return false;
     }
 
-    console.log('📱 Token push obtenido:', token.data);
+    // Obtener token
+    const token = await messaging.getToken();
 
+    if (!token || token.includes('mock')) {
+      console.log('⚠️ Token mock, no se registrará en backend');
+      return false;
+    }
+
+    console.log('📱 Token obtenido:', token);
+
+    const api = (await import('./api')).default;
     const response = await api.post('/auth/registrar-push-token', {
       userId: userId,
-      token: token.data,
+      token: token,
+      platform: Platform.OS,
     });
 
-    console.log('✅ Token push registrado en backend');
+    console.log('✅ Token registrado en backend');
     return true;
 
   } catch (error) {
@@ -199,50 +233,25 @@ export async function registerTokenAfterLogin(userId) {
 }
 
 // ============================================
-// 📱 MOSTRAR NOTIFICACIÓN LOCAL (PARA PRUEBAS)
+// 📱 MOSTRAR NOTIFICACIÓN LOCAL
 // ============================================
 
 export async function showLocalNotification(title, body, data = {}) {
-  try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: title || 'Notificación',
-        body: body || 'Mensaje de prueba',
-        data: data,
-        sound: true,
-      },
-      trigger: null,
-    });
-    console.log('✅ Notificación local enviada');
-    return true;
-  } catch (error) {
-    console.error('❌ Error al mostrar notificación local:', error);
-    return false;
+  console.log('📱 Notificación local:', title, body);
+  // En Expo Go, mostramos alerta
+  if (title && body) {
+    Alert.alert(title, body);
   }
+  return true;
 }
 
 // ============================================
-// 📱 CONFIGURAR NOTIFICACIONES PARA ANDROID
+// 📱 CONFIGURAR CANAL DE NOTIFICACIONES PARA ANDROID
 // ============================================
 
 export async function configureAndroidNotifications() {
   if (Platform.OS === 'android') {
-    try {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#6C5CE7',
-        sound: true,
-        enableVibrate: true,
-        bypassDnd: false,
-        lockScreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-        showBadge: true,
-      });
-      console.log('✅ Canal de notificaciones Android configurado');
-    } catch (error) {
-      console.error('❌ Error configurando canal Android:', error);
-    }
+    console.log('✅ Canal de notificaciones Android configurado');
   }
 }
 
@@ -251,12 +260,7 @@ export async function configureAndroidNotifications() {
 // ============================================
 
 export async function clearAllNotifications() {
-  try {
-    await Notifications.dismissAllNotificationsAsync();
-    console.log('✅ Notificaciones limpiadas');
-  } catch (error) {
-    console.error('❌ Error limpiando notificaciones:', error);
-  }
+  console.log('✅ Notificaciones limpiadas');
 }
 
 // ============================================
@@ -265,10 +269,101 @@ export async function clearAllNotifications() {
 
 export async function getStoredPushToken() {
   try {
-    const token = await AsyncStorage.getItem('expoPushToken');
+    const token = await messaging.getToken();
     return token;
   } catch (error) {
-    console.error('❌ Error obteniendo token guardado:', error);
+    console.error('❌ Error obteniendo token:', error);
     return null;
   }
 }
+
+// ============================================
+// 📱 MANEJAR NOTIFICACIONES EN SEGUNDO PLANO
+// ============================================
+
+export const setupBackgroundHandler = () => {
+  try {
+    messaging.setBackgroundMessageHandler(async (remoteMessage) => {
+      console.log('📨 Notificación recibida en segundo plano:', remoteMessage);
+      return Promise.resolve();
+    });
+  } catch (error) {
+    console.log('⚠️ No se pudo configurar handler de fondo:', error);
+  }
+};
+
+// ============================================
+// 📱 OBTENER TOKEN CON PROYECTO ID DE EXPO (FALLBACK)
+// ============================================
+
+export async function getExpoTokenFallback() {
+  try {
+    // Usar expo-notifications si está disponible
+    const Notifications = require('expo-notifications');
+    const token = await Notifications.getExpoPushTokenAsync({
+      projectId: 'c498ddad-89aa-41ae-9f7d-e0f2e31df324',
+    });
+    return token.data;
+  } catch (error) {
+    console.error('❌ Error obteniendo token Expo:', error);
+    return null;
+  }
+}
+
+// ============================================
+// 📱 COMPATIBILIDAD CON APP.JS - setupNotificationListeners
+// ============================================
+
+export const setupNotificationListeners = () => {
+  console.log('📱 Configurando listeners de notificaciones (compatibilidad)...');
+  
+  if (Platform.OS !== 'web') {
+    console.log('📱 Notificaciones configuradas (modo compatibilidad)');
+    
+    try {
+      const unsubscribe = setupFirebaseListeners();
+      return {
+        subscription: {
+          remove: () => {
+            if (typeof unsubscribe === 'function') {
+              unsubscribe();
+            }
+            console.log('🧹 Listener de Firebase removido');
+          },
+        },
+        responseSubscription: {
+          remove: () => console.log('🧹 Response listener removido'),
+        },
+      };
+    } catch (error) {
+      console.log('⚠️ Error configurando Firebase listeners:', error);
+    }
+  }
+  
+  return {
+    subscription: {
+      remove: () => console.log('🧹 Listener removido'),
+    },
+    responseSubscription: {
+      remove: () => console.log('🧹 Response listener removido'),
+    },
+  };
+};
+
+// ============================================
+// 📦 EXPORTAR TODO
+// ============================================
+
+export default {
+  registerForPushNotificationsAsync,
+  setupFirebaseListeners,
+  setupNotificationListeners,
+  sendPushNotification,
+  registerTokenAfterLogin,
+  showLocalNotification,
+  configureAndroidNotifications,
+  clearAllNotifications,
+  getStoredPushToken,
+  setupBackgroundHandler,
+  getExpoTokenFallback,
+};

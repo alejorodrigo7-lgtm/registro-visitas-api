@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -312,12 +313,10 @@ const MenuPrincipal = ({ navigation }) => {
   const navigateToScreen = (screenId) => {
     try {
       console.log('📍 [NAVEGACIÓN] Navegando a:', screenId);
-      // ✅ navigation ya viene del Stack Navigator
       navigation.navigate(screenId);
       console.log('✅ [NAVEGACIÓN] Navegación a', screenId, 'completada');
     } catch (error) {
       console.error('❌ [NAVEGACIÓN] Error navegando a:', screenId, error);
-      // Fallback: intentar nuevamente
       try {
         navigation.navigate(screenId);
       } catch (e) {
@@ -428,10 +427,19 @@ const MenuPrincipal = ({ navigation }) => {
         )}
       </View>
 
+      {/* ✅ MODIFICADO: ScrollView con soporte para scroll en web */}
       <ScrollView
         style={styles.menuScrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.menuContentContainer, { backgroundColor: colors.background }]}
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={[
+          styles.menuContentContainer, 
+          { backgroundColor: colors.background },
+          // ✅ NUEVO: Estilos específicos para web
+          Platform.OS === 'web' && styles.webScrollContent
+        ]}
+        // ✅ NUEVO: Props para scroll en web
+        bounces={true}
+        overScrollMode="always"
       >
         {visibleItems.map((item, index) => {
           const colorStyle = getItemColors(index);
@@ -744,6 +752,11 @@ const styles = StyleSheet.create({
   },
   menuScrollView: {
     flex: 1,
+  },
+  // ✅ NUEVO: Estilos específicos para web
+  webScrollContent: {
+    minHeight: '100%',
+    paddingBottom: 40,
   },
   menuContentContainer: {
     padding: 14,
