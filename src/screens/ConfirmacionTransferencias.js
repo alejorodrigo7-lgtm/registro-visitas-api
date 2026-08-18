@@ -8,58 +8,122 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
+    Platform,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 
 const ConfirmacionTransferencias = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [transferencias, setTransferencias] = useState([]);
+  const [transferenciasFiltradas, setTransferenciasFiltradas] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null);
 
+  // ✅ ESTADOS PARA BÚSQUEDA
+  const [searchText, setSearchText] = useState('');
+  const [filtroFecha, setFiltroFecha] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [filtroActivo, setFiltroActivo] = useState(false);
+
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
+  // ============================================
+  // 📋 CARGAR TRANSFERENCIAS
+  // ============================================
   const cargarTransferencias = async () => {
     try {
       console.log('🔍 Cargando transferencias...');
       const response = await api.get('/transferencias/estado/SUBIDA');
       
-      // 🔥 CORRECCIÓN: La respuesta es directamente el array
-      console.log('📦 Respuesta completa:', response.data);
+      console.log('📦 Respuesta:', response.data);
       
-      // ✅ Si es array directo, usarlo
+      let datos = [];
       if (Array.isArray(response.data)) {
-        setTransferencias(response.data);
-        console.log('✅ Transferencias cargadas (array directo):', response.data.length);
-      } 
-      // ✅ Si tiene propiedad data (respaldo)
-      else if (response.data?.data && Array.isArray(response.data.data)) {
-        setTransferencias(response.data.data);
-        console.log('✅ Transferencias cargadas (data.data):', response.data.data.length);
-      } 
-      // ✅ Si tiene propiedad transferencias
-      else if (response.data?.transferencias && Array.isArray(response.data.transferencias)) {
-        setTransferencias(response.data.transferencias);
-        console.log('✅ Transferencias cargadas (transferencias):', response.data.transferencias.length);
-      } 
-      else {
-        console.warn('⚠️ Formato desconocido:', response.data);
-        setTransferencias([]);
+        datos = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        datos = response.data.data;
+      } else if (response.data?.transferencias && Array.isArray(response.data.transferencias)) {
+        datos = response.data.transferencias;
       }
+      
+      // ✅ Ordenar por fecha descendente
+      datos.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      setTransferencias(datos);
+      setTransferenciasFiltradas(datos);
+      console.log(`✅ ${datos.length} transferencias cargadas`);
       
     } catch (error) {
       console.error('❌ Error al cargar transferencias:', error);
-      console.error('❌ Detalles:', error.response?.data);
       Alert.alert('Error', 'No se pudieron cargar las transferencias');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  // ============================================
+  // 🔍 FILTRAR TRANSFERENCIAS
+  // ============================================
+  const filtrarTransferencias = () => {
+    let filtradas = [...transferencias];
+    
+    // ✅ FILTRO POR TEXTO (nombre, código o documento)
+    if (searchText.trim() !== '') {
+      const texto = searchText.trim().toLowerCase();
+      filtradas = filtradas.filter(t => 
+        t.nombreUsuario?.toLowerCase().includes(texto) ||
+        t.codigoIdentificador?.toLowerCase().includes(texto) ||
+        t.numeroDocumento?.toLowerCase().includes(texto)
+      );
+    }
+    
+    // ✅ FILTRO POR FECHA
+    if (filtroFecha) {
+      const fechaStr = filtroFecha.toISOString().split('T')[0];
+      filtradas = filtradas.filter(t => {
+        if (!t.fechaTransferencia) return false;
+        const fechaTrans = new Date(t.fechaTransferencia).toISOString().split('T')[0];
+        return fechaTrans === fechaStr;
+      });
+    }
+    
+    setTransferenciasFiltradas(filtradas);
+    setFiltroActivo(searchText.trim() !== '' || filtroFecha !== null);
+  };
+
+  // ============================================
+  // 🔄 EJECUTAR FILTRO CUANDO CAMBIAN LOS CAMPOS
+  // ============================================
+  useEffect(() => {
+    filtrarTransferencias();
+  }, [searchText, filtroFecha, transferencias]);
+
+  // ============================================
+  // 📅 CAMBIAR FECHA
+  // ============================================
+  const onChangeFecha = (event, selectedDate) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setFiltroFecha(selectedDate);
+    }
+  };
+
+  // ============================================
+  // 🗑️ LIMPIAR FILTROS
+  // ============================================
+  const limpiarFiltros = () => {
+    setSearchText('');
+    setFiltroFecha(null);
+    setFiltroActivo(false);
   };
 
   useEffect(() => {
@@ -71,20 +135,17 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     cargarTransferencias();
   };
 
-  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN (de cualquier campo)
+  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN
   const getImagen = (item) => {
-    // Primero revisar imagenComprobante
     if (item.imagenComprobante && item.imagenComprobante.length > 100) {
       return item.imagenComprobante;
     }
-    // Luego revisar soporte
     if (item.soporte && item.soporte.length > 100) {
       return item.soporte;
     }
     return null;
   };
 
-  // ✅ VERIFICAR SI TIENE IMAGEN
   const tieneImagen = (item) => {
     return getImagen(item) !== null;
   };
@@ -151,13 +212,15 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
         <Text style={styles.transferenciaNombre}>{item.nombreUsuario}</Text>
 
+        {/* ✅ NÚMERO DE DOCUMENTO VISIBLE */}
+        <Text style={styles.transferenciaDocumento}>📄 Documento: {item.numeroDocumento || 'N/A'}</Text>
+
         <View style={styles.transferenciaFooter}>
           <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
           <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
           <Text style={styles.transferenciaInfo}>👤 {item.responsable}</Text>
         </View>
 
-        {/* ✅ INDICADOR DE IMAGEN */}
         {tieneImagen(item) && (
           <View style={styles.imagenIndicator}>
             <Text style={styles.imagenIndicatorText}>📷 Tiene comprobante</Text>
@@ -197,7 +260,60 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>📋 Confirmación de Transferencias</Text>
+        <Text style={styles.subtitle}>
+          {transferenciasFiltradas.length} transferencia{transferenciasFiltradas.length !== 1 ? 's' : ''}
+          {filtroActivo && ' (filtrado)'}
+        </Text>
       </View>
+
+      {/* ============================================
+          🔍 BARRA DE BÚSQUEDA
+          ============================================ */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color="#B2BEC3" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por nombre, código o documento..."
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholderTextColor="#B2BEC3"
+          />
+          {searchText !== '' && (
+            <TouchableOpacity onPress={() => setSearchText('')}>
+              <Ionicons name="close-circle" size={20} color="#B2BEC3" />
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        <View style={styles.filterRow}>
+          <TouchableOpacity 
+            style={[styles.dateFilterButton, filtroFecha && styles.dateFilterActive]}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Ionicons name="calendar" size={18} color={filtroFecha ? '#FFFFFF' : '#6C5CE7'} />
+            <Text style={[styles.dateFilterText, filtroFecha && styles.dateFilterTextActive]}>
+              {filtroFecha ? filtroFecha.toISOString().split('T')[0] : 'Filtrar por fecha'}
+            </Text>
+          </TouchableOpacity>
+          
+          {(filtroFecha || searchText !== '') && (
+            <TouchableOpacity style={styles.clearFiltersButton} onPress={limpiarFiltros}>
+              <Ionicons name="close" size={18} color="#FF6B6B" />
+              <Text style={styles.clearFiltersText}>Limpiar</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={filtroFecha || new Date()}
+          mode="date"
+          display="default"
+          onChange={onChangeFecha}
+        />
+      )}
 
       <ScrollView
         style={styles.listaContainer}
@@ -205,18 +321,25 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {transferencias.length === 0 ? (
+        {transferenciasFiltradas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📭</Text>
-            <Text style={styles.emptyText}>No hay transferencias pendientes</Text>
+            <Text style={styles.emptyText}>
+              {filtroActivo ? 'No hay coincidencias' : 'No hay transferencias pendientes'}
+            </Text>
+            {filtroActivo && (
+              <TouchableOpacity onPress={limpiarFiltros}>
+                <Text style={styles.clearFiltersLink}>Limpiar filtros</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
-          transferencias.map(renderTransferencia)
+          transferenciasFiltradas.map(renderTransferencia)
         )}
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* ✅ MODAL DE DETALLE CON IMAGEN MEJORADA */}
+      {/* ✅ MODAL DE DETALLE CON IMAGEN */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -234,6 +357,9 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
                 <Text style={styles.modalLabel}>Nombre:</Text>
                 <Text style={styles.modalValue}>{transferenciaSeleccionada.nombreUsuario}</Text>
+
+                <Text style={styles.modalLabel}>Documento:</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.numeroDocumento || 'N/A'}</Text>
 
                 <Text style={styles.modalLabel}>Valor:</Text>
                 <Text style={styles.modalValue}>{formatValor(transferenciaSeleccionada.valor)}</Text>
@@ -315,6 +441,9 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   );
 };
 
+// ============================================
+// 🎨 ESTILOS
+// ============================================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -330,6 +459,76 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
+  },
+  // ✅ ESTILOS DE BÚSQUEDA
+  searchContainer: {
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#2D3436',
+    marginLeft: 8,
+    paddingVertical: 4,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  dateFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#6C5CE7',
+    marginRight: 8,
+  },
+  dateFilterActive: {
+    backgroundColor: '#6C5CE7',
+  },
+  dateFilterText: {
+    fontSize: 13,
+    color: '#6C5CE7',
+    marginLeft: 4,
+  },
+  dateFilterTextActive: {
+    color: '#FFFFFF',
+  },
+  clearFiltersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  clearFiltersText: {
+    fontSize: 13,
+    color: '#FF6B6B',
+    marginLeft: 4,
+  },
+  clearFiltersLink: {
+    fontSize: 14,
+    color: '#6C5CE7',
+    fontWeight: '500',
+    marginTop: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -366,6 +565,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2D3436',
   },
+  transferenciaNombre: {
+    fontSize: 16,
+    color: '#2D3436',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  // ✅ NUEVO: ESTILO PARA DOCUMENTO
+  transferenciaDocumento: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 6,
+  },
   estadoBadge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -374,12 +585,6 @@ const styles = StyleSheet.create({
   estadoBadgeText: {
     color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '500',
-  },
-  transferenciaNombre: {
-    fontSize: 16,
-    color: '#2D3436',
-    marginBottom: 8,
     fontWeight: '500',
   },
   transferenciaFooter: {
