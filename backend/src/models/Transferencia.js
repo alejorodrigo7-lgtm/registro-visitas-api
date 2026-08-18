@@ -55,7 +55,7 @@ const transferenciaSchema = new mongoose.Schema({
   // 📷 CAMPO PARA LA IMAGEN DEL COMPROBANTE
   // ============================================
   imagenComprobante: { 
-    type: String,  // Guarda la imagen en formato base64
+    type: String,
     required: false,
     default: null
   },
@@ -105,12 +105,10 @@ transferenciaSchema.pre('save', function(next) {
 transferenciaSchema.methods.getImagenFormateada = function() {
   if (!this.imagenComprobante) return null;
   
-  // Si ya tiene el prefijo data:image, devolver tal cual
   if (this.imagenComprobante.startsWith('data:image')) {
     return this.imagenComprobante;
   }
   
-  // Si es solo base64, agregar el prefijo
   return `data:image/jpeg;base64,${this.imagenComprobante}`;
 };
 

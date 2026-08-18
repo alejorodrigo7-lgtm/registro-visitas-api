@@ -3,6 +3,41 @@ const User = require('../models/User');
 const Notificacion = require('../models/Notificacion');
 const pushService = require('../services/pushService');
 
+// ✅ SHARP PARA COMPRIMIR IMÁGENES
+const sharp = require('sharp');
+
+// ============================================
+// 📸 COMPRIMIR IMAGEN
+// ============================================
+const comprimirImagen = async (base64String) => {
+  try {
+    if (!base64String || base64String.length < 100) return null;
+    
+    let base64Data = base64String;
+    if (base64String.startsWith('data:image')) {
+      base64Data = base64String.split(',')[1];
+    }
+    
+    // Validar que sea base64 válido
+    if (!/^[A-Za-z0-9+/=]+$/.test(base64Data.substring(0, 100))) {
+      return null;
+    }
+    
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    // Comprimir a 300x300 con calidad 60%
+    const compressedBuffer = await sharp(buffer)
+      .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 60 })
+      .toBuffer();
+    
+    return `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
+  } catch (error) {
+    console.error('❌ Error comprimiendo imagen:', error.message);
+    return null;
+  }
+};
+
 // ============================================
 // 📲 ENVIAR NOTIFICACIÓN DE TRANSFERENCIA
 // ============================================
@@ -33,7 +68,7 @@ const enviarNotificacionTransferencia = async (usuarioId, titulo, mensaje, data 
 };
 
 // ============================================
-// 📤 SUBIR TRANSFERENCIA
+// 📤 SUBIR TRANSFERENCIA (CON COMPRESIÓN)
 // ============================================
 exports.subirTransferencia = async (req, res) => {
   console.log('📤 subirTransferencia - INICIO');
@@ -72,6 +107,9 @@ exports.subirTransferencia = async (req, res) => {
       });
     }
 
+    // ✅ COMPRIMIR IMAGEN ANTES DE GUARDAR
+    const imagenComprimida = await comprimirImagen(imagenComprobante);
+
     const transferencia = await Transferencia.create({
       responsable: responsable.nombre,
       responsableId: req.user._id,
@@ -84,7 +122,7 @@ exports.subirTransferencia = async (req, res) => {
       barrio,
       bancoCuenta,
       soporte,
-      imagenComprobante: imagenComprobante || null,
+      imagenComprobante: imagenComprimida, // ✅ IMAGEN COMPRIMIDA
       estado: 'SUBIDA',
     });
 
@@ -358,7 +396,7 @@ exports.buscarTransferenciasRevision = async (req, res) => {
 };
 
 // ============================================
-// 📋 OBTENER TRANSFERENCIAS POR ESTADO (OPTIMIZADO CON ÍNDICE)
+// 📋 OBTENER TRANSFERENCIAS POR ESTADO
 // ============================================
 exports.getTransferenciasByEstado = async (req, res) => {
   console.log('🔍 getTransferenciasByEstado - INICIO');
@@ -368,7 +406,6 @@ exports.getTransferenciasByEstado = async (req, res) => {
     console.log(`📊 Estado: ${estado}`);
     console.log(`📊 Usuario: ${req.user?.email}, Rol: ${req.user?.rol}`);
 
-    // Validar estado
     if (!estado) {
       return res.status(400).json({
         success: false,
@@ -384,7 +421,6 @@ exports.getTransferenciasByEstado = async (req, res) => {
       });
     }
 
-    // Construir query
     let query = { estado };
     
     if (req.user && ['Tecnico', 'Coordinador'].includes(req.user.rol)) {
@@ -393,11 +429,10 @@ exports.getTransferenciasByEstado = async (req, res) => {
 
     console.log('📊 Usando índice createdAt_-1 para ordenar...');
     
-    // 👇 USANDO EL ÍNDICE createdAt_-1
     const transferencias = await Transferencia.find(query)
       .populate('responsableId', 'nombre email rol')
-      .sort({ createdAt: -1 }) // ✅ Usa el índice que ya tienes
-      .limit(100); // 👈 Límite por seguridad
+      .sort({ createdAt: -1 })
+      .limit(100);
 
     console.log(`✅ Encontradas: ${transferencias.length}`);
     
