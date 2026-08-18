@@ -70,20 +70,20 @@ const Reportes = ({ navigation }) => {
     try {
       let url = '';
       
-      // 🔥 CONSTRUIR URL SEGÚN TIPO DE REPORTE - CORREGIDO CON /api/
+      // 🔥 CONSTRUIR URL SEGÚN TIPO DE REPORTE - SIN /api/ (ya está en baseURL)
       if (tipoReporte === 'monserrath') {
-        url = `/api/monserrath/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        url = `/monserrath/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtroEstado) url += `&estado=${filtroEstado}`;
         if (filtro) url += `&tecnico=${filtro}`;
       } else if (tipoReporte === 'asistencia') {
-        url = `/api/asistencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        url = `/asistencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtro) url += `&usuario=${filtro}`;
       } else if (tipoReporte === 'ausencias') {
-        url = `/api/pedir-ausencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        url = `/pedir-ausencia/reporte-excel?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtro) url += `&usuario=${filtro}`;
         if (filtroEstado) url += `&estado=${filtroEstado}`;
       } else {
-        url = `/api/reportes/${tipoReporte}?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
+        url = `/reportes/${tipoReporte}?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`;
         if (filtro) url += `&${getFiltroParam()}=${filtro}`;
         if (filtroZona) url += `&zona=${filtroZona}`;
         if (filtroEstado) url += `&estado=${filtroEstado}`;
@@ -128,11 +128,9 @@ const Reportes = ({ navigation }) => {
     } catch (error) {
       console.error('❌ Error al generar reporte:', error);
       
-      // Manejo de errores mejorado
       let errorMessage = 'No se pudo generar el reporte';
       
       if (error.response) {
-        // El servidor respondió con un error
         if (error.response.status === 401) {
           errorMessage = 'No autorizado. Inicia sesión nuevamente.';
         } else if (error.response.status === 403) {
@@ -399,7 +397,6 @@ const Reportes = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          {/* Botón para reporte detallado Monserrath */}
           {tipoReporte === 'monserrath' && (
             <TouchableOpacity
               style={[styles.generarButton, styles.monserrathButton]}
