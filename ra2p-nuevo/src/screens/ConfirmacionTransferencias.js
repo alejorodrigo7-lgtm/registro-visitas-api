@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
     View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    ActivityIndicator,
+    TouchableOpacity,
+    Alert,
+    TextInput,
+    Modal,
+    Image,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -17,48 +18,30 @@ import api from '../services/api';
 const ConfirmacionTransferencias = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [transferencias, setTransferencias] = useState([]);
+  const [transferenciasFiltradas, setTransferenciasFiltradas] = useState([]);
+  const [error, setError] = useState(null);
+  const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null);
 
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
-  const cargarTransferencias = async () => {
+  // ✅ VALIDAR IMAGEN DE FORMA SEGURA
+  const validarImagen = (item) => {
     try {
-      console.log('🔍 Cargando transferencias...');
-      const response = await api.get('/transferencias/estado/SUBIDA');
-      
-      // 🔥 CORRECCIÓN: La respuesta es directamente el array
-      console.log('📦 Respuesta completa:', response.data);
-      
-      // ✅ Si es array directo, usarlo
-      if (Array.isArray(response.data)) {
-        setTransferencias(response.data);
-        console.log('✅ Transferencias cargadas (array directo):', response.data.length);
-      } 
-      // ✅ Si tiene propiedad data (respaldo)
-      else if (response.data?.data && Array.isArray(response.data.data)) {
-        setTransferencias(response.data.data);
-        console.log('✅ Transferencias cargadas (data.data):', response.data.data.length);
-      } 
-      // ✅ Si tiene propiedad transferencias
-      else if (response.data?.transferencias && Array.isArray(response.data.transferencias)) {
-        setTransferencias(response.data.transferencias);
-        console.log('✅ Transferencias cargadas (transferencias):', response.data.transferencias.length);
-      } 
-      else {
-        console.warn('⚠️ Formato desconocido:', response.data);
-        setTransferencias([]);
+      if (!item) return null;
+      let imagen = item.imagenComprobante || item.soporte || null;
+      if (!imagen || typeof imagen !== 'string') return null;
+      if (imagen.length < 100) return null;
+      if (imagen.startsWith('data:image')) return imagen;
+      const base64Regex = /^[A-Za-z0-9+/=]+$/;
+      if (base64Regex.test(imagen.substring(0, 100))) {
+        return `data:image/jpeg;base64,${imagen}`;
       }
-      
-    } catch (error) {
-      console.error('❌ Error al cargar transferencias:', error);
-      console.error('❌ Detalles:', error.response?.data);
-      Alert.alert('Error', 'No se pudieron cargar las transferencias');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      return null;
+    } catch (e) {
+      return null;
     }
   };
 
@@ -66,28 +49,75 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     cargarTransferencias();
   }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    cargarTransferencias();
+  const cargarTransferencias = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('🔍 Cargando transferencias...');
+      
+      const response = await api.get('/transferencias/estado/SUBIDA');
+      
+      let datos = [];
+      if (Array.isArray(response.data)) {
+        datos = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        datos = response.data.data;
+      } else if (response.data?.transferencias && Array.isArray(response.data.transferencias)) {
+        datos = response.data.transferencias;
+      }
+      
+      // ✅ Datos seguros CON IMAGEN VALIDADA
+      const itemsSeguros = datos.map(item => {
+        const imagenValida = validarImagen(item);
+        return {
+          _id: item._id || Math.random().toString(),
+          nombreUsuario: item.nombreUsuario || 'Sin nombre',
+          codigoIdentificador: item.codigoIdentificador || 'N/A',
+          numeroDocumento: item.numeroDocumento || 'N/A',
+          valor: typeof item.valor === 'number' ? item.valor : 0,
+          estado: item.estado || 'SUBIDA',
+          responsable: item.responsable || 'N/A',
+          fechaTransferencia: item.fechaTransferencia || null,
+          zonaSector: item.zonaSector || 'N/A',
+          barrio: item.barrio || 'N/A',
+          bancoCuenta: item.bancoCuenta || 'N/A',
+          imagenComprobante: imagenValida,
+          tieneImagen: imagenValida !== null,
+        };
+      });
+      
+      setTransferencias(itemsSeguros);
+      setTransferenciasFiltradas(itemsSeguros);
+      console.log('✅ Cargadas:', itemsSeguros.length);
+      
+    } catch (error) {
+      console.error('❌ Error:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN (de cualquier campo)
-  const getImagen = (item) => {
-    // Primero revisar imagenComprobante
-    if (item.imagenComprobante && item.imagenComprobante.length > 100) {
-      return item.imagenComprobante;
+  // Filtrar
+  useEffect(() => {
+    if (!transferencias || transferencias.length === 0) {
+      setTransferenciasFiltradas([]);
+      return;
     }
-    // Luego revisar soporte
-    if (item.soporte && item.soporte.length > 100) {
-      return item.soporte;
+    
+    let filtradas = [...transferencias];
+    if (searchText.trim() !== '') {
+      const texto = searchText.trim().toLowerCase();
+      filtradas = filtradas.filter(t => {
+        return (
+          (t.nombreUsuario || '').toLowerCase().includes(texto) ||
+          (t.codigoIdentificador || '').toLowerCase().includes(texto) ||
+          (t.numeroDocumento || '').toLowerCase().includes(texto)
+        );
+      });
     }
-    return null;
-  };
-
-  // ✅ VERIFICAR SI TIENE IMAGEN
-  const tieneImagen = (item) => {
-    return getImagen(item) !== null;
-  };
+    setTransferenciasFiltradas(filtradas);
+  }, [searchText, transferencias]);
 
   const confirmarTransferencia = async (id, estado) => {
     Alert.alert(
@@ -100,7 +130,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           onPress: async () => {
             try {
               await api.put(`/transferencias/${id}/confirmar`, { estado });
-              Alert.alert('Éxito', `Transferencia ${estado === 'CONFIRMADA' ? 'confirmada' : 'denegada'} correctamente`);
+              Alert.alert('Éxito', `Transferencia ${estado === 'CONFIRMADA' ? 'confirmada' : 'denegada'}`);
               setModalVisible(false);
               cargarTransferencias();
             } catch (error) {
@@ -124,99 +154,149 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   };
 
   const formatFecha = (fecha) => {
-    if (!fecha) return 'Sin fecha';
-    return new Date(fecha).toLocaleDateString('es-ES');
+    try {
+      if (!fecha) return 'Sin fecha';
+      const d = new Date(fecha);
+      if (isNaN(d.getTime())) return 'Fecha inválida';
+      return d.toLocaleDateString('es-ES');
+    } catch (e) { return 'Fecha inválida'; }
   };
 
   const formatValor = (valor) => {
-    return `$${valor?.toFixed(2) || '0.00'}`;
+    try {
+      if (valor === undefined || valor === null) return '$0.00';
+      return `$${Number(valor).toFixed(2)}`;
+    } catch (e) { return '$0.00'; }
   };
 
-  const renderTransferencia = (item) => {
+  // ✅ RENDER DE IMAGEN SEGURO
+  const renderImagen = (item) => {
+    if (!item || !item.tieneImagen || !item.imagenComprobante) return null;
+    
     return (
-      <TouchableOpacity
-        key={item._id}
-        style={styles.transferenciaCard}
+      <TouchableOpacity 
+        style={styles.imagenContainer}
         onPress={() => {
           setTransferenciaSeleccionada(item);
           setModalVisible(true);
         }}
+        activeOpacity={0.8}
       >
-        <View style={styles.transferenciaHeader}>
-          <Text style={styles.transferenciaCodigo}>{item.codigoIdentificador}</Text>
-          <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(item.estado) }]}>
-            <Text style={styles.estadoBadgeText}>{item.estado}</Text>
-          </View>
+        <Image
+          source={{ uri: item.imagenComprobante }}
+          style={styles.imagenMiniatura}
+          resizeMode="cover"
+          onError={() => console.log('⚠️ Error cargando imagen')}
+        />
+        <View style={styles.imagenBadge}>
+          <Text style={styles.imagenBadgeText}>📷 Tocar para ampliar</Text>
         </View>
-
-        <Text style={styles.transferenciaNombre}>{item.nombreUsuario}</Text>
-
-        <View style={styles.transferenciaFooter}>
-          <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
-          <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
-          <Text style={styles.transferenciaInfo}>👤 {item.responsable}</Text>
-        </View>
-
-        {/* ✅ INDICADOR DE IMAGEN */}
-        {tieneImagen(item) && (
-          <View style={styles.imagenIndicator}>
-            <Text style={styles.imagenIndicatorText}>📷 Tiene comprobante</Text>
-          </View>
-        )}
-
-        {isAdminOrJefe && (
-          <View style={styles.accionesContainer}>
-            <TouchableOpacity
-              style={[styles.accionButton, styles.accionAprobar]}
-              onPress={() => confirmarTransferencia(item._id, 'CONFIRMADA')}
-            >
-              <Text style={styles.accionButtonText}>✅ Aprobar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.accionButton, styles.accionDenegar]}
-              onPress={() => confirmarTransferencia(item._id, 'DENEGADA')}
-            >
-              <Text style={styles.accionButtonText}>❌ Denegar</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </TouchableOpacity>
     );
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6C5CE7" />
         <Text style={styles.loadingText}>Cargando transferencias...</Text>
-      </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <Text style={styles.errorIcon}>❌</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={cargarTransferencias}>
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>📋 Confirmación de Transferencias</Text>
+        <Text style={styles.subtitle}>
+          {transferenciasFiltradas.length} transferencia{transferenciasFiltradas.length !== 1 ? 's' : ''}
+          {searchText !== '' && ' (filtrado)'}
+        </Text>
       </View>
 
-      <ScrollView
-        style={styles.listaContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {transferencias.length === 0 ? (
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por nombre, código o documento..."
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholderTextColor="#B2BEC3"
+          />
+          {searchText !== '' && (
+            <TouchableOpacity onPress={() => setSearchText('')}>
+              <Text style={styles.clearIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      <ScrollView style={styles.listaContainer}>
+        {transferenciasFiltradas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📭</Text>
-            <Text style={styles.emptyText}>No hay transferencias pendientes</Text>
+            <Text style={styles.emptyText}>
+              {searchText !== '' ? 'No hay coincidencias' : 'No hay transferencias pendientes'}
+            </Text>
           </View>
         ) : (
-          transferencias.map(renderTransferencia)
+          transferenciasFiltradas.map((item) => (
+            <View key={item._id} style={styles.transferenciaCard}>
+              <View style={styles.transferenciaHeader}>
+                <Text style={styles.transferenciaCodigo}>{item.codigoIdentificador || 'N/A'}</Text>
+                <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(item.estado) }]}>
+                  <Text style={styles.estadoBadgeText}>{item.estado || 'SUBIDA'}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.transferenciaNombre}>{item.nombreUsuario || 'Sin nombre'}</Text>
+              <Text style={styles.transferenciaDocumento}>📄 Documento: {item.numeroDocumento || 'N/A'}</Text>
+
+              <View style={styles.transferenciaFooter}>
+                <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
+                <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
+                <Text style={styles.transferenciaInfo}>👤 {item.responsable || 'N/A'}</Text>
+              </View>
+
+              {/* ✅ IMAGEN */}
+              {renderImagen(item)}
+
+              {isAdminOrJefe && (
+                <View style={styles.accionesContainer}>
+                  <TouchableOpacity
+                    style={[styles.accionButton, styles.accionAprobar]}
+                    onPress={() => confirmarTransferencia(item._id, 'CONFIRMADA')}
+                  >
+                    <Text style={styles.accionButtonText}>✅ Aprobar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.accionButton, styles.accionDenegar]}
+                    onPress={() => confirmarTransferencia(item._id, 'DENEGADA')}
+                  >
+                    <Text style={styles.accionButtonText}>❌ Denegar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ))
         )}
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* ✅ MODAL DE DETALLE CON IMAGEN MEJORADA */}
+      {/* MODAL CON IMAGEN AMPLIADA */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -230,58 +310,46 @@ const ConfirmacionTransferencias = ({ navigation }) => {
             {transferenciaSeleccionada && (
               <View>
                 <Text style={styles.modalLabel}>Código:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.codigoIdentificador}</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.codigoIdentificador || 'N/A'}</Text>
 
                 <Text style={styles.modalLabel}>Nombre:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.nombreUsuario}</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.nombreUsuario || 'Sin nombre'}</Text>
+
+                <Text style={styles.modalLabel}>Documento:</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.numeroDocumento || 'N/A'}</Text>
 
                 <Text style={styles.modalLabel}>Valor:</Text>
                 <Text style={styles.modalValue}>{formatValor(transferenciaSeleccionada.valor)}</Text>
 
                 <Text style={styles.modalLabel}>Zona:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.zonaSector} - {transferenciaSeleccionada.barrio}</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.zonaSector || 'N/A'} - {transferenciaSeleccionada.barrio || 'N/A'}</Text>
 
                 <Text style={styles.modalLabel}>Banco:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.bancoCuenta}</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.bancoCuenta || 'N/A'}</Text>
 
                 <Text style={styles.modalLabel}>Fecha:</Text>
                 <Text style={styles.modalValue}>{formatFecha(transferenciaSeleccionada.fechaTransferencia)}</Text>
 
                 <Text style={styles.modalLabel}>Responsable:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.responsable}</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.responsable || 'N/A'}</Text>
 
                 <Text style={styles.modalLabel}>Estado:</Text>
                 <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(transferenciaSeleccionada.estado), alignSelf: 'flex-start' }]}>
-                  <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado}</Text>
+                  <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado || 'SUBIDA'}</Text>
                 </View>
 
-                {/* ✅ IMAGEN DEL COMPROBANTE */}
-                {(() => {
-                  const imagenData = getImagen(transferenciaSeleccionada);
-                  if (imagenData) {
-                    return (
-                      <View style={styles.imagenContainer}>
-                        <Text style={styles.modalLabel}>📷 Comprobante:</Text>
-                        <Image
-                          source={{
-                            uri: imagenData.startsWith('data:image')
-                              ? imagenData
-                              : `data:image/jpeg;base64,${imagenData}`
-                          }}
-                          style={styles.modalImagen}
-                          resizeMode="contain"
-                          onError={(e) => console.log('❌ Error imagen:', e.nativeEvent.error)}
-                        />
-                      </View>
-                    );
-                  } else {
-                    return (
-                      <View style={styles.sinImagenContainer}>
-                        <Text style={styles.sinImagenText}>📭 Sin comprobante</Text>
-                      </View>
-                    );
-                  }
-                })()}
+                {/* ✅ IMAGEN AMPLIADA EN MODAL */}
+                {transferenciaSeleccionada.tieneImagen && transferenciaSeleccionada.imagenComprobante && (
+                  <View style={styles.modalImagenContainer}>
+                    <Text style={styles.modalLabel}>📷 Comprobante:</Text>
+                    <Image
+                      source={{ uri: transferenciaSeleccionada.imagenComprobante }}
+                      style={styles.modalImagen}
+                      resizeMode="contain"
+                      onError={() => console.log('⚠️ Error en imagen modal')}
+                    />
+                  </View>
+                )}
 
                 {isAdminOrJefe && transferenciaSeleccionada.estado === 'SUBIDA' && (
                   <View style={styles.modalBotones}>
@@ -302,16 +370,13 @@ const ConfirmacionTransferencias = ({ navigation }) => {
               </View>
             )}
 
-            <TouchableOpacity
-              style={styles.modalCerrar}
-              onPress={() => setModalVisible(false)}
-            >
+            <TouchableOpacity style={styles.modalCerrar} onPress={() => setModalVisible(false)}>
               <Text style={styles.modalCerrarText}>Cerrar</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -331,14 +396,72 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
+  },
+  searchContainer: {
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#2D3436',
+    paddingVertical: 4,
+  },
+  clearIcon: {
+    fontSize: 18,
+    color: '#FF6B6B',
+    fontWeight: 'bold',
+    paddingHorizontal: 4,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F5F7FA',
+    padding: 20,
   },
   loadingText: {
     marginTop: 10,
     color: '#636E72',
+  },
+  errorIcon: {
+    fontSize: 48,
+    marginBottom: 15,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF6B6B',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  retryButton: {
+    backgroundColor: '#6C5CE7',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   listaContainer: {
     flex: 1,
@@ -366,6 +489,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2D3436',
   },
+  transferenciaNombre: {
+    fontSize: 16,
+    color: '#2D3436',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  transferenciaDocumento: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 6,
+  },
   estadoBadge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -374,12 +508,6 @@ const styles = StyleSheet.create({
   estadoBadgeText: {
     color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '500',
-  },
-  transferenciaNombre: {
-    fontSize: 16,
-    color: '#2D3436',
-    marginBottom: 8,
     fontWeight: '500',
   },
   transferenciaFooter: {
@@ -392,17 +520,32 @@ const styles = StyleSheet.create({
     color: '#636E72',
     marginTop: 2,
   },
-  imagenIndicator: {
-    marginTop: 8,
+  // ✅ ESTILOS DE IMAGEN
+  imagenContainer: {
+    marginTop: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F0F0F0',
+    position: 'relative',
+  },
+  imagenMiniatura: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+  },
+  imagenBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: '#E8F8F5',
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+    borderRadius: 12,
   },
-  imagenIndicatorText: {
-    fontSize: 11,
-    color: '#00B894',
+  imagenBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
     fontWeight: '500',
   },
   accionesContainer: {
@@ -458,8 +601,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    width: '90%',
-    maxHeight: '80%',
+    width: '95%',
+    maxHeight: '85%',
   },
   modalTitle: {
     fontSize: 20,
@@ -479,27 +622,14 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     marginBottom: 4,
   },
-  imagenContainer: {
+  modalImagenContainer: {
     marginTop: 10,
-    alignItems: 'center',
   },
   modalImagen: {
     width: '100%',
-    height: 300,
+    height: 350,
     borderRadius: 10,
-    marginTop: 5,
     backgroundColor: '#F0F0F0',
-  },
-  sinImagenContainer: {
-    marginTop: 10,
-    padding: 20,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  sinImagenText: {
-    fontSize: 14,
-    color: '#636E72',
   },
   modalBotones: {
     flexDirection: 'row',

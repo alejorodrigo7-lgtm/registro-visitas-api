@@ -1,6 +1,5 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // ✅ CAMBIADO: bcrypt → bcryptjs
 const logger = require('../config/logger');
 
 // ============================================
@@ -69,7 +68,7 @@ exports.register = async (req, res) => {
 };
 
 // ============================================
-// 📋 LOGIN - COMPARACIÓN EN TEXTO PLANO
+// 📋 LOGIN - SOLO TEXTO PLANO (SIN HASH)
 // ============================================
 exports.login = async (req, res) => {
   try {
@@ -109,7 +108,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    // ✅ COMPARAR EN TEXTO PLANO (SIN bcrypt)
+    // ✅ COMPARACIÓN EN TEXTO PLANO (SIN bcrypt)
     if (user.password !== password) {
       logger.warn('Login fallido - contraseña incorrecta', { 
         email, 
@@ -120,6 +119,8 @@ exports.login = async (req, res) => {
         message: 'Credenciales inválidas'
       });
     }
+
+    console.log(`✅ [Auth] Login exitoso: ${email} (${user.rol})`);
 
     const token = jwt.sign(
       { id: user._id },
@@ -143,7 +144,7 @@ exports.login = async (req, res) => {
         telefono: user.telefono || '',
         especialidad: user.especialidad || '',
         activo: user.activo,
-        pushToken: user.pushToken || null, // ✅ CAMBIADO: expoPushToken → pushToken
+        pushToken: user.pushToken || null,
       },
     });
   } catch (error) {
@@ -384,7 +385,7 @@ exports.changePassword = async (req, res) => {
       }
     }
 
-    // ✅ GUARDAR EN TEXTO PLANO (SIN HASH)
+    // ✅ GUARDAR EN TEXTO PLANO
     usuario.password = newPassword;
     await usuario.save();
 
@@ -487,7 +488,7 @@ exports.registrarPushToken = async (req, res) => {
       });
     }
 
-    user.pushToken = token; // ✅ CAMBIADO: expoPushToken → pushToken
+    user.pushToken = token;
     await user.save();
 
     logger.info(`Token push registrado para ${user.email}`, {

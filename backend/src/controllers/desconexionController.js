@@ -1,6 +1,7 @@
 ﻿const Desconexion = require('../models/Desconexion');
 const User = require('../models/User');
 const { enviarNotificacionPush } = require('../services/pushService');
+const emailService = require('../services/emailService'); // ✅ Servicio de correo
 
 // ============================================
 // 📋 OBTENER TODAS LAS SOLICITUDES
@@ -122,11 +123,10 @@ exports.crear = async (req, res) => {
     
     await solicitud.save();
 
-    // 🔔 ENVIAR NOTIFICACIÓN A ADMIN Y JEFE
+    // 🔔 ENVIAR NOTIFICACIÓN PUSH
     const tipoTexto = tipo === 'DESCONEXION' ? '🔌 Desconexión' : '🔄 Reconexión';
     const mensajePush = `📋 Nueva solicitud de ${tipoTexto} del cliente ${cliente}`;
     
-    // Buscar usuarios con rol Admin o Jefe
     const adminsJefes = await User.find({
       rol: { $in: ['Admin', 'Jefe'] },
       expoPushToken: { $ne: null }
@@ -150,7 +150,6 @@ exports.crear = async (req, res) => {
       }
     }
 
-    // También notificar al creador de la solicitud (si no es Admin/Jefe)
     if (req.user.rol !== 'Admin' && req.user.rol !== 'Jefe') {
       try {
         await enviarNotificacionPush(req.user._id, {
@@ -169,7 +168,29 @@ exports.crear = async (req, res) => {
       }
     }
 
-    console.log(`📱 Notificaciones push enviadas para solicitud ${solicitud._id}`);
+    // ✅ 📧 ENVIAR NOTIFICACIÓN POR CORREO (OAuth2) - MEJORADO
+    try {
+      console.log(`📧 Intentando enviar correo para solicitud ${solicitud._id}...`);
+      await emailService.enviarNotificacionDesconexion({
+        cliente: { 
+          nombre: cliente, 
+          codigo: codigoCliente || 'N/A' 
+        },
+        motivo: `${tipoTexto} solicitada`,
+        observaciones: observaciones || 'Sin observaciones',
+        usuario: {
+          nombre: req.user.nombre,
+          rol: req.user.rol
+        },
+        fecha: solicitud.fecha,
+        tipo: tipo === 'DESCONEXION' ? 'desconexion' : 'reconexion'
+      });
+      console.log(`✅ Correo electrónico enviado exitosamente para solicitud ${solicitud._id}`);
+    } catch (error) {
+      // Solo logueamos el error, no interrumpimos el flujo
+      console.error(`❌ Error al enviar correo electrónico para solicitud ${solicitud._id}:`, error.message);
+      // No fallamos la solicitud si el correo falla
+    }
     
     res.status(201).json({
       success: true,
@@ -216,7 +237,7 @@ exports.realizar = async (req, res) => {
     
     await solicitud.save();
 
-    // 🔔 ENVIAR NOTIFICACIÓN AL CREADOR DE LA SOLICITUD
+    // 🔔 ENVIAR NOTIFICACIÓN PUSH
     const tipoTexto = solicitud.tipo === 'DESCONEXION' ? '🔌 Desconexión' : '🔄 Reconexión';
     const mensajePush = `✅ Solicitud de ${tipoTexto} de ${solicitud.cliente} fue EJECUTADA por ${req.user.nombre}`;
     
@@ -237,11 +258,10 @@ exports.realizar = async (req, res) => {
       console.error(`❌ Error enviando notificación al creador:`, error);
     }
 
-    // También notificar a otros Admin/Jefe que ya fue ejecutada
     const adminsJefes = await User.find({
       rol: { $in: ['Admin', 'Jefe'] },
       expoPushToken: { $ne: null },
-      _id: { $ne: req.user._id } // No enviar al que ejecutó
+      _id: { $ne: req.user._id }
     });
 
     for (const usuario of adminsJefes) {
@@ -260,6 +280,28 @@ exports.realizar = async (req, res) => {
       } catch (error) {
         console.error(`❌ Error enviando notificación a ${usuario.email}:`, error);
       }
+    }
+
+    // ✅ 📧 ENVIAR NOTIFICACIÓN POR CORREO DE EJECUCIÓN
+    try {
+      console.log(`📧 Intentando enviar correo de ejecución para solicitud ${solicitud._id}...`);
+      await emailService.enviarNotificacionDesconexion({
+        cliente: { 
+          nombre: solicitud.cliente, 
+          codigo: solicitud.codigoCliente || 'N/A' 
+        },
+        motivo: `${tipoTexto} EJECUTADA`,
+        observaciones: solicitud.observacionEjecucion || 'Ejecutada exitosamente',
+        usuario: {
+          nombre: req.user.nombre,
+          rol: req.user.rol
+        },
+        fecha: solicitud.updatedAt,
+        tipo: solicitud.tipo === 'DESCONEXION' ? 'desconexion' : 'reconexion'
+      });
+      console.log(`✅ Correo electrónico de ejecución enviado para solicitud ${solicitud._id}`);
+    } catch (error) {
+      console.error(`❌ Error al enviar correo electrónico de ejecución para solicitud ${solicitud._id}:`, error.message);
     }
 
     res.json({
@@ -307,7 +349,7 @@ exports.anular = async (req, res) => {
     
     await solicitud.save();
 
-    // 🔔 ENVIAR NOTIFICACIÓN AL CREADOR DE LA SOLICITUD
+    // 🔔 ENVIAR NOTIFICACIÓN PUSH
     const tipoTexto = solicitud.tipo === 'DESCONEXION' ? '🔌 Desconexión' : '🔄 Reconexión';
     const mensajePush = `❌ Solicitud de ${tipoTexto} de ${solicitud.cliente} fue RECHAZADA por ${req.user.nombre}`;
     
@@ -328,7 +370,6 @@ exports.anular = async (req, res) => {
       console.error(`❌ Error enviando notificación al creador:`, error);
     }
 
-    // También notificar a otros Admin/Jefe que fue rechazada
     const adminsJefes = await User.find({
       rol: { $in: ['Admin', 'Jefe'] },
       expoPushToken: { $ne: null },
@@ -351,6 +392,28 @@ exports.anular = async (req, res) => {
       } catch (error) {
         console.error(`❌ Error enviando notificación a ${usuario.email}:`, error);
       }
+    }
+
+    // ✅ 📧 ENVIAR NOTIFICACIÓN POR CORREO DE RECHAZO
+    try {
+      console.log(`📧 Intentando enviar correo de rechazo para solicitud ${solicitud._id}...`);
+      await emailService.enviarNotificacionDesconexion({
+        cliente: { 
+          nombre: solicitud.cliente, 
+          codigo: solicitud.codigoCliente || 'N/A' 
+        },
+        motivo: `${tipoTexto} RECHAZADA`,
+        observaciones: solicitud.observacionEjecucion || 'Rechazada por administrador',
+        usuario: {
+          nombre: req.user.nombre,
+          rol: req.user.rol
+        },
+        fecha: solicitud.updatedAt,
+        tipo: solicitud.tipo === 'DESCONEXION' ? 'desconexion' : 'reconexion'
+      });
+      console.log(`✅ Correo electrónico de rechazo enviado para solicitud ${solicitud._id}`);
+    } catch (error) {
+      console.error(`❌ Error al enviar correo electrónico de rechazo para solicitud ${solicitud._id}:`, error.message);
     }
 
     res.json({

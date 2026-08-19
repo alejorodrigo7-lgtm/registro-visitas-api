@@ -1,0 +1,373 @@
+2026-08-19 12:07:45 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: Hora actual: 19/8/2026, 12:07:45 {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:07:45 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:08:42 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: Hora actual: 19/8/2026, 12:09:47 {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:09:47 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:10:37 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: Hora actual: 19/8/2026, 12:14:04 {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:14:04 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:18:53 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 12:18:53 [WARN]: Login fallido - contraseña incorrecta {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b"}
+2026-08-19 12:18:54 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"1121ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.54.0"}
+2026-08-19 12:19:47 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:07 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:07 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:07 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:07 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: Hora actual: 19/8/2026, 12:25:07 {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:25:08 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 12:43:46 [ERROR]: Error no manejado {"service":"ra2p-api","environment":"development","error":{"message":"Unexpected token 'P', \"POST http:\"... is not valid JSON","stack":"SyntaxError: Unexpected token 'P', \"POST http:\"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at createStrictSyntaxError (C:\\Users\\MARYLUZ CORDOBA\\Desktop\\registro-visitas-app\\backend\\node_modules\\body-parser\\lib\\types\\json.js:165:10)\n    at parse (C:\\Users\\MARYLUZ CORDOBA\\Desktop\\registro-visitas-app\\backend\\node_modules\\body-parser\\lib\\types\\json.js:86:15)\n    at C:\\Users\\MARYLUZ CORDOBA\\Desktop\\registro-visitas-app\\backend\\node_modules\\body-parser\\lib\\read.js:128:18\n    at AsyncResource.runInAsyncScope (node:async_hooks:214:14)\n    at invokeCallback (C:\\Users\\MARYLUZ CORDOBA\\Desktop\\registro-visitas-app\\backend\\node_modules\\raw-body\\index.js:238:16)\n    at done (C:\\Users\\MARYLUZ CORDOBA\\Desktop\\registro-visitas-app\\backend\\node_modules\\raw-body\\index.js:227:7)\n    at IncomingMessage.onEnd (C:\\Users\\MARYLUZ CORDOBA\\Desktop\\registro-visitas-app\\backend\\node_modules\\raw-body\\index.js:287:7)\n    at IncomingMessage.emit (node:events:519:28)\n    at endReadableNT (node:internal/streams/readable:1698:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)","name":"SyntaxError"},"url":"/api/auth/login","method":"POST","body":{},"params":{},"query":{},"ip":"127.0.0.1"}
+2026-08-19 12:43:54 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 12:43:54 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 12:43:54 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"650ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 12:44:05 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 12:44:05 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 12:44:05 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"401ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 14:42:13 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","ip":"127.0.0.1"}
+2026-08-19 14:42:13 [WARN]: Login fallido - usuario no encontrado {"service":"ra2p-api","environment":"development"}
+2026-08-19 14:42:13 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"628ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 14:42:44 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: Hora actual: 19/8/2026, 15:00:06 {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:06 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:00:12 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:00:12 [INFO]: Contraseña migrada a hash {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b"}
+2026-08-19 15:00:12 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:00:12 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"470ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:01:34 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","ip":"127.0.0.1"}
+2026-08-19 15:01:34 [WARN]: Login fallido - usuario no encontrado {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:01:34 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"138ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:03:15 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: Hora actual: 19/8/2026, 15:05:20 {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:20 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:21 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:05:35 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:05:35 [WARN]: Login fallido - contraseña incorrecta {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b"}
+2026-08-19 15:05:35 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"195ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:06:17 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: Hora actual: 19/8/2026, 15:08:17 {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:17 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:08:20 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:08:20 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"3066ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:08:51 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","ip":"127.0.0.1"}
+2026-08-19 15:08:51 [WARN]: Login fallido - usuario no encontrado {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:08:51 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"149ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:08:59 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","ip":"127.0.0.1"}
+2026-08-19 15:09:00 [WARN]: Login fallido - usuario no encontrado {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:09:00 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"142ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:09:52 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","ip":"127.0.0.1"}
+2026-08-19 15:09:52 [WARN]: Login fallido - usuario no encontrado {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:09:52 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"143ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:10:12 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","ip":"127.0.0.1"}
+2026-08-19 15:10:12 [WARN]: Login fallido - usuario no encontrado {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:10:12 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"142ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:11:21 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","ip":"127.0.0.1"}
+2026-08-19 15:11:21 [WARN]: Login fallido - usuario no encontrado {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:11:21 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"142ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:11:54 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/crear","status":401,"duration":"33ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:12:52 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/crear","status":401,"duration":"9ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:13:30 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:13:31 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:13:31 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"199ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:14:20 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","ip":"127.0.0.1"}
+2026-08-19 15:14:20 [WARN]: Login fallido - usuario no encontrado {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:14:20 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":401,"duration":"140ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:14:52 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/crear","status":401,"duration":"9ms","ip":"127.0.0.1","userAgent":"PostmanRuntime/7.56.0"}
+2026-08-19 15:15:56 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:15:56 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:15:56 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"153ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:15:57 [WARN]: Ruta no encontrada {"service":"ra2p-api","environment":"development","url":"/api/desconexiones/crear","method":"POST","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:15:57 [ERROR]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/api/desconexiones/crear","status":404,"duration":"192ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
+2026-08-19 15:16:18 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:16:18 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:16:18 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"146ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:16:20 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"2370ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
+2026-08-19 15:21:10 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:21:11 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:21:11 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"416ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:21:13 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"1959ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
+2026-08-19 15:46:15 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:46:15 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:46:15 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"495ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:46:18 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"2195ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
+2026-08-19 15:47:34 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:47:34 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:47:34 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"198ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:47:39 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"3239ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
+2026-08-19 15:48:59 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:17 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: Hora actual: 19/8/2026, 15:50:18 {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:18 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 15:50:39 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 15:50:39 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:50:39 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"168ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 15:50:42 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"3414ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
+2026-08-19 16:01:12 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: Hora actual: 19/8/2026, 16:01:31 {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:31 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:01:33 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 16:01:35 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 16:01:35 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"1147ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 16:01:40 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"2792ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
+2026-08-19 16:03:02 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: Hora actual: 19/8/2026, 16:03:36 {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:36 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:03:59 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 16:03:59 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 16:03:59 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"154ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 16:04:03 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"2814ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
+2026-08-19 16:09:17 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: Hora actual: 19/8/2026, 16:12:10 {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:10 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:12:17 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 16:12:17 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 16:12:17 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"164ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 16:12:22 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"3592ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
+2026-08-19 16:21:26 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}

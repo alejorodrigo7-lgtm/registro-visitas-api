@@ -12,10 +12,13 @@ import {
   TextInput,
   Modal,
   Image,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+
+const { width, height } = Dimensions.get('window');
 
 const EjecucionServicio = ({ navigation }) => {
   const { user } = useAuth();
@@ -28,6 +31,10 @@ const EjecucionServicio = ({ navigation }) => {
   const [macEquipo, setMacEquipo] = useState('');
   const [numeroSerie, setNumeroSerie] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
+  
+  // ✅ Estado para el modal de imagen ampliada
+  const [imagenAmpliadaVisible, setImagenAmpliadaVisible] = useState(false);
+  const [imagenAmpliadaUri, setImagenAmpliadaUri] = useState('');
   
   // 📦 Estado para el Picker de materiales
   const [materialSeleccionado, setMaterialSeleccionado] = useState('');
@@ -61,12 +68,11 @@ const EjecucionServicio = ({ navigation }) => {
   const isJefe = user?.rol === 'Jefe';
 
   // ============================================
-  // 📱 ENVIAR NOTIFICACIONES PUSH A TODOS LOS INVOLUCRADOS
+  // 📱 ENVIAR NOTIFICACIONES PUSH
   // ============================================
   const enviarNotificaciones = async (tipo, servicio, usuarioActual) => {
     try {
       console.log(`📱 Enviando notificación ${tipo}...`);
-      console.log('📱 Servicio:', servicio);
       
       let titulo = '';
       let mensaje = '';
@@ -79,9 +85,9 @@ const EjecucionServicio = ({ navigation }) => {
         mensaje = `⏳ El servicio de ${servicio.cliente} está en PENDIENTE`;
       }
       
-      const usuarioTomadorId = servicio.usuarioTomador?._id || servicio.usuarioTomador;
-      const jefeId = servicio.jefeAsignado?._id || servicio.jefeAsignado;
-      const tecnicoId = servicio.tecnicoAsignado?._id || servicio.tecnicoAsignado;
+      const usuarioTomadorId = servicio.responsableId?._id || servicio.responsableId;
+      const jefeId = servicio.jefe?._id || servicio.jefe;
+      const tecnicoId = servicio.tecnico?._id || servicio.tecnico;
       
       const destinatariosSet = new Set();
       const destinatarios = [];
@@ -91,7 +97,6 @@ const EjecucionServicio = ({ navigation }) => {
         if (!destinatariosSet.has(idStr)) {
           destinatariosSet.add(idStr);
           destinatarios.push({ userId: usuarioTomadorId, rol: 'Tomador' });
-          console.log(`📱 Agregado Tomador: ${usuarioTomadorId}`);
         }
       }
       
@@ -100,7 +105,6 @@ const EjecucionServicio = ({ navigation }) => {
         if (!destinatariosSet.has(idStr)) {
           destinatariosSet.add(idStr);
           destinatarios.push({ userId: jefeId, rol: 'Jefe' });
-          console.log(`📱 Agregado Jefe: ${jefeId}`);
         }
       }
       
@@ -109,7 +113,6 @@ const EjecucionServicio = ({ navigation }) => {
         if (!destinatariosSet.has(idStr) && tecnicoId !== usuarioActual?._id) {
           destinatariosSet.add(idStr);
           destinatarios.push({ userId: tecnicoId, rol: 'Técnico' });
-          console.log(`📱 Agregado Técnico: ${tecnicoId}`);
         }
       }
       
@@ -118,13 +121,9 @@ const EjecucionServicio = ({ navigation }) => {
         if (!destinatariosSet.has(idStr)) {
           destinatariosSet.add(idStr);
           destinatarios.push({ userId: usuarioActual._id, rol: 'Ejecutor' });
-          console.log(`📱 Agregado Ejecutor: ${usuarioActual._id}`);
         }
       }
       
-      console.log(`📱 Total destinatarios: ${destinatarios.length}`);
-      
-      let notificacionesEnviadas = 0;
       for (const destinatario of destinatarios) {
         try {
           await api.post('/notificaciones/enviar', {
@@ -138,21 +137,18 @@ const EjecucionServicio = ({ navigation }) => {
               estado: tipo,
             }
           });
-          notificacionesEnviadas++;
-          console.log(`✅ Notificación enviada a ${destinatario.rol}: ${destinatario.userId}`);
+          console.log(`✅ Notificación enviada a ${destinatario.rol}`);
         } catch (error) {
           console.error(`❌ Error enviando notificación a ${destinatario.rol}:`, error);
         }
       }
-      
-      console.log(`✅ ${notificacionesEnviadas} notificaciones enviadas correctamente`);
     } catch (error) {
       console.error('❌ Error enviando notificaciones:', error);
     }
   };
 
   // ============================================
-  // 📋 CARGAR SERVICIOS (FILTRADOS POR ROL) - CORREGIDO ✅
+  // 📋 CARGAR SERVICIOS - CORREGIDO ✅
   // ============================================
   const cargarServicios = async () => {
     setLoading(true);
@@ -164,7 +160,7 @@ const EjecucionServicio = ({ navigation }) => {
 
       let response;
       
-      // ✅ Si es Técnico, cargar SOLO sus servicios PENDIENTES
+      // ✅ Si es Técnico: cargar SOLO sus servicios en estado TOMADO
       if (isTecnico) {
         const userId = user?._id || user?.id;
         if (!userId) {
@@ -173,17 +169,16 @@ const EjecucionServicio = ({ navigation }) => {
           setLoading(false);
           return;
         }
-        console.log('📱 Cargando servicios PENDIENTES para TÉCNICO:', userId);
-        // ✅ CORREGIDO: Usar 'tecnico' en lugar de 'tecnicoId'
-        response = await api.get(`/visitas?estado=PENDIENTE&tecnico=${userId}`, {
+        console.log('📱 Cargando servicios TOMADO para TÉCNICO:', userId);
+        response = await api.get(`/servicios/estado/TOMADO?tecnico=${userId}`, {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
           }
         });
       } else {
-        // ✅ Admin o Jefe: cargar todos los servicios en TOMADO
-        console.log('📱 Cargando todos los servicios en TOMADO');
+        // ✅ Admin o Jefe: cargar TODOS los servicios en TOMADO
+        console.log('📱 Cargando todos los servicios en TOMADO (Admin/Jefe)');
         response = await api.get('/servicios/estado/TOMADO', {
           headers: {
             'Cache-Control': 'no-cache',
@@ -205,9 +200,9 @@ const EjecucionServicio = ({ navigation }) => {
       setServicios(serviciosData);
 
       if (serviciosData.length === 0) {
-        setDebugInfo(`⚠️ No hay servicios PENDIENTES${isTecnico ? ' para ti' : ''}`);
+        setDebugInfo(`⚠️ No hay servicios TOMADO${isTecnico ? ' para ti' : ''}`);
       } else {
-        setDebugInfo(`✅ ${serviciosData.length} servicios PENDIENTES${isTecnico ? ' para ti' : ''}`);
+        setDebugInfo(`✅ ${serviciosData.length} servicios TOMADO${isTecnico ? ' para ti' : ''}`);
       }
 
     } catch (error) {
@@ -220,30 +215,18 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
-  // 📦 CARGAR BODEGA DEL TÉCNICO (CON SALDOS NEGATIVOS)
+  // 📦 CARGAR BODEGA DEL TÉCNICO
   // ============================================
   const cargarBodega = async () => {
     setCargandoBodega(true);
     try {
       console.log('📦 === CARGANDO BODEGA DEL TÉCNICO ===');
-      console.log('📦 Usuario ID:', user?._id);
       
       const response = await api.get('/bodegas/mis-materiales');
       
       if (response.data.success && response.data.data) {
         const bodegaData = response.data.data;
         const materiales = bodegaData.materiales || [];
-        
-        console.log(`📦 Materiales extraídos: ${materiales.length}`);
-        
-        if (materiales.length > 0) {
-          console.log('📋 Materiales en bodega:');
-          materiales.forEach((m, i) => {
-            console.log(`  ${i+1}. ${m.nombre}: ${m.cantidad} ${m.unidad || 'uds'}`);
-          });
-        } else {
-          console.log('⚠️ La bodega no tiene materiales asignados');
-        }
         
         setBodega({
           _id: bodegaData._id,
@@ -253,7 +236,7 @@ const EjecucionServicio = ({ navigation }) => {
           permitirNegativo: true,
         });
         
-        console.log('✅ Bodega cargada correctamente:', bodegaData.nombre);
+        console.log('✅ Bodega cargada correctamente');
       } else {
         console.log('⚠️ No se pudo obtener la bodega');
         await crearBodegaAutomatica();
@@ -269,7 +252,7 @@ const EjecucionServicio = ({ navigation }) => {
   // ✅ CREAR BODEGA AUTOMÁTICA
   const crearBodegaAutomatica = async () => {
     try {
-      console.log('📦 Creando bodega automática para el usuario...');
+      console.log('📦 Creando bodega automática...');
       const createResponse = await api.post('/bodegas/crear', {
         nombre: `Bodega de ${user.nombre}`,
         usuarioId: user._id,
@@ -299,7 +282,7 @@ const EjecucionServicio = ({ navigation }) => {
   }, []);
 
   // ============================================
-  // ➕ AGREGAR MATERIAL DESDE EL PICKER
+  // ➕ AGREGAR MATERIAL
   // ============================================
   const agregarMaterial = () => {
     if (!materialSeleccionado) {
@@ -312,22 +295,6 @@ const EjecucionServicio = ({ navigation }) => {
       return;
     }
 
-    console.log('➕ Agregando material:', materialSeleccionado, 'Cantidad:', cantidad);
-
-    if (bodega) {
-      const materialEnBodega = bodega.materiales?.find(
-        m => m.nombre === materialSeleccionado
-      );
-      
-      if (materialEnBodega && materialEnBodega.cantidad < cantidad) {
-        Alert.alert(
-          '⚠️ Stock insuficiente',
-          `Stock disponible de ${materialSeleccionado}: ${materialEnBodega.cantidad} ${materialEnBodega.unidad || 'uds'}. Se registrará saldo negativo.`,
-          [{ text: 'OK' }]
-        );
-      }
-    }
-
     setMaterialesSeleccionados(prev => ({
       ...prev,
       [servicioSeleccionado._id]: {
@@ -337,7 +304,6 @@ const EjecucionServicio = ({ navigation }) => {
     }));
     setMaterialSeleccionado('');
     setCantidadMaterial('1');
-    console.log('✅ Material agregado a la lista');
   };
 
   // ============================================
@@ -357,18 +323,15 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
-  // 📦 RESTAR MATERIAL DE BODEGA (PERMITE SALDOS NEGATIVOS)
+  // 📦 RESTAR MATERIAL DE BODEGA
   // ============================================
   const restarMaterialDeBodega = async (materialesDelServicio) => {
     try {
       const materialesReportados = Object.keys(materialesDelServicio);
       
       if (materialesReportados.length === 0) {
-        console.log('⚠️ No hay materiales para restar');
         return true;
       }
-      
-      console.log('📦 Restando materiales de bodega (saldos negativos permitidos)...');
       
       const materialesARestar = materialesReportados.map(nombre => ({
         nombre: nombre,
@@ -384,33 +347,11 @@ const EjecucionServicio = ({ navigation }) => {
         crearBodegaAutomatica: true,
       });
       
-      console.log('✅ Materiales restados correctamente (saldos negativos permitidos)');
       return true;
     } catch (error) {
       console.error('❌ Error restando materiales:', error);
-      
-      try {
-        const materialesARestar = Object.keys(materialesDelServicio).map(nombre => ({
-          nombre: nombre,
-          cantidad: materialesDelServicio[nombre],
-          permitirNegativo: true,
-        }));
-        
-        await api.post('/bodegas/restar-materiales-bodega', {
-          materiales: materialesARestar,
-          permitirNegativo: true,
-          usuarioId: user._id,
-          usuarioNombre: user.nombre,
-          crearBodegaAutomatica: true,
-        });
-        
-        console.log('✅ Materiales restados con bodega automática');
-        return true;
-      } catch (fallbackError) {
-        console.error('❌ Error en fallback:', fallbackError);
-        Alert.alert('⚠️ Advertencia', 'No se pudieron restar los materiales de la bodega. El servicio se ejecutará igual.');
-        return true;
-      }
+      Alert.alert('⚠️ Advertencia', 'No se pudieron restar los materiales de la bodega. El servicio se ejecutará igual.');
+      return true;
     }
   };
 
@@ -455,8 +396,6 @@ const EjecucionServicio = ({ navigation }) => {
         numeroSerie: numeroSerie || '',
         estado: 'EJECUTADO',
       };
-
-      console.log('📤 Ejecutando servicio con:', dataToSend);
 
       await api.put(`/servicios/${servicioSeleccionado._id}/ejecutar`, dataToSend);
 
@@ -547,6 +486,16 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
+  // 🖼️ ABRIR IMAGEN AMPLIADA
+  // ============================================
+  const abrirImagenAmpliada = (uri) => {
+    if (uri) {
+      setImagenAmpliadaUri(uri);
+      setImagenAmpliadaVisible(true);
+    }
+  };
+
+  // ============================================
   // 🖼️ RENDER PRINCIPAL
   // ============================================
   if (loading && servicios.length === 0) {
@@ -563,7 +512,7 @@ const EjecucionServicio = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.title}>⚙️ Ejecutar Servicio</Text>
         <Text style={styles.subtitle}>
-          {servicios.length} servicio{servicios.length !== 1 ? 's' : ''} PENDIENTES
+          {servicios.length} servicio{servicios.length !== 1 ? 's' : ''} TOMADO{servicios.length !== 1 ? 'S' : ''}
         </Text>
       </View>
 
@@ -580,7 +529,7 @@ const EjecucionServicio = ({ navigation }) => {
             <Text style={styles.emptyTitle}>No hay servicios asignados</Text>
             <Text style={styles.emptyText}>
               {isTecnico
-                ? 'No tienes servicios PENDIENTES para ejecutar'
+                ? 'No tienes servicios TOMADO para ejecutar'
                 : 'No hay servicios disponibles'}
             </Text>
             <TouchableOpacity style={styles.refreshButton} onPress={cargarServicios}>
@@ -612,19 +561,36 @@ const EjecucionServicio = ({ navigation }) => {
                 </View>
               </View>
 
+              {/* ✅ IMAGEN CLICKEABLE */}
               {servicio.imagen && (
-                <View style={styles.imagenContainer}>
+                <TouchableOpacity 
+                  style={styles.imagenContainer}
+                  onPress={() => abrirImagenAmpliada(servicio.imagen)}
+                  activeOpacity={0.8}
+                >
                   <Image 
                     source={{ uri: servicio.imagen }} 
                     style={styles.imagenMiniatura}
                     resizeMode="cover"
                   />
-                </View>
+                  <View style={styles.imagenOverlay}>
+                    <Ionicons name="expand-outline" size={24} color="#FFFFFF" />
+                    <Text style={styles.imagenOverlayText}>Tocar para ampliar</Text>
+                  </View>
+                </TouchableOpacity>
               )}
 
               <Text style={styles.servicioInfo}>🔧 {servicio.nombreServicio}</Text>
               <Text style={styles.servicioInfo}>📍 {servicio.direccion}</Text>
-              <Text style={styles.servicioInfo}>👤 Técnico: {servicio.tecnicoAsignado?.nombre || 'N/A'}</Text>
+              <Text style={styles.servicioInfo}>👤 Técnico: {servicio.tecnico?.nombre || 'N/A'}</Text>
+              
+              {/* ✅ OBSERVACIONES VISIBLES */}
+              {servicio.observaciones && (
+                <View style={styles.observacionesContainer}>
+                  <Text style={styles.observacionesLabel}>📝 Observaciones:</Text>
+                  <Text style={styles.observacionesText}>{servicio.observaciones}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           ))
         )}
@@ -641,7 +607,7 @@ const EjecucionServicio = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <ScrollView style={styles.modalContent}>
-            <Text style={styles.modalTitle}>✅ Ejecutar Servicio v1.2.4</Text>
+            <Text style={styles.modalTitle}>✅ Ejecutar Servicio</Text>
 
             {bodega && (
               <View style={styles.bodegaInfoModal}>
@@ -758,6 +724,36 @@ const EjecucionServicio = ({ navigation }) => {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* ============================================
+          MODAL DE IMAGEN AMPLIADA
+          ============================================ */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={imagenAmpliadaVisible}
+        onRequestClose={() => setImagenAmpliadaVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.imagenAmpliadaOverlay}
+          activeOpacity={1}
+          onPress={() => setImagenAmpliadaVisible(false)}
+        >
+          <TouchableOpacity 
+            style={styles.imagenAmpliadaClose}
+            onPress={() => setImagenAmpliadaVisible(false)}
+          >
+            <Ionicons name="close-circle" size={40} color="#FFFFFF" />
+          </TouchableOpacity>
+          {imagenAmpliadaUri && (
+            <Image 
+              source={{ uri: imagenAmpliadaUri }} 
+              style={styles.imagenAmpliada}
+              resizeMode="contain"
+            />
+          )}
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -848,6 +844,72 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#636E72',
     marginVertical: 2,
+  },
+  // ✅ ESTILOS PARA OBSERVACIONES
+  observacionesContainer: {
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#6C5CE7',
+  },
+  observacionesLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#6C5CE7',
+    marginBottom: 2,
+  },
+  observacionesText: {
+    fontSize: 13,
+    color: '#2D3436',
+  },
+  // ✅ ESTILOS PARA IMAGEN CLICKEABLE
+  imagenContainer: {
+    marginVertical: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F0F0F0',
+    position: 'relative',
+  },
+  imagenMiniatura: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+  },
+  imagenOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  imagenOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    marginLeft: 6,
+  },
+  // ✅ ESTILOS PARA IMAGEN AMPLIADA
+  imagenAmpliadaOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagenAmpliada: {
+    width: width * 0.95,
+    height: height * 0.85,
+    borderRadius: 10,
+  },
+  imagenAmpliadaClose: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
   },
   emptyContainer: {
     flex: 1,
@@ -1035,17 +1097,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  imagenContainer: {
-    marginVertical: 8,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#F0F0F0',
-  },
-  imagenMiniatura: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
   },
 });
 
