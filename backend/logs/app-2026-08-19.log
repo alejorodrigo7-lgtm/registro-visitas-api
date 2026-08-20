@@ -371,3 +371,32 @@
 2026-08-19 16:12:17 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"164ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
 2026-08-19 16:12:22 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"3592ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}
 2026-08-19 16:21:26 [INFO]: Recibida señal SIGINT, cerrando servidor... {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: Servidor iniciado en puerto 5000 {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: Logs guardados en: C:\Users\MARYLUZ CORDOBA\Desktop\registro-visitas-app\backend\src/../logs {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: Entorno: development {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: Zona horaria: America/Guayaquil {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: Hora actual: 19/8/2026, 16:22:59 {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: Escuchando en todas las interfaces (0.0.0.0) {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/auth {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/transferencias {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/servicios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/cajas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/reportes {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/visitas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/bodegas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/horarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/mapas {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/monserrath {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/asistencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/pedir-ausencia {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/clientes {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/notificaciones {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/dashboard {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/desconexiones {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/usuarios {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/sync {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:22:59 [INFO]: /api/recuperacion {"service":"ra2p-api","environment":"development"}
+2026-08-19 16:23:08 [INFO]: Intento de login {"service":"ra2p-api","environment":"development","email":"alejorodrigo7@gmail.com","ip":"127.0.0.1"}
+2026-08-19 16:23:08 [INFO]: AUDIT: LOGIN_EXITOSO {"service":"ra2p-api","environment":"development","user":"alejorodrigo7@gmail.com","userId":"6a697ab15df26f212341319b","action":"LOGIN_EXITOSO","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 16:23:08 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/login","status":200,"duration":"183ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456"}
+2026-08-19 16:23:14 [INFO]: HTTP Request {"service":"ra2p-api","environment":"development","method":"POST","url":"/","status":201,"duration":"1965ms","ip":"127.0.0.1","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; es-EC) WindowsPowerShell/5.1.19041.6456","userId":"6a697ab15df26f212341319b","userEmail":"alejorodrigo7@gmail.com"}

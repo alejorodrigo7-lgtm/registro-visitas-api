@@ -1,13 +1,17 @@
-const mailgun = require('mailgun-js')({
-  apiKey: process.env.MAILGUN_API_KEY,
-  domain: process.env.MAILGUN_DOMAIN
-});
+const sgMail = require('@sendgrid/mail');
 
 class EmailService {
   constructor() {
-    console.log('📧 Inicializando EmailService con Mailgun...');
-    console.log(`📧 MAILGUN_API_KEY: ${process.env.MAILGUN_API_KEY ? '✅ Configurado' : '❌ Faltante'}`);
-    console.log(`📧 MAILGUN_DOMAIN: ${process.env.MAILGUN_DOMAIN || 'No configurado'}`);
+    console.log('📧 Inicializando EmailService con SendGrid...');
+    const apiKey = process.env.SENDGRID_API_KEY;
+    
+    if (!apiKey) {
+      console.error('❌ SENDGRID_API_KEY no configurada en .env');
+      console.log('⚠️ Usando modo simulación para pruebas');
+    } else {
+      sgMail.setApiKey(apiKey);
+      console.log('✅ SendGrid configurado correctamente');
+    }
   }
 
   async enviarNotificacionDesconexion(data) {
@@ -27,25 +31,40 @@ class EmailService {
       urlAccion: `${process.env.FRONTEND_URL}/ejecucion`
     });
 
-    return new Promise((resolve, reject) => {
-      const msg = {
-        from: `"RA²P Notificaciones" <postmaster@${process.env.MAILGUN_DOMAIN}>`,
-        to: process.env.EMAIL_ADMINS.split(','),
-        cc: process.env.EMAIL_JEFES ? process.env.EMAIL_JEFES.split(',') : [],
-        subject: asunto,
-        html: html
-      };
+    // Si no hay API Key, simular envío
+    if (!process.env.SENDGRID_API_KEY) {
+      console.log('📧 [SIMULADO] Correo enviado (sin API Key)');
+      console.log(`   Para: ${process.env.EMAIL_ADMINS}`);
+      console.log(`   Asunto: ${asunto}`);
+      return { success: true, simulated: true };
+    }
 
-      mailgun.messages().send(msg, (error, body) => {
-        if (error) {
-          console.error('❌ Error enviando correo via Mailgun:', error);
-          reject(error);
-        } else {
-          console.log('✅ Correo enviado exitosamente via Mailgun:', body);
-          resolve(body);
-        }
-      });
-    });
+    const msg = {
+      to: process.env.EMAIL_ADMINS.split(','),
+      cc: process.env.EMAIL_JEFES ? process.env.EMAIL_JEFES.split(',') : [],
+      from: {
+        email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
+        name: 'RA²P Notificaciones'
+      },
+      subject: asunto,
+      html: html,
+      trackingSettings: {
+        clickTracking: { enable: false },
+        openTracking: { enable: false }
+      }
+    };
+
+    try {
+      const result = await sgMail.send(msg);
+      console.log('✅ Correo enviado exitosamente via SendGrid');
+      return result;
+    } catch (error) {
+      console.error('❌ Error enviando correo via SendGrid:', error.message);
+      if (error.response) {
+        console.error('   Detalle:', error.response.body);
+      }
+      throw error;
+    }
   }
 
   generarTemplate(data) {
@@ -106,8 +125,14 @@ class EmailService {
             <p style="color: #666; font-size: 12px; margin-top: 20px;">
               Este mensaje es automático. Por favor, no responder a este correo.
             </p>
+            <hr style="border: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #999; font-size: 11px; text-align: center;">
+              RA²P - Sistema de Gestión de Desconexiones y Reconexiones<br>
+              Este es un mensaje automático del sistema.
+            </p>
           </div>
         </div>
+      </body>
       </html>
     `;
   }
