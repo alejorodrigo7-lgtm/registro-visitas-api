@@ -39,9 +39,16 @@ class EmailService {
       return { success: true, simulated: true };
     }
 
+    // 🔧 Eliminar duplicados entre to y cc
+    const toList = process.env.EMAIL_ADMINS ? process.env.EMAIL_ADMINS.split(',').map(email => email.trim()).filter(email => email) : [];
+    const ccList = process.env.EMAIL_JEFES ? process.env.EMAIL_JEFES.split(',').map(email => email.trim()).filter(email => email) : [];
+
+    // Filtrar cc para eliminar duplicados con to
+    const filteredCC = ccList.filter(email => !toList.includes(email));
+
+    // Construir el mensaje (si filteredCC está vacío, no incluir cc)
     const msg = {
-      to: process.env.EMAIL_ADMINS.split(','),
-      cc: process.env.EMAIL_JEFES ? process.env.EMAIL_JEFES.split(',') : [],
+      to: toList,
       from: {
         email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
         name: 'RA²P Notificaciones'
@@ -54,9 +61,18 @@ class EmailService {
       }
     };
 
+    // Solo agregar cc si hay destinatarios filtrados
+    if (filteredCC.length > 0) {
+      msg.cc = filteredCC;
+    }
+
     try {
       const result = await sgMail.send(msg);
       console.log('✅ Correo enviado exitosamente via SendGrid');
+      console.log(`   Para: ${toList.join(', ')}`);
+      if (filteredCC.length > 0) {
+        console.log(`   CC: ${filteredCC.join(', ')}`);
+      }
       return result;
     } catch (error) {
       console.error('❌ Error enviando correo via SendGrid:', error.message);
