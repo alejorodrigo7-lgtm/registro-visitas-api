@@ -10,7 +10,17 @@ const servicioSchema = new mongoose.Schema({
   telefono: { type: String, required: true },
   nombreServicio: {
     type: String,
-    enum: ['INSTALACION DUO', 'INSTALACION INTERNET', 'INSTALACION TV', 'SIN INTERNET (FOCO ROJO)', 'INTERNET DEFICIENTE', 'SIN SEÑAL DE TV', 'TV DEFICIENTE'],
+    enum: [
+      'INSTALACION DUO',
+      'INSTALACION INTERNET',
+      'INSTALACION TV',
+      'SIN INTERNET (FOCO ROJO)',
+      'INTERNET DEFICIENTE',
+      'SIN SEÑAL DE TV',
+      'TV DEFICIENTE',
+      'CORTE TV',        // ← NUEVO
+      'CORTE INTERNET'   // ← NUEVO
+    ],
     required: true,
   },
   telefonos: { type: [String], required: true },
