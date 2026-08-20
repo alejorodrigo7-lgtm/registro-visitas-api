@@ -332,7 +332,6 @@ class EmailService {
       </html>
     `;
 
-    // Enviar al usuario que solicitó
     return this._enviarCorreo({
       to: [usuarioSolicitante.email],
       cc: [],
@@ -413,7 +412,6 @@ class EmailService {
       </html>
     `;
 
-    // Enviar al usuario que solicitó
     return this._enviarCorreo({
       to: [usuarioSolicitante.email],
       cc: [],
@@ -501,7 +499,6 @@ class EmailService {
       </html>
     `;
 
-    // Enviar al técnico asignado
     return this._enviarCorreo({
       to: [tecnico.email],
       cc: [],
@@ -579,7 +576,90 @@ class EmailService {
       </html>
     `;
 
-    // Enviar al usuario que solicitó el servicio
+    return this._enviarCorreo({
+      to: [usuarioSolicitante.email],
+      cc: [],
+      subject: asunto,
+      html: html
+    });
+  }
+
+  // ============================================
+  // ✅ NUEVA FUNCIÓN 5: SERVICIO RETROALIMENTADO
+  // → Envía al usuario que SOLICITÓ el servicio
+  // ============================================
+  async enviarNotificacionServicioRetroalimentado(servicio, usuarioSolicitante) {
+    const asunto = `💬 SERVICIO RETROALIMENTADO - ${servicio.cliente}`;
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Servicio Retroalimentado</title>
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          .header { background: #6a1b9a; color: white; padding: 25px 20px; text-align: center; }
+          .header h1 { margin: 0; font-size: 24px; }
+          .content { padding: 30px 25px; background: #ffffff; }
+          .field { margin: 0 0 15px 0; padding: 12px 15px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #6a1b9a; }
+          .field strong { color: #6a1b9a; display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+          .field span { font-size: 15px; color: #333; }
+          .badge { background: #6a1b9a; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; display: inline-block; font-weight: 600; }
+          .button { display: inline-block; padding: 12px 30px; background: #6a1b9a; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0 5px 0; font-weight: 600; }
+          .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
+          .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
+          .footer .brand { font-weight: 600; color: #1a237e; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>💬 Servicio Retroalimentado</h1>
+          </div>
+          <div class="content">
+            <p><strong>Hola ${usuarioSolicitante.nombre},</strong></p>
+            <p>El servicio ha sido <strong>retroalimentado</strong> correctamente:</p>
+            <div class="field">
+              <strong>Cliente</strong>
+              <span>${servicio.cliente}</span>
+            </div>
+            <div class="field">
+              <strong>Dirección</strong>
+              <span>${servicio.direccion || 'N/A'}</span>
+            </div>
+            <div class="field">
+              <strong>Teléfono</strong>
+              <span>${servicio.telefono || 'N/A'}</span>
+            </div>
+            <div class="field">
+              <strong>Servicio</strong>
+              <span>${servicio.nombreServicio || 'Sin descripción'}</span>
+            </div>
+            <div class="field">
+              <strong>Retroalimentado por</strong>
+              <span>${servicio.responsableRetroalimentacion || 'Sistema'}</span>
+            </div>
+            <div class="field">
+              <strong>Observaciones</strong>
+              <span>${servicio.observacionesRetroalimentacion || 'Sin observaciones'}</span>
+            </div>
+            <div style="text-align: center; margin: 20px 0 10px 0;">
+              <p style="color: #6a1b9a; font-weight: 600;">💬 Servicio retroalimentado exitosamente</p>
+              <a href="${process.env.FRONTEND_URL}/servicios" class="button">📋 Ver en RA²P</a>
+            </div>
+          </div>
+          <div class="footer">
+            <p class="brand">RA²P - Sistema de Gestión</p>
+            <p>Este es un mensaje automático del sistema.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
     return this._enviarCorreo({
       to: [usuarioSolicitante.email],
       cc: [],

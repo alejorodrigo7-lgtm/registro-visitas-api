@@ -1,11 +1,12 @@
 // ✅ CONTROLADOR CORREGIDO - VERSIÓN CON ACTUALIZACIÓN DE BODEGA (RESTANDO MATERIALES)
 // ✅ CON CORREO AL TÉCNICO EN TOMAR SERVICIO
+// ✅ CON CORREO AL SOLICITANTE EN RETROALIMENTAR SERVICIO
 
 const Servicio = require('../models/Servicio');
 const User = require('../models/User');
 const Bodega = require('../models/Bodega');
 const { enviarNotificacionPush } = require('../services/pushService');
-const emailService = require('../services/emailService'); // ✅ AGREGADO: Servicio de correo
+const emailService = require('../services/emailService');
 
 // ✅ Función para asegurar que la imagen tenga el prefijo correcto
 const formatearImagen = (imagen) => {
@@ -22,7 +23,6 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'resta
     console.log(`📦 Actualizando bodega del técnico ${tecnicoId} (${operacion})`);
     console.log(`📦 Materiales a procesar:`, materiales);
     
-    // Buscar la bodega del técnico
     let bodega = await Bodega.findOne({ usuario: tecnicoId });
     
     if (!bodega) {
@@ -40,7 +40,6 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'resta
       console.log('✅ Bodega creada');
     }
     
-    // Mostrar materiales actuales en bodega
     console.log('📦 Materiales actuales en bodega:');
     bodega.materiales.forEach(m => {
       console.log(`   ${m.nombre}: ${m.cantidad}`);
@@ -53,11 +52,9 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'resta
       
       if (!nombre) continue;
       
-      // Buscar el material en la bodega
       const materialExistente = bodega.materiales.find(m => m.nombre === nombre);
       
       if (materialExistente) {
-        // 👇 RESTAR (para egresos de materiales usados en servicios)
         if (operacion === 'restar') {
           materialExistente.cantidad = (parseFloat(materialExistente.cantidad) || 0) - cantidad;
           console.log(`✅ Material restado: ${nombre} → ${materialExistente.cantidad}`);
@@ -67,7 +64,6 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'resta
         }
         materialExistente.fechaActualizacion = new Date();
       } else {
-        // Si no existe, crearlo con cantidad negativa (si es egreso)
         const nuevaCantidad = operacion === 'restar' ? -cantidad : cantidad;
         bodega.materiales.push({
           nombre: nombre,
@@ -151,7 +147,6 @@ exports.crearServicio = async (req, res) => {
 
 // ============================================
 // 🔧 ASIGNAR SERVICIO A TÉCNICO
-// → Envía correo al técnico ASIGNADO
 // ============================================
 exports.asignarServicio = async (req, res) => {
   try {
@@ -170,7 +165,6 @@ exports.asignarServicio = async (req, res) => {
       });
     }
 
-    // Validar estado
     if (servicio.estado !== 'TOMADO' && servicio.estado !== 'PENDIENTE') {
       return res.status(400).json({
         success: false,
@@ -178,7 +172,6 @@ exports.asignarServicio = async (req, res) => {
       });
     }
 
-    // Buscar técnico
     const tecnico = await User.findById(tecnicoId);
     if (!tecnico || tecnico.rol !== 'Tecnico') {
       return res.status(400).json({
@@ -187,7 +180,6 @@ exports.asignarServicio = async (req, res) => {
       });
     }
 
-    // Actualizar servicio con el técnico
     servicio.tecnico = {
       _id: tecnico._id,
       nombre: tecnico.nombre,
@@ -198,7 +190,6 @@ exports.asignarServicio = async (req, res) => {
     servicio.asignadoPor = usuario._id;
     await servicio.save();
 
-    // ✅ 📧 ENVIAR CORREO AL TÉCNICO ASIGNADO
     try {
       if (tecnico && tecnico.email) {
         console.log(`📧 Enviando correo de asignación al técnico: ${tecnico.email}`);
@@ -279,11 +270,9 @@ exports.tomarServicio = async (req, res) => {
       });
     }
 
-    // ✅ BUSCAR EL TÉCNICO Y JEFE PARA OBTENER SUS DATOS COMPLETOS
     const tecnico = await User.findById(tecnicoAsignado);
     const jefe = await User.findById(jefeAsignado);
 
-    // ✅ CREAR EL SERVICIO CON LOS DATOS COMPLETOS
     const servicio = await Servicio.create({
       cliente,
       codigoIdentificador,
@@ -295,7 +284,6 @@ exports.tomarServicio = async (req, res) => {
       observaciones,
       responsable: responsable.nombre,
       responsableId: req.user._id,
-      // ✅ GUARDAR COMO OBJETO COMPLETO EN EL CAMPO CORRECTO
       tecnico: tecnico ? {
         _id: tecnico._id,
         nombre: tecnico.nombre,
@@ -306,7 +294,6 @@ exports.tomarServicio = async (req, res) => {
         nombre: jefe.nombre,
         email: jefe.email
       } : null,
-      // ✅ IMAGEN CON PREFIJO CORRECTO
       imagen: formatearImagen(imagen),
       estado: 'TOMADO',
       activo: true,
@@ -316,9 +303,7 @@ exports.tomarServicio = async (req, res) => {
     console.log('✅ Técnico asignado:', tecnico ? tecnico.nombre : 'No encontrado');
     console.log('✅ Jefe asignado:', jefe ? jefe.nombre : 'No encontrado');
 
-    // ============================================
-    // ✅ 📧 ENVIAR CORREO AL TÉCNICO ASIGNADO (NUEVO)
-    // ============================================
+    // ✅ 📧 ENVIAR CORREO AL TÉCNICO ASIGNADO
     try {
       if (tecnico && tecnico.email) {
         console.log(`📧 Enviando correo al técnico: ${tecnico.email}`);
@@ -339,9 +324,7 @@ exports.tomarServicio = async (req, res) => {
       console.error(`❌ Error enviando correo al técnico:`, error.message);
     }
 
-    // ============================================
-    // NOTIFICACIONES PUSH (YA EXISTENTE - NO TOCAR)
-    // ============================================
+    // NOTIFICACIONES PUSH
     const mensajePush = `📋 Se ha tomado un servicio "${nombreServicio}" para el cliente ${cliente}`;
 
     if (tecnico) {
@@ -387,7 +370,7 @@ exports.tomarServicio = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER SERVICIOS POR ESTADO (CORREGIDO)
+// ✅ OBTENER SERVICIOS POR ESTADO
 // ============================================
 exports.getServiciosByEstado = async (req, res) => {
   try {
@@ -421,7 +404,6 @@ exports.getServiciosByEstado = async (req, res) => {
     
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
-      // ✅ BUSCAR POR tecnico._id (CAMPO CORRECTO)
       query['tecnico._id'] = tecnicoId;
       console.log(`🎯 Filtrando por técnico ID: ${tecnicoId}`);
     } else if (req.user.rol === 'Jefe') {
@@ -463,7 +445,7 @@ exports.getServiciosByEstado = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER TODOS LOS SERVICIOS (CORREGIDO)
+// ✅ OBTENER TODOS LOS SERVICIOS
 // ============================================
 exports.getServicios = async (req, res) => {
   try {
@@ -559,8 +541,7 @@ exports.getServicio = async (req, res) => {
 };
 
 // ============================================
-// EJECUTAR SERVICIO - CON ACTUALIZACIÓN DE BODEGA (RESTANDO) ✅
-// ✅ MODIFICADO: Agrega correo al usuario que solicitó el servicio
+// EJECUTAR SERVICIO - CON CORREO AL SOLICITANTE ✅
 // ============================================
 exports.ejecutarServicio = async (req, res) => {
   try {
@@ -572,7 +553,7 @@ exports.ejecutarServicio = async (req, res) => {
     console.log(`📦 Materiales recibidos:`, materiales);
 
     const servicio = await Servicio.findById(id)
-      .populate('responsableId', 'nombre email'); // ✅ AGREGADO: Para obtener datos del solicitante
+      .populate('responsableId', 'nombre email');
 
     if (!servicio) {
       return res.status(404).json({
@@ -583,7 +564,6 @@ exports.ejecutarServicio = async (req, res) => {
 
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
-      // ✅ VERIFICAR POR tecnico._id
       if (servicio.tecnico && servicio.tecnico._id.toString() !== tecnicoId.toString()) {
         return res.status(403).json({
           success: false,
@@ -617,13 +597,11 @@ exports.ejecutarServicio = async (req, res) => {
 
     console.log(`✅ Servicio ${id} ejecutado correctamente`);
 
-    // ============================================
-    // 📦 ACTUALIZAR BODEGA DEL TÉCNICO - RESTANDO MATERIALES
-    // ============================================
+    // 📦 ACTUALIZAR BODEGA
     if (materiales && materiales.length > 0) {
       console.log(`📦 Actualizando bodega del técnico (RESTANDO)...`);
       const tecnicoId = servicio.tecnico?._id || req.user._id;
-      const resultadoBodega = await actualizarBodegaTecnico(tecnicoId, materiales, 'restar'); // ✅ CON 'restar'
+      const resultadoBodega = await actualizarBodegaTecnico(tecnicoId, materiales, 'restar');
       
       if (resultadoBodega.success) {
         console.log(`✅ Bodega actualizada: ${resultadoBodega.actualizados} materiales restados`);
@@ -634,7 +612,7 @@ exports.ejecutarServicio = async (req, res) => {
       console.log('⚠️ No hay materiales para actualizar la bodega');
     }
 
-    // ✅ 📧 CORREO 1: AL USUARIO QUE SOLICITÓ EL SERVICIO (NUEVO - ADICIONAL)
+    // ✅ 📧 CORREO AL SOLICITANTE
     try {
       const usuarioSolicitante = servicio.responsableId;
       if (usuarioSolicitante && usuarioSolicitante.email) {
@@ -656,7 +634,7 @@ exports.ejecutarServicio = async (req, res) => {
       console.error(`❌ Error enviando correo al solicitante:`, error.message);
     }
 
-    // Notificaciones push (YA EXISTENTE - NO TOCAR)
+    // NOTIFICACIONES PUSH
     try {
       await enviarNotificacionPush(servicio.responsableId, {
         title: '✅ Servicio Ejecutado',
@@ -702,7 +680,6 @@ exports.pendienteServicio = async (req, res) => {
 
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
-      // ✅ VERIFICAR POR tecnico._id
       if (servicio.tecnico && servicio.tecnico._id.toString() !== tecnicoId.toString()) {
         return res.status(403).json({
           success: false,
@@ -770,7 +747,7 @@ exports.pendienteServicio = async (req, res) => {
 };
 
 // ============================================
-// RETROALIMENTAR SERVICIO
+// RETROALIMENTAR SERVICIO - CON CORREO AL SOLICITANTE ✅
 // ============================================
 exports.retroalimentarServicio = async (req, res) => {
   try {
@@ -780,7 +757,10 @@ exports.retroalimentarServicio = async (req, res) => {
     console.log(`🔄 Retroalimentando servicio ID: ${id}`);
     console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
 
-    const servicio = await Servicio.findById(id);
+    // ✅ Obtener servicio con datos del solicitante
+    const servicio = await Servicio.findById(id)
+      .populate('responsableId', 'nombre email');
+
     if (!servicio) {
       return res.status(404).json({
         success: false,
@@ -809,6 +789,34 @@ exports.retroalimentarServicio = async (req, res) => {
 
     console.log(`✅ Servicio ${id} retroalimentado correctamente`);
 
+    // ============================================
+    // ✅ 📧 ENVIAR CORREO AL SOLICITANTE
+    // ============================================
+    try {
+      const usuarioSolicitante = servicio.responsableId;
+      if (usuarioSolicitante && usuarioSolicitante.email) {
+        console.log(`📧 Enviando correo de retroalimentación al solicitante: ${usuarioSolicitante.email}`);
+        
+        await emailService.enviarNotificacionServicioRetroalimentado(
+          {
+            cliente: servicio.cliente,
+            direccion: servicio.direccion || 'N/A',
+            telefono: servicio.telefono || 'N/A',
+            nombreServicio: servicio.nombreServicio || 'Sin descripción',
+            observacionesRetroalimentacion: observaciones || 'Sin observaciones',
+            responsableRetroalimentacion: usuario.nombre
+          },
+          usuarioSolicitante
+        );
+        console.log(`✅ Correo de retroalimentación enviado al solicitante: ${usuarioSolicitante.email}`);
+      } else {
+        console.warn(`⚠️ No se encontró usuario solicitante para el servicio ${id}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error enviando correo de retroalimentación:`, error.message);
+    }
+
+    // NOTIFICACIONES PUSH
     try {
       await enviarNotificacionPush(servicio.responsableId, {
         title: '✅ Servicio Retroalimentado',
@@ -956,7 +964,6 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       });
     }
     
-    // ✅ BUSCAR POR tecnico._id
     const servicios = await Servicio.find({
       'tecnico._id': tecnicoId,
       estado: 'TOMADO',
