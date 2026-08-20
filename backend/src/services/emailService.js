@@ -46,18 +46,24 @@ class EmailService {
     // Filtrar cc para eliminar duplicados con to
     const filteredCC = ccList.filter(email => !toList.includes(email));
 
-    // Construir el mensaje (si filteredCC está vacío, no incluir cc)
+    // ✅ MEJORA: Agregar Reply-To y mejorar configuración
     const msg = {
       to: toList,
       from: {
         email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
         name: 'RA²P Notificaciones'
       },
+      replyTo: {
+        email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
+        name: 'RA²P Soporte'
+      },
       subject: asunto,
       html: html,
+      // ✅ MEJORA: Desactivar tracking para evitar SPAM
       trackingSettings: {
         clickTracking: { enable: false },
-        openTracking: { enable: false }
+        openTracking: { enable: false },
+        subscriptionTracking: { enable: false }
       }
     };
 
@@ -90,28 +96,97 @@ class EmailService {
       <!DOCTYPE html>
       <html>
       <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nueva Solicitud de ${tipo}</title>
         <style>
-          body { font-family: Arial, sans-serif; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #1a237e; color: white; padding: 15px; border-radius: 8px 8px 0 0; }
-          .content { background: #f5f5f5; padding: 20px; border-radius: 0 0 8px 8px; }
-          .field { margin: 10px 0; padding: 10px; background: white; border-radius: 4px; }
-          .button { 
-            display: inline-block; 
-            padding: 12px 24px; 
+          body { 
+            font-family: Arial, Helvetica, sans-serif; 
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+          }
+          .container { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            padding: 0;
+            background: #ffffff; 
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+          .header { 
             background: #1a237e; 
             color: white; 
-            text-decoration: none; 
-            border-radius: 4px;
-            margin: 20px 0;
+            padding: 25px 20px; 
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+          }
+          .content { 
+            padding: 30px 25px; 
+            background: #ffffff;
+          }
+          .field { 
+            margin: 0 0 15px 0; 
+            padding: 12px 15px; 
+            background: #f8f9fa; 
+            border-radius: 6px;
+            border-left: 4px solid #1a237e;
+          }
+          .field strong {
+            color: #1a237e;
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+          }
+          .field span {
+            font-size: 15px;
+            color: #333;
           }
           .badge { 
             background: ${tipo === 'DESCONEXION' ? '#d32f2f' : '#2e7d32'};
             color: white;
             padding: 4px 12px;
             border-radius: 20px;
-            font-size: 14px;
+            font-size: 13px;
             display: inline-block;
+            font-weight: 600;
+          }
+          .button { 
+            display: inline-block; 
+            padding: 12px 30px; 
+            background: #1a237e; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 6px;
+            margin: 15px 0 5px 0;
+            font-weight: 600;
+          }
+          .footer {
+            padding: 20px 25px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+          }
+          .footer p {
+            margin: 5px 0;
+            color: #6c757d;
+            font-size: 12px;
+          }
+          .footer .brand {
+            font-weight: 600;
+            color: #1a237e;
+          }
+          @media only screen and (max-width: 480px) {
+            .container { margin: 10px; }
+            .content { padding: 20px; }
+            .header h1 { font-size: 20px; }
           }
         </style>
       </head>
@@ -122,29 +197,35 @@ class EmailService {
           </div>
           <div class="content">
             <div class="field">
-              <strong>Cliente:</strong> ${cliente.nombre} (${cliente.codigo || cliente.documento})
+              <strong>Cliente</strong>
+              <span>${cliente.nombre} (${cliente.codigo || cliente.documento})</span>
             </div>
             <div class="field">
-              <strong>Motivo:</strong> ${motivo}
+              <strong>Motivo</strong>
+              <span>${motivo}</span>
             </div>
-            ${observaciones ? `<div class="field"><strong>Observaciones:</strong> ${observaciones}</div>` : ''}
+            ${observaciones ? `<div class="field"><strong>Observaciones</strong><span>${observaciones}</span></div>` : ''}
             <div class="field">
-              <strong>Solicitante:</strong> ${usuario.nombre} (${usuario.rol})
+              <strong>Solicitante</strong>
+              <span>${usuario.nombre} (${usuario.rol})</span>
             </div>
             <div class="field">
-              <strong>Fecha/Hora:</strong> ${new Date(fecha).toLocaleString('es-EC')}
+              <strong>Fecha/Hora</strong>
+              <span>${new Date(fecha).toLocaleString('es-EC')}</span>
             </div>
             <div class="field">
-              <strong>Tipo:</strong> <span class="badge">${tipo}</span>
+              <strong>Tipo</strong>
+              <span class="badge">${tipo}</span>
             </div>
-            <a href="${urlAccion}" class="button">📋 Gestionar en RA²P</a>
-            <p style="color: #666; font-size: 12px; margin-top: 20px;">
-              Este mensaje es automático. Por favor, no responder a este correo.
-            </p>
-            <hr style="border: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #999; font-size: 11px; text-align: center;">
-              RA²P - Sistema de Gestión de Desconexiones y Reconexiones<br>
-              Este es un mensaje automático del sistema.
+            <div style="text-align: center; margin: 20px 0 10px 0;">
+              <a href="${urlAccion}" class="button">📋 Gestionar en RA²P</a>
+            </div>
+          </div>
+          <div class="footer">
+            <p class="brand">RA²P - Sistema de Gestión</p>
+            <p>Este es un mensaje automático del sistema.</p>
+            <p style="font-size: 11px; color: #adb5bd;">
+              &copy; ${new Date().getFullYear()} RA²P - Todos los derechos reservados
             </p>
           </div>
         </div>
