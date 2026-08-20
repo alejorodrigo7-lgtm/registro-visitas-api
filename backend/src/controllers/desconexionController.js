@@ -208,13 +208,17 @@ exports.crear = async (req, res) => {
 
 // ============================================
 // ✅ EJECUTAR SOLICITUD (REALIZAR) CON NOTIFICACIÓN
+// ✅ MODIFICADO: Agrega correo al usuario que solicitó
 // ============================================
 exports.realizar = async (req, res) => {
   try {
     const { id } = req.params;
     const { observacion } = req.body;
     
-    const solicitud = await Desconexion.findById(id);
+    // Obtener solicitud con datos del usuario creador
+    const solicitud = await Desconexion.findById(id)
+      .populate('usuario', 'nombre email');
+    
     if (!solicitud) {
       return res.status(404).json({
         success: false,
@@ -228,6 +232,9 @@ exports.realizar = async (req, res) => {
         message: `La solicitud ya está ${solicitud.estado.toLowerCase()}`,
       });
     }
+    
+    // Obtener datos del ejecutor
+    const ejecutor = await User.findById(req.user._id);
     
     solicitud.estado = 'EJECUTADO';
     solicitud.ejecutadoPor = req.user._id;
@@ -282,7 +289,7 @@ exports.realizar = async (req, res) => {
       }
     }
 
-    // ✅ 📧 ENVIAR NOTIFICACIÓN POR CORREO DE EJECUCIÓN
+    // ✅ 📧 CORREO 1: AL ADMIN (YA EXISTENTE - NO TOCAR)
     try {
       console.log(`📧 Intentando enviar correo de ejecución para solicitud ${solicitud._id}...`);
       await emailService.enviarNotificacionDesconexion({
@@ -302,6 +309,41 @@ exports.realizar = async (req, res) => {
       console.log(`✅ Correo electrónico de ejecución enviado para solicitud ${solicitud._id}`);
     } catch (error) {
       console.error(`❌ Error al enviar correo electrónico de ejecución para solicitud ${solicitud._id}:`, error.message);
+    }
+
+    // ✅ 📧 CORREO 2: AL USUARIO QUE SOLICITÓ (NUEVO - ADICIONAL)
+    try {
+      const usuarioSolicitante = solicitud.usuario;
+      if (usuarioSolicitante && usuarioSolicitante.email) {
+        console.log(`📧 Enviando correo de notificación al solicitante: ${usuarioSolicitante.email}`);
+        
+        if (solicitud.tipo === 'DESCONEXION') {
+          await emailService.enviarNotificacionDesconexionEjecutada(
+            {
+              cliente: solicitud.cliente,
+              direccion: solicitud.direccion || 'N/A',
+              telefono: solicitud.telefono || 'N/A',
+              observaciones: solicitud.observacionEjecucion || 'Sin observaciones'
+            },
+            ejecutor, // usuario que ejecutó
+            usuarioSolicitante // usuario que solicitó
+          );
+        } else {
+          await emailService.enviarNotificacionReconexionEjecutada(
+            {
+              cliente: solicitud.cliente,
+              direccion: solicitud.direccion || 'N/A',
+              telefono: solicitud.telefono || 'N/A',
+              observaciones: solicitud.observacionEjecucion || 'Sin observaciones'
+            },
+            ejecutor, // usuario que ejecutó
+            usuarioSolicitante // usuario que solicitó
+          );
+        }
+        console.log(`✅ Correo de notificación enviado al solicitante: ${usuarioSolicitante.email}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error enviando correo al solicitante:`, error.message);
     }
 
     res.json({

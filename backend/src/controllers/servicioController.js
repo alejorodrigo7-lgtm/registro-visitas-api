@@ -4,6 +4,7 @@ const Servicio = require('../models/Servicio');
 const User = require('../models/User');
 const Bodega = require('../models/Bodega');
 const { enviarNotificacionPush } = require('../services/pushService');
+const emailService = require('../services/emailService'); // ✅ AGREGADO: Servicio de correo
 
 // ✅ Función para asegurar que la imagen tenga el prefijo correcto
 const formatearImagen = (imagen) => {
@@ -393,6 +394,7 @@ exports.getServicio = async (req, res) => {
 
 // ============================================
 // EJECUTAR SERVICIO - CON ACTUALIZACIÓN DE BODEGA (RESTANDO) ✅
+// ✅ MODIFICADO: Agrega correo al usuario que solicitó el servicio
 // ============================================
 exports.ejecutarServicio = async (req, res) => {
   try {
@@ -403,7 +405,9 @@ exports.ejecutarServicio = async (req, res) => {
     console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
     console.log(`📦 Materiales recibidos:`, materiales);
 
-    const servicio = await Servicio.findById(id);
+    const servicio = await Servicio.findById(id)
+      .populate('responsableId', 'nombre email'); // ✅ AGREGADO: Para obtener datos del solicitante
+
     if (!servicio) {
       return res.status(404).json({
         success: false,
@@ -464,7 +468,29 @@ exports.ejecutarServicio = async (req, res) => {
       console.log('⚠️ No hay materiales para actualizar la bodega');
     }
 
-    // Notificaciones push
+    // ✅ 📧 CORREO 1: AL USUARIO QUE SOLICITÓ EL SERVICIO (NUEVO - ADICIONAL)
+    try {
+      const usuarioSolicitante = servicio.responsableId;
+      if (usuarioSolicitante && usuarioSolicitante.email) {
+        console.log(`📧 Enviando correo de ejecución al solicitante: ${usuarioSolicitante.email}`);
+        await emailService.enviarNotificacionServicioEjecutado(
+          {
+            cliente: servicio.cliente,
+            direccion: servicio.direccion || 'N/A',
+            telefono: servicio.telefono || 'N/A',
+            observacionesEjecucion: observaciones || 'Sin observaciones'
+          },
+          usuarioSolicitante
+        );
+        console.log(`✅ Correo de ejecución enviado al solicitante: ${usuarioSolicitante.email}`);
+      } else {
+        console.warn(`⚠️ No se encontró usuario solicitante para el servicio ${id}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error enviando correo al solicitante:`, error.message);
+    }
+
+    // Notificaciones push (YA EXISTENTE - NO TOCAR)
     try {
       await enviarNotificacionPush(servicio.responsableId, {
         title: '✅ Servicio Ejecutado',
