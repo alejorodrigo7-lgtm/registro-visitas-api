@@ -1,4 +1,5 @@
 // ✅ CONTROLADOR CORREGIDO - VERSIÓN CON ACTUALIZACIÓN DE BODEGA (RESTANDO MATERIALES)
+// ✅ CON CORREO AL TÉCNICO EN TOMAR SERVICIO
 
 const Servicio = require('../models/Servicio');
 const User = require('../models/User');
@@ -94,7 +95,147 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'resta
 };
 
 // ============================================
-// TOMAR SERVICIO - CORREGIDO ✅
+// 📝 CREAR SERVICIO
+// ============================================
+exports.crearServicio = async (req, res) => {
+  try {
+    const { 
+      cliente, 
+      direccion, 
+      telefono, 
+      descripcion, 
+      prioridad 
+    } = req.body;
+
+    console.log(`📝 Creando servicio para cliente: ${cliente}`);
+    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
+
+    if (!cliente || !direccion || !telefono) {
+      return res.status(400).json({
+        success: false,
+        message: 'Los campos cliente, dirección y teléfono son obligatorios'
+      });
+    }
+
+    const servicio = new Servicio({
+      cliente,
+      direccion,
+      telefono,
+      descripcion: descripcion || '',
+      prioridad: prioridad || 'Normal',
+      responsable: req.user.nombre,
+      responsableId: req.user._id,
+      estado: 'TOMADO',
+      activo: true,
+      creadoPor: req.user._id,
+    });
+
+    await servicio.save();
+
+    console.log(`✅ Servicio creado ID: ${servicio._id}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Servicio creado exitosamente',
+      data: servicio
+    });
+
+  } catch (error) {
+    console.error('❌ Error al crear servicio:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// ============================================
+// 🔧 ASIGNAR SERVICIO A TÉCNICO
+// → Envía correo al técnico ASIGNADO
+// ============================================
+exports.asignarServicio = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tecnicoId } = req.body;
+    const usuario = req.user;
+
+    console.log(`🔧 Asignando servicio ${id} al técnico ${tecnicoId}`);
+    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
+
+    const servicio = await Servicio.findById(id);
+    if (!servicio) {
+      return res.status(404).json({
+        success: false,
+        message: 'Servicio no encontrado'
+      });
+    }
+
+    // Validar estado
+    if (servicio.estado !== 'TOMADO' && servicio.estado !== 'PENDIENTE') {
+      return res.status(400).json({
+        success: false,
+        message: 'Solo se pueden asignar servicios en estado TOMADO o PENDIENTE'
+      });
+    }
+
+    // Buscar técnico
+    const tecnico = await User.findById(tecnicoId);
+    if (!tecnico || tecnico.rol !== 'Tecnico') {
+      return res.status(400).json({
+        success: false,
+        message: 'El usuario no es un técnico válido'
+      });
+    }
+
+    // Actualizar servicio con el técnico
+    servicio.tecnico = {
+      _id: tecnico._id,
+      nombre: tecnico.nombre,
+      email: tecnico.email
+    };
+    servicio.estado = 'ASIGNADO';
+    servicio.fechaAsignacion = new Date();
+    servicio.asignadoPor = usuario._id;
+    await servicio.save();
+
+    // ✅ 📧 ENVIAR CORREO AL TÉCNICO ASIGNADO
+    try {
+      if (tecnico && tecnico.email) {
+        console.log(`📧 Enviando correo de asignación al técnico: ${tecnico.email}`);
+        await emailService.enviarNotificacionServicioAsignado(
+          {
+            cliente: servicio.cliente,
+            direccion: servicio.direccion || 'N/A',
+            telefono: servicio.telefono || 'N/A',
+            descripcion: servicio.nombreServicio || 'Sin descripción',
+            prioridad: servicio.prioridad || 'Normal',
+            asignadoPor: { nombre: usuario.nombre }
+          },
+          tecnico
+        );
+        console.log(`✅ Correo de asignación enviado al técnico: ${tecnico.email}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error enviando correo al técnico:`, error.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Servicio asignado exitosamente',
+      data: servicio
+    });
+
+  } catch (error) {
+    console.error('❌ Error al asignar servicio:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// ============================================
+// TOMAR SERVICIO - CON CORREO AL TÉCNICO ✅
 // ============================================
 exports.tomarServicio = async (req, res) => {
   try {
@@ -175,7 +316,32 @@ exports.tomarServicio = async (req, res) => {
     console.log('✅ Técnico asignado:', tecnico ? tecnico.nombre : 'No encontrado');
     console.log('✅ Jefe asignado:', jefe ? jefe.nombre : 'No encontrado');
 
-    // Notificaciones push
+    // ============================================
+    // ✅ 📧 ENVIAR CORREO AL TÉCNICO ASIGNADO (NUEVO)
+    // ============================================
+    try {
+      if (tecnico && tecnico.email) {
+        console.log(`📧 Enviando correo al técnico: ${tecnico.email}`);
+        await emailService.enviarNotificacionServicioAsignado(
+          {
+            cliente: servicio.cliente,
+            direccion: servicio.direccion || 'N/A',
+            telefono: servicio.telefono || 'N/A',
+            descripcion: servicio.nombreServicio || 'Sin descripción',
+            prioridad: servicio.prioridad || 'Normal',
+            asignadoPor: { nombre: responsable.nombre }
+          },
+          tecnico
+        );
+        console.log(`✅ Correo de asignación enviado al técnico: ${tecnico.email}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error enviando correo al técnico:`, error.message);
+    }
+
+    // ============================================
+    // NOTIFICACIONES PUSH (YA EXISTENTE - NO TOCAR)
+    // ============================================
     const mensajePush = `📋 Se ha tomado un servicio "${nombreServicio}" para el cliente ${cliente}`;
 
     if (tecnico) {
@@ -714,6 +880,51 @@ exports.buscarServicios = async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: error.message 
+    });
+  }
+};
+
+// ============================================
+// ❌ RECHAZAR SERVICIO
+// ============================================
+exports.rechazarServicio = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { motivo } = req.body;
+
+    console.log(`❌ Rechazando servicio ID: ${id}`);
+    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
+
+    const servicio = await Servicio.findById(id);
+    if (!servicio) {
+      return res.status(404).json({
+        success: false,
+        message: 'Servicio no encontrado'
+      });
+    }
+
+    if (servicio.estado !== 'TOMADO' && servicio.estado !== 'PENDIENTE') {
+      return res.status(400).json({
+        success: false,
+        message: 'No se puede rechazar este servicio'
+      });
+    }
+
+    servicio.estado = 'RECHAZADO';
+    servicio.motivoRechazo = motivo || 'Sin motivo especificado';
+    await servicio.save();
+
+    res.json({
+      success: true,
+      message: 'Servicio rechazado',
+      data: servicio
+    });
+
+  } catch (error) {
+    console.error('❌ Error al rechazar servicio:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
