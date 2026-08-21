@@ -25,16 +25,33 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null);
 
+  // ========== Estado para foto ampliada ==========
+  const [modalFotoVisible, setModalFotoVisible] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
+
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
-  // ✅ VALIDAR IMAGEN DE FORMA SEGURA
+  // ✅ VALIDAR IMAGEN (SOPORTA CLOUDINARY Y BASE64)
   const validarImagen = (item) => {
     try {
       if (!item) return null;
+      
       let imagen = item.imagenComprobante || item.soporte || null;
       if (!imagen || typeof imagen !== 'string') return null;
+      
+      // Si es URL de Cloudinary (empieza con http)
+      if (imagen.startsWith('http')) {
+        return imagen;
+      }
+      
+      // Si es base64 con prefijo
+      if (imagen.startsWith('data:image')) {
+        return imagen;
+      }
+      
+      // Si es base64 sin prefijo
       if (imagen.length < 100) return null;
-      if (imagen.startsWith('data:image')) return imagen;
+      
       const base64Regex = /^[A-Za-z0-9+/=]+$/;
       if (base64Regex.test(imagen.substring(0, 100))) {
         return `data:image/jpeg;base64,${imagen}`;
@@ -42,6 +59,16 @@ const ConfirmacionTransferencias = ({ navigation }) => {
       return null;
     } catch (e) {
       return null;
+    }
+  };
+
+  // ============================================
+  // 📸 ABRIR FOTO AMPLIADA
+  // ============================================
+  const abrirFotoAmpliada = (imagen) => {
+    if (imagen) {
+      setFotoAmpliada(imagen);
+      setModalFotoVisible(true);
     }
   };
 
@@ -169,7 +196,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     } catch (e) { return '$0.00'; }
   };
 
-  // ✅ RENDER DE IMAGEN SEGURO
+  // ✅ RENDER DE IMAGEN SEGURO CON MEJOR CALIDAD
   const renderImagen = (item) => {
     if (!item || !item.tieneImagen || !item.imagenComprobante) return null;
     
@@ -177,8 +204,8 @@ const ConfirmacionTransferencias = ({ navigation }) => {
       <TouchableOpacity 
         style={styles.imagenContainer}
         onPress={() => {
-          setTransferenciaSeleccionada(item);
-          setModalVisible(true);
+          const img = item.imagenComprobante;
+          if (img) abrirFotoAmpliada(img);
         }}
         activeOpacity={0.8}
       >
@@ -186,6 +213,8 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           source={{ uri: item.imagenComprobante }}
           style={styles.imagenMiniatura}
           resizeMode="cover"
+          resizeMethod="resize"
+          fadeDuration={0}
           onError={() => console.log('⚠️ Error cargando imagen')}
         />
         <View style={styles.imagenBadge}>
@@ -271,7 +300,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                 <Text style={styles.transferenciaInfo}>👤 {item.responsable || 'N/A'}</Text>
               </View>
 
-              {/* ✅ IMAGEN */}
+              {/* ✅ IMAGEN CON MEJOR CALIDAD */}
               {renderImagen(item)}
 
               {isAdminOrJefe && (
@@ -296,7 +325,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* MODAL CON IMAGEN AMPLIADA */}
+      {/* MODAL CON IMAGEN AMPLIADA - MEJOR CALIDAD */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -338,7 +367,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                   <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado || 'SUBIDA'}</Text>
                 </View>
 
-                {/* ✅ IMAGEN AMPLIADA EN MODAL */}
+                {/* ✅ IMAGEN AMPLIADA EN MODAL CON MEJOR CALIDAD */}
                 {transferenciaSeleccionada.tieneImagen && transferenciaSeleccionada.imagenComprobante && (
                   <View style={styles.modalImagenContainer}>
                     <Text style={styles.modalLabel}>📷 Comprobante:</Text>
@@ -346,6 +375,8 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                       source={{ uri: transferenciaSeleccionada.imagenComprobante }}
                       style={styles.modalImagen}
                       resizeMode="contain"
+                      resizeMethod="resize"
+                      fadeDuration={0}
                       onError={() => console.log('⚠️ Error en imagen modal')}
                     />
                   </View>
@@ -374,6 +405,33 @@ const ConfirmacionTransferencias = ({ navigation }) => {
               <Text style={styles.modalCerrarText}>Cerrar</Text>
             </TouchableOpacity>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* MODAL PARA FOTO AMPLIADA - MEJOR CALIDAD */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalFotoVisible}
+        onRequestClose={() => setModalFotoVisible(false)}
+      >
+        <View style={styles.fotoModalOverlay}>
+          <TouchableOpacity 
+            style={styles.fotoModalClose}
+            onPress={() => setModalFotoVisible(false)}
+          >
+            <Text style={styles.fotoModalCloseText}>✕ Cerrar</Text>
+          </TouchableOpacity>
+          {fotoAmpliada && (
+            <Image
+              source={{ uri: fotoAmpliada }}
+              style={styles.fotoAmpliada}
+              resizeMode="contain"
+              resizeMethod="resize"
+              fadeDuration={0}
+              onError={() => console.log('⚠️ Error en foto ampliada')}
+            />
+          )}
         </View>
       </Modal>
     </SafeAreaView>
@@ -520,7 +578,7 @@ const styles = StyleSheet.create({
     color: '#636E72',
     marginTop: 2,
   },
-  // ✅ ESTILOS DE IMAGEN
+  // ✅ ESTILOS DE IMAGEN MEJORADOS
   imagenContainer: {
     marginTop: 10,
     borderRadius: 8,
@@ -530,7 +588,7 @@ const styles = StyleSheet.create({
   },
   imagenMiniatura: {
     width: '100%',
-    height: 120,
+    height: 150,
     borderRadius: 8,
     backgroundColor: '#F0F0F0',
   },
@@ -627,9 +685,32 @@ const styles = StyleSheet.create({
   },
   modalImagen: {
     width: '100%',
-    height: 350,
+    height: 400,
     borderRadius: 10,
     backgroundColor: '#F0F0F0',
+  },
+  // ✅ ESTILOS PARA FOTO AMPLIADA
+  fotoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fotoModalClose: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  fotoModalCloseText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  fotoAmpliada: {
+    width: '100%',
+    height: '80%',
   },
   modalBotones: {
     flexDirection: 'row',

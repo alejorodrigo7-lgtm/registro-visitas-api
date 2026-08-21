@@ -63,6 +63,11 @@ const solicitudReciboRoutes = require('./routes/solicitudReciboRoutes');
 const recuperacionRoutes = require('./routes/recuperacionRoutes');
 
 // ============================================
+// NUEVO: IMPORTAR RUTAS DE UPLOAD (CLOUDINARY)
+// ============================================
+const uploadRoutes = require('./routes/uploadRoutes');
+
+// ============================================
 // CREAR APP
 // ============================================
 const app = express();
@@ -190,6 +195,11 @@ app.use('/api/usuarios', userRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/solicitudes-recibo', solicitudReciboRoutes);
 app.use('/api/recuperacion', recuperacionRoutes);
+
+// ============================================
+// NUEVO: RUTA DE UPLOAD (CLOUDINARY)
+// ============================================
+app.use('/api/upload', uploadRoutes);
 
 // ============================================
 // RATE LIMITING
@@ -349,6 +359,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`/api/usuarios`);
   logger.info(`/api/sync`);
   logger.info(`/api/recuperacion`);
+  logger.info(`/api/upload`); // ← NUEVO
 });
 
 // ============================================

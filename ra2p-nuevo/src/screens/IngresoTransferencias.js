@@ -8,6 +8,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -22,12 +23,63 @@ const IngresoTransferencias = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null);
 
+  // ========== Estado para búsqueda ==========
+  const [busqueda, setBusqueda] = useState('');
+  const [transferenciasFiltradas, setTransferenciasFiltradas] = useState([]);
+  const [mostrandoFiltradas, setMostrandoFiltradas] = useState(false);
+
+  // ========== Estado para foto ampliada ==========
+  const [modalFotoVisible, setModalFotoVisible] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
+
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
+
+  // ============================================
+  // 🔍 FUNCIÓN DE BÚSQUEDA
+  // ============================================
+  const buscarTransferencias = (texto) => {
+    setBusqueda(texto);
+    
+    if (!texto || texto.trim() === '') {
+      setMostrandoFiltradas(false);
+      setTransferenciasFiltradas([]);
+      return;
+    }
+
+    const termino = texto.toLowerCase().trim();
+    const filtradas = transferencias.filter(t => {
+      const codigo = (t.codigoIdentificador || '').toLowerCase();
+      const nombre = (t.nombreUsuario || '').toLowerCase();
+      const documento = (t.numeroDocumento || '').toLowerCase();
+      const zona = (t.zonaSector || '').toLowerCase();
+      
+      return codigo.includes(termino) || 
+             nombre.includes(termino) || 
+             documento.includes(termino) ||
+             zona.includes(termino);
+    });
+
+    setTransferenciasFiltradas(filtradas);
+    setMostrandoFiltradas(true);
+  };
+
+  // ============================================
+  // 📸 ABRIR FOTO AMPLIADA
+  // ============================================
+  const abrirFotoAmpliada = (imagen) => {
+    if (imagen) {
+      setFotoAmpliada(imagen);
+      setModalFotoVisible(true);
+    }
+  };
 
   const cargarTransferencias = async () => {
     try {
       const response = await api.get('/transferencias/estado/CONFIRMADA');
       setTransferencias(response.data.data || []);
+      setBusqueda('');
+      setMostrandoFiltradas(false);
+      setTransferenciasFiltradas([]);
     } catch (error) {
       console.error('Error al cargar transferencias:', error);
       Alert.alert('Error', 'No se pudieron cargar las transferencias');
@@ -46,20 +98,39 @@ const IngresoTransferencias = ({ navigation }) => {
     cargarTransferencias();
   };
 
-  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN (de cualquier campo)
+  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN (SOPORTA CLOUDINARY Y BASE64)
   const getImagen = (item) => {
-    // Primero revisar imagenComprobante
-    if (item.imagenComprobante && item.imagenComprobante.length > 100) {
-      return item.imagenComprobante;
+    // Verificar imagenComprobante
+    if (item.imagenComprobante && typeof item.imagenComprobante === 'string') {
+      const imagen = item.imagenComprobante;
+      // Si es URL de Cloudinary (empieza con http)
+      if (imagen.startsWith('http')) {
+        return imagen;
+      }
+      // Si es base64 con prefijo
+      if (imagen.startsWith('data:image')) {
+        return imagen;
+      }
+      // Si es base64 sin prefijo
+      if (imagen.length > 100) {
+        return `data:image/jpeg;base64,${imagen}`;
+      }
     }
-    // Luego revisar soporte
+    // Fallback para soporte
     if (item.soporte && item.soporte.length > 100) {
-      return item.soporte;
+      let imagen = item.soporte;
+      if (imagen.startsWith('http')) {
+        return imagen;
+      }
+      if (imagen.startsWith('data:image')) {
+        return imagen;
+      }
+      return `data:image/jpeg;base64,${imagen}`;
     }
     return null;
   };
 
-  // ✅ VERIFICAR SI TIENE IMAGEN
+  // ✅ FUNCIÓN PARA VERIFICAR SI TIENE IMAGEN
   const tieneImagen = (item) => {
     return getImagen(item) !== null;
   };
@@ -126,17 +197,27 @@ const IngresoTransferencias = ({ navigation }) => {
 
         <Text style={styles.transferenciaNombre}>{item.nombreUsuario}</Text>
 
+        <Text style={styles.transferenciaDocumento}>
+          📄 Documento: {item.numeroDocumento || 'N/A'}
+        </Text>
+
         <View style={styles.transferenciaFooter}>
           <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
           <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
           <Text style={styles.transferenciaInfo}>👤 {item.responsable}</Text>
         </View>
 
-        {/* ✅ INDICADOR DE IMAGEN */}
         {tieneImagen(item) && (
-          <View style={styles.imagenIndicator}>
-            <Text style={styles.imagenIndicatorText}>📷 Tiene comprobante</Text>
-          </View>
+          <TouchableOpacity 
+            style={styles.imagenIndicator}
+            onPress={() => {
+              const img = getImagen(item);
+              if (img) abrirFotoAmpliada(img);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.imagenIndicatorText}>📷 Toca para ver comprobante</Text>
+          </TouchableOpacity>
         )}
 
         {isAdminOrJefe && (
@@ -159,6 +240,13 @@ const IngresoTransferencias = ({ navigation }) => {
     );
   };
 
+  const getDatosMostrar = () => {
+    if (mostrandoFiltradas) {
+      return transferenciasFiltradas;
+    }
+    return transferencias;
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -174,19 +262,45 @@ const IngresoTransferencias = ({ navigation }) => {
         <Text style={styles.title}>💰 Ingreso de Transferencias</Text>
       </View>
 
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="🔍 Buscar por código, nombre, documento o zona..."
+          value={busqueda}
+          onChangeText={buscarTransferencias}
+          placeholderTextColor="#999"
+        />
+        {busqueda.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={() => {
+              setBusqueda('');
+              setMostrandoFiltradas(false);
+              setTransferenciasFiltradas([]);
+            }}
+          >
+            <Text style={styles.clearButtonText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <ScrollView
         style={styles.listaContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {transferencias.length === 0 ? (
+        {getDatosMostrar().length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📭</Text>
-            <Text style={styles.emptyText}>No hay transferencias confirmadas</Text>
+            <Text style={styles.emptyText}>
+              {mostrandoFiltradas 
+                ? 'No se encontraron transferencias con ese criterio' 
+                : 'No hay transferencias confirmadas'}
+            </Text>
           </View>
         ) : (
-          transferencias.map(renderTransferencia)
+          getDatosMostrar().map(renderTransferencia)
         )}
         <View style={styles.footerSpacer} />
       </ScrollView>
@@ -210,6 +324,9 @@ const IngresoTransferencias = ({ navigation }) => {
                 <Text style={styles.modalLabel}>Nombre:</Text>
                 <Text style={styles.modalValue}>{transferenciaSeleccionada.nombreUsuario}</Text>
 
+                <Text style={styles.modalLabel}>Número de Documento:</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.numeroDocumento || 'N/A'}</Text>
+
                 <Text style={styles.modalLabel}>Valor:</Text>
                 <Text style={styles.modalValue}>{formatValor(transferenciaSeleccionada.valor)}</Text>
 
@@ -230,23 +347,37 @@ const IngresoTransferencias = ({ navigation }) => {
                   <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado}</Text>
                 </View>
 
-                {/* ✅ IMAGEN DEL COMPROBANTE - VERIFICA AMBOS CAMPOS */}
+                {/* ✅ IMAGEN DEL COMPROBANTE - CON MEJOR CALIDAD */}
                 {(() => {
                   const imagenData = getImagen(transferenciaSeleccionada);
-                  if (imagenData) {
+                  if (imagenData && imagenData.length > 100) {
+                    let uriImagen = imagenData;
+                    // Si es base64 sin prefijo, agregarlo
+                    if (!uriImagen.startsWith('data:image') && !uriImagen.startsWith('http')) {
+                      uriImagen = `data:image/jpeg;base64,${imagenData}`;
+                    }
                     return (
                       <View style={styles.imagenContainer}>
                         <Text style={styles.modalLabel}>📷 Comprobante:</Text>
-                        <Image
-                          source={{
-                            uri: imagenData.startsWith('data:image')
-                              ? imagenData
-                              : `data:image/jpeg;base64,${imagenData}`
-                          }}
-                          style={styles.modalImagen}
-                          resizeMode="contain"
-                          onError={(e) => console.log('❌ Error imagen:', e.nativeEvent.error)}
-                        />
+                        <TouchableOpacity 
+                          onPress={() => abrirFotoAmpliada(uriImagen)}
+                          activeOpacity={0.8}
+                          style={styles.imagenTouchable}
+                        >
+                          <Image
+                            source={{ uri: uriImagen }}
+                            style={styles.modalImagen}
+                            resizeMode="contain"
+                            resizeMethod="resize"
+                            fadeDuration={0}
+                            onError={(e) => {
+                              console.log('❌ Error imagen modal:', e.nativeEvent.error);
+                              Alert.alert('Error', 'No se pudo cargar el comprobante');
+                            }}
+                            onLoad={() => console.log('✅ Imagen modal cargada correctamente')}
+                          />
+                        </TouchableOpacity>
+                        <Text style={styles.fotoHint}>👆 Toca la imagen para ampliar</Text>
                       </View>
                     );
                   } else {
@@ -286,6 +417,37 @@ const IngresoTransferencias = ({ navigation }) => {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* MODAL PARA FOTO AMPLIADA - CON MEJOR CALIDAD */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalFotoVisible}
+        onRequestClose={() => setModalFotoVisible(false)}
+      >
+        <View style={styles.fotoModalOverlay}>
+          <TouchableOpacity 
+            style={styles.fotoModalClose}
+            onPress={() => setModalFotoVisible(false)}
+          >
+            <Text style={styles.fotoModalCloseText}>✕ Cerrar</Text>
+          </TouchableOpacity>
+          {fotoAmpliada && (
+            <Image
+              source={{ uri: fotoAmpliada }}
+              style={styles.fotoAmpliada}
+              resizeMode="contain"
+              resizeMethod="resize"
+              fadeDuration={0}
+              onError={(e) => {
+                console.log('❌ Error foto ampliada:', e.nativeEvent.error);
+                Alert.alert('Error', 'No se pudo cargar la imagen ampliada');
+              }}
+              onLoad={() => console.log('✅ Foto ampliada cargada')}
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -315,6 +477,33 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#636E72',
   },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 15,
+    marginTop: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#2D3436',
+    paddingVertical: 8,
+  },
+  clearButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  clearButtonText: {
+    fontSize: 18,
+    color: '#636E72',
+    fontWeight: 'bold',
+  },
   listaContainer: {
     flex: 1,
     padding: 15,
@@ -340,6 +529,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#2D3436',
+  },
+  transferenciaDocumento: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 6,
+    fontWeight: '500',
   },
   estadoBadge: {
     paddingHorizontal: 10,
@@ -370,13 +565,13 @@ const styles = StyleSheet.create({
   imagenIndicator: {
     marginTop: 8,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 6,
     backgroundColor: '#E8F8F5',
     borderRadius: 8,
     alignSelf: 'flex-start',
   },
   imagenIndicatorText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#00B894',
     fontWeight: '500',
   },
@@ -419,6 +614,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2D3436',
+    textAlign: 'center',
   },
   footerSpacer: {
     height: 20,
@@ -458,12 +654,45 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignItems: 'center',
   },
+  imagenTouchable: {
+    width: '100%',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
   modalImagen: {
     width: '100%',
     height: 300,
     borderRadius: 10,
     marginTop: 5,
     backgroundColor: '#F0F0F0',
+  },
+  fotoHint: {
+    fontSize: 12,
+    color: '#636E72',
+    marginTop: 5,
+    fontStyle: 'italic',
+  },
+  fotoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fotoModalClose: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  fotoModalCloseText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  fotoAmpliada: {
+    width: '100%',
+    height: '80%',
   },
   sinImagenContainer: {
     marginTop: 10,
