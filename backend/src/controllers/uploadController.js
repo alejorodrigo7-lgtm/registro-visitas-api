@@ -16,13 +16,12 @@ exports.subirImagen = async (req, res) => {
 
         console.log('📤 Subiendo imagen a Cloudinary...');
 
-        // Subir a Cloudinary
+        // Subir a Cloudinary - ELIMINAR 'use_filename' y 'unique_filename'
         const result = await cloudinary.uploader.upload(imagenBase64, {
             folder: carpeta || 'transferencias',
-            use_filename: true,
-            unique_filename: true,
+            resource_type: 'auto',
             transformation: [
-                { quality: 'auto' },
+                { quality: 'auto:good' },
                 { fetch_format: 'auto' }
             ]
         });
