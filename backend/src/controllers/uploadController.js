@@ -16,14 +16,26 @@ exports.subirImagen = async (req, res) => {
 
         console.log('📤 Subiendo imagen a Cloudinary...');
 
-        // Subir a Cloudinary - ELIMINAR 'use_filename' y 'unique_filename'
-        const result = await cloudinary.uploader.upload(imagenBase64, {
-            folder: carpeta || 'transferencias',
-            resource_type: 'auto',
-            transformation: [
-                { quality: 'auto:good' },
-                { fetch_format: 'auto' }
-            ]
+        // 🔥 CORRECCIÓN: Usar upload_stream con buffer
+        const result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                {
+                    folder: carpeta || 'transferencias',
+                    resource_type: 'auto',
+                    transformation: [
+                        { quality: 'auto:good' },
+                        { fetch_format: 'auto' }
+                    ]
+                },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            
+            // Convertir base64 a buffer y enviar
+            const buffer = Buffer.from(imagenBase64, 'base64');
+            uploadStream.end(buffer);
         });
 
         console.log('✅ Imagen subida a Cloudinary:', result.secure_url);
