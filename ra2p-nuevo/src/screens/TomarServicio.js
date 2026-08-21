@@ -45,6 +45,7 @@ const TomarServicio = ({ navigation }) => {
   const [imagenBase64, setImagenBase64] = useState(null);
   const [timeoutId, setTimeoutId] = useState(null);
 
+  // ✅ OPCIONES DE SERVICIO CON LAS NUEVAS AGREGADAS
   const opcionesServicio = [
     'INSTALACION DUO',
     'INSTALACION INTERNET',
@@ -53,6 +54,8 @@ const TomarServicio = ({ navigation }) => {
     'INTERNET DEFICIENTE',
     'SIN SEÑAL DE TV',
     'TV DEFICIENTE',
+    'CORTE TV',        // ← NUEVO
+    'CORTE INTERNET',  // ← NUEVO
   ];
 
   // ✅ Cargar usuarios con mejor manejo de errores
@@ -447,7 +450,7 @@ const TomarServicio = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Tipo de Servicio */}
+        {/* Tipo de Servicio - CON LAS NUEVAS OPCIONES */}
         <Text style={styles.label}>Nombre del Servicio *</Text>
         <View style={styles.pickerContainer}>
           <Picker
