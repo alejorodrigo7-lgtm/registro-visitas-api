@@ -7,35 +7,59 @@ const pushService = require('../services/pushService');
 const sharp = require('sharp');
 
 // ============================================
-// 📸 COMPRIMIR IMAGEN
+// 📸 COMPRIMIR IMAGEN (SOPORTA CLOUDINARY Y BASE64)
 // ============================================
-const comprimirImagen = async (base64String) => {
-  try {
-    if (!base64String || base64String.length < 100) return null;
-    
-    let base64Data = base64String;
-    if (base64String.startsWith('data:image')) {
-      base64Data = base64String.split(',')[1];
+const comprimirImagen = async (imagen) => {
+    try {
+        // ✅ Si es URL de Cloudinary (empieza con http)
+        if (imagen && imagen.startsWith('http')) {
+            console.log('✅ Imagen es URL de Cloudinary, no se comprime');
+            return imagen;
+        }
+
+        // ✅ Si es base64 con prefijo
+        if (imagen && imagen.startsWith('data:image')) {
+            let base64Data = imagen.split(',')[1];
+            
+            // Validar que sea base64 válido
+            if (!/^[A-Za-z0-9+/=]+$/.test(base64Data.substring(0, 100))) {
+                return imagen; // Devolver original si no es válido
+            }
+
+            // Comprimir con sharp
+            const buffer = Buffer.from(base64Data, 'base64');
+            const compressedBuffer = await sharp(buffer)
+                .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
+                .jpeg({ quality: 60 })
+                .toBuffer();
+
+            return `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
+        }
+
+        // ✅ Si es base64 sin prefijo
+        if (imagen && imagen.length > 100) {
+            // Validar que sea base64 válido
+            if (!/^[A-Za-z0-9+/=]+$/.test(imagen.substring(0, 100))) {
+                return `data:image/jpeg;base64,${imagen}`;
+            }
+
+            // Comprimir con sharp
+            const buffer = Buffer.from(imagen, 'base64');
+            const compressedBuffer = await sharp(buffer)
+                .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
+                .jpeg({ quality: 60 })
+                .toBuffer();
+
+            return `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
+        }
+
+        // Si no hay imagen o es null
+        console.log('⚠️ No hay imagen para comprimir');
+        return imagen;
+    } catch (error) {
+        console.error('❌ Error comprimiendo imagen:', error.message);
+        return imagen; // Devolver la imagen original si falla la compresión
     }
-    
-    // Validar que sea base64 válido
-    if (!/^[A-Za-z0-9+/=]+$/.test(base64Data.substring(0, 100))) {
-      return null;
-    }
-    
-    const buffer = Buffer.from(base64Data, 'base64');
-    
-    // Comprimir a 300x300 con calidad 60%
-    const compressedBuffer = await sharp(buffer)
-      .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 60 })
-      .toBuffer();
-    
-    return `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
-  } catch (error) {
-    console.error('❌ Error comprimiendo imagen:', error.message);
-    return null;
-  }
 };
 
 // ============================================
@@ -107,7 +131,7 @@ exports.subirTransferencia = async (req, res) => {
       });
     }
 
-    // ✅ COMPRIMIR IMAGEN ANTES DE GUARDAR
+    // ✅ COMPRIMIR IMAGEN ANTES DE GUARDAR (SOPORTA CLOUDINARY)
     const imagenComprimida = await comprimirImagen(imagenComprobante);
 
     const transferencia = await Transferencia.create({
@@ -122,7 +146,7 @@ exports.subirTransferencia = async (req, res) => {
       barrio,
       bancoCuenta,
       soporte,
-      imagenComprobante: imagenComprimida, // ✅ IMAGEN COMPRIMIDA
+      imagenComprobante: imagenComprimida, // ✅ IMAGEN COMPRIMIDA O URL DE CLOUDINARY
       estado: 'SUBIDA',
     });
 
