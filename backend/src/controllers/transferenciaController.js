@@ -146,7 +146,7 @@ exports.subirTransferencia = async (req, res) => {
       barrio,
       bancoCuenta,
       soporte,
-      imagenComprobante: imagenComprimida, // ✅ IMAGEN COMPRIMIDA O URL DE CLOUDINARY
+      imagenComprobante: imagenComprimida,
       estado: 'SUBIDA',
     });
 
@@ -239,16 +239,17 @@ exports.getTransferencia = async (req, res) => {
 };
 
 // ============================================
-// ✅ CONFIRMAR TRANSFERENCIA
+// ✅ CONFIRMAR TRANSFERENCIA (CON NOTA DE DENEGACIÓN)
 // ============================================
 exports.confirmarTransferencia = async (req, res) => {
   console.log('✅ confirmarTransferencia - INICIO');
   console.log(`✅ ID: ${req.params.id}`);
   console.log(`✅ Estado: ${req.body.estado}`);
+  console.log(`✅ Nota: ${req.body.notaDenegacion}`);
 
   try {
     const { id } = req.params;
-    const { estado } = req.body;
+    const { estado, notaDenegacion, imagenComprobante } = req.body;
 
     if (!['CONFIRMADA', 'DENEGADA'].includes(estado)) {
       console.log('❌ Error: Estado inválido');
@@ -275,15 +276,35 @@ exports.confirmarTransferencia = async (req, res) => {
       });
     }
 
-    transferencia.estado = estado;
+    // ✅ ACTUALIZAR SEGÚN EL ESTADO
+    if (estado === 'CONFIRMADA') {
+      transferencia.estado = 'CONFIRMADA';
+      transferencia.fechaConfirmacion = new Date();
+      transferencia.confirmadoPor = req.user._id;
+      console.log(`✅ Transferencia CONFIRMADA`);
+    } else if (estado === 'DENEGADA') {
+      transferencia.estado = 'DENEGADA';
+      // ✅ GUARDAR LA NOTA DE DENEGACIÓN
+      transferencia.notaDenegacion = notaDenegacion || 'Sin nota';
+      transferencia.denegadoPor = req.user._id;
+      transferencia.fechaDenegacion = new Date();
+      
+      // ✅ Si se envía una nueva imagen de comprobante (para denegación)
+      if (imagenComprobante) {
+        transferencia.imagenComprobante = imagenComprobante;
+      }
+      console.log(`✅ Transferencia DENEGADA - Nota: ${transferencia.notaDenegacion}`);
+    }
+
     transferencia.updatedAt = new Date();
     await transferencia.save();
-    console.log(`✅ Transferencia ${estado}`);
+    console.log(`✅ Transferencia guardada con estado ${transferencia.estado}`);
 
+    // ✅ ENVIAR NOTIFICACIÓN AL RESPONSABLE
     const titulo = estado === 'CONFIRMADA' ? '✅ Transferencia Confirmada' : '❌ Transferencia Denegada';
     const mensaje = estado === 'CONFIRMADA' 
       ? `Tu transferencia de ${transferencia.nombreUsuario} por $${transferencia.valor.toFixed(2)} ha sido confirmada`
-      : `Tu transferencia de ${transferencia.nombreUsuario} por $${transferencia.valor.toFixed(2)} ha sido denegada`;
+      : `Tu transferencia de ${transferencia.nombreUsuario} por $${transferencia.valor.toFixed(2)} ha sido denegada. Motivo: ${transferencia.notaDenegacion}`;
 
     await enviarNotificacionTransferencia(
       transferencia.responsableId,
@@ -294,6 +315,7 @@ exports.confirmarTransferencia = async (req, res) => {
         nombreUsuario: transferencia.nombreUsuario,
         valor: transferencia.valor,
         estado: transferencia.estado,
+        notaDenegacion: transferencia.notaDenegacion,
       }
     );
 

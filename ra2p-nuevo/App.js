@@ -48,6 +48,8 @@ import SubirTransferencia from './src/screens/SubirTransferencia';
 import ConfirmacionTransferencias from './src/screens/ConfirmacionTransferencias';
 import IngresoTransferencias from './src/screens/IngresoTransferencias';
 import RevisionTransferencias from './src/screens/RevisionTransferencias';
+// ✅ NUEVA: TRANSFERENCIAS DENEGADAS
+import TransferenciasDenegadas from './src/screens/TransferenciasDenegadas';
 
 // Servicios
 import ServiciosMenu from './src/screens/ServiciosMenu';
@@ -173,6 +175,9 @@ const ThemedNavigation = () => {
         <Stack.Screen name="ConfirmacionTransferencias" component={ConfirmacionTransferencias} options={{ title: 'Confirmación' }} />
         <Stack.Screen name="IngresoTransferencias" component={IngresoTransferencias} options={{ title: 'Ingreso Transferencias' }} />
         <Stack.Screen name="RevisionTransferencias" component={RevisionTransferencias} options={{ title: 'Revisar Transferencias' }} />
+        
+        {/* 🆕 NUEVA PANTALLA: TRANSFERENCIAS DENEGADAS */}
+        <Stack.Screen name="TransferenciasDenegadas" component={TransferenciasDenegadas} options={{ title: '❌ Transferencias Denegadas' }} />
 
         <Stack.Screen name="ServiciosMenu" component={ServiciosMenu} options={{ title: 'Servicios' }} />
         <Stack.Screen name="TomarServicio" component={TomarServicio} options={{ title: 'Tomar Servicio' }} />
@@ -316,7 +321,6 @@ export default function App() {
       }
     } else {
       console.log('🌐 Notificaciones: no disponibles en web');
-      // Intentar registrar para notificaciones web (opcional)
       if ('Notification' in window && Notification.permission === 'granted') {
         console.log('🌐 Notificaciones web disponibles');
       }

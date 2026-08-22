@@ -29,6 +29,12 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   const [modalFotoVisible, setModalFotoVisible] = useState(false);
   const [fotoAmpliada, setFotoAmpliada] = useState(null);
 
+  // ========== 🆕 ESTADO PARA DENEGACIÓN CON NOTA ==========
+  const [modalDenegacionVisible, setModalDenegacionVisible] = useState(false);
+  const [transferenciaDenegar, setTransferenciaDenegar] = useState(null);
+  const [notaDenegacion, setNotaDenegacion] = useState('');
+  const [subiendoDenegacion, setSubiendoDenegacion] = useState(false);
+
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
   // ✅ VALIDAR IMAGEN (SOPORTA CLOUDINARY Y BASE64)
@@ -39,17 +45,14 @@ const ConfirmacionTransferencias = ({ navigation }) => {
       let imagen = item.imagenComprobante || item.soporte || null;
       if (!imagen || typeof imagen !== 'string') return null;
       
-      // Si es URL de Cloudinary (empieza con http)
       if (imagen.startsWith('http')) {
         return imagen;
       }
       
-      // Si es base64 con prefijo
       if (imagen.startsWith('data:image')) {
         return imagen;
       }
       
-      // Si es base64 sin prefijo
       if (imagen.length < 100) return null;
       
       const base64Regex = /^[A-Za-z0-9+/=]+$/;
@@ -93,7 +96,6 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         datos = response.data.transferencias;
       }
       
-      // ✅ Datos seguros CON IMAGEN VALIDADA
       const itemsSeguros = datos.map(item => {
         const imagenValida = validarImagen(item);
         return {
@@ -146,27 +148,68 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     setTransferenciasFiltradas(filtradas);
   }, [searchText, transferencias]);
 
-  const confirmarTransferencia = async (id, estado) => {
+  // ✅ FUNCIÓN PARA APROBAR
+  const aprobarTransferencia = async (id) => {
     Alert.alert(
-      'Confirmar Transferencia',
-      `¿Estás seguro de ${estado === 'CONFIRMADA' ? 'aprobar' : 'denegar'} esta transferencia?`,
+      'Confirmar Aprobación',
+      '¿Estás seguro de aprobar esta transferencia?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: estado === 'CONFIRMADA' ? 'Aprobar' : 'Denegar',
+          text: 'Aprobar',
           onPress: async () => {
             try {
-              await api.put(`/transferencias/${id}/confirmar`, { estado });
-              Alert.alert('Éxito', `Transferencia ${estado === 'CONFIRMADA' ? 'confirmada' : 'denegada'}`);
+              await api.put(`/transferencias/${id}/confirmar`, { estado: 'CONFIRMADA' });
+              Alert.alert('Éxito', 'Transferencia aprobada correctamente');
               setModalVisible(false);
               cargarTransferencias();
             } catch (error) {
-              Alert.alert('Error', error.response?.data?.message || 'Error al procesar');
+              Alert.alert('Error', error.response?.data?.message || 'Error al aprobar');
             }
           },
         },
       ]
     );
+  };
+
+  // 🆕 FUNCIÓN PARA ABRIR MODAL DE DENEGACIÓN CON NOTA
+  const abrirModalDenegacion = (transferencia) => {
+    setTransferenciaDenegar(transferencia);
+    setNotaDenegacion('');
+    setModalDenegacionVisible(true);
+  };
+
+  // 🆕 CONFIRMAR DENEGACIÓN SOLO CON NOTA
+  const confirmarDenegacion = async () => {
+    if (!notaDenegacion.trim()) {
+      Alert.alert('Campo requerido', 'Debes escribir una nota explicando el motivo de la denegación');
+      return;
+    }
+
+    setSubiendoDenegacion(true);
+
+    try {
+      const body = {
+        estado: 'DENEGADA',
+        notaDenegacion: notaDenegacion.trim(),
+      };
+
+      const response = await api.put(`/transferencias/${transferenciaDenegar._id}/confirmar`, body);
+
+      if (response.data) {
+        Alert.alert('Éxito', 'Transferencia denegada correctamente');
+        setModalDenegacionVisible(false);
+        setTransferenciaDenegar(null);
+        setNotaDenegacion('');
+        setModalVisible(false);
+        cargarTransferencias();
+      }
+    } catch (error) {
+      console.error('Error denegando:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Error al denegar la transferencia');
+    } finally {
+      setSubiendoDenegacion(false);
+    }
   };
 
   const getEstadoColor = (estado) => {
@@ -196,7 +239,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     } catch (e) { return '$0.00'; }
   };
 
-  // ✅ RENDER DE IMAGEN SEGURO CON MEJOR CALIDAD
+  // ✅ RENDER DE IMAGEN
   const renderImagen = (item) => {
     if (!item || !item.tieneImagen || !item.imagenComprobante) return null;
     
@@ -300,20 +343,19 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                 <Text style={styles.transferenciaInfo}>👤 {item.responsable || 'N/A'}</Text>
               </View>
 
-              {/* ✅ IMAGEN CON MEJOR CALIDAD */}
               {renderImagen(item)}
 
               {isAdminOrJefe && (
                 <View style={styles.accionesContainer}>
                   <TouchableOpacity
                     style={[styles.accionButton, styles.accionAprobar]}
-                    onPress={() => confirmarTransferencia(item._id, 'CONFIRMADA')}
+                    onPress={() => aprobarTransferencia(item._id)}
                   >
                     <Text style={styles.accionButtonText}>✅ Aprobar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.accionButton, styles.accionDenegar]}
-                    onPress={() => confirmarTransferencia(item._id, 'DENEGADA')}
+                    onPress={() => abrirModalDenegacion(item)}
                   >
                     <Text style={styles.accionButtonText}>❌ Denegar</Text>
                   </TouchableOpacity>
@@ -325,7 +367,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* MODAL CON IMAGEN AMPLIADA - MEJOR CALIDAD */}
+      {/* MODAL CON IMAGEN AMPLIADA */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -367,7 +409,6 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                   <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado || 'SUBIDA'}</Text>
                 </View>
 
-                {/* ✅ IMAGEN AMPLIADA EN MODAL CON MEJOR CALIDAD */}
                 {transferenciaSeleccionada.tieneImagen && transferenciaSeleccionada.imagenComprobante && (
                   <View style={styles.modalImagenContainer}>
                     <Text style={styles.modalLabel}>📷 Comprobante:</Text>
@@ -386,13 +427,16 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                   <View style={styles.modalBotones}>
                     <TouchableOpacity
                       style={[styles.modalButton, styles.modalAprobar]}
-                      onPress={() => confirmarTransferencia(transferenciaSeleccionada._id, 'CONFIRMADA')}
+                      onPress={() => aprobarTransferencia(transferenciaSeleccionada._id)}
                     >
                       <Text style={styles.modalButtonText}>✅ Aprobar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.modalButton, styles.modalDenegar]}
-                      onPress={() => confirmarTransferencia(transferenciaSeleccionada._id, 'DENEGADA')}
+                      onPress={() => {
+                        setModalVisible(false);
+                        abrirModalDenegacion(transferenciaSeleccionada);
+                      }}
                     >
                       <Text style={styles.modalButtonText}>❌ Denegar</Text>
                     </TouchableOpacity>
@@ -408,7 +452,96 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL PARA FOTO AMPLIADA - MEJOR CALIDAD */}
+      {/* 🆕 MODAL PARA DENEGAR SOLO CON NOTA */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalDenegacionVisible}
+        onRequestClose={() => {
+          if (!subiendoDenegacion) {
+            setModalDenegacionVisible(false);
+            setTransferenciaDenegar(null);
+            setNotaDenegacion('');
+          }
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalDenegacionContent}>
+            <View style={styles.modalDenegacionHeader}>
+              <Text style={styles.modalDenegacionTitle}>❌ Denegar Transferencia</Text>
+              {!subiendoDenegacion && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setModalDenegacionVisible(false);
+                    setTransferenciaDenegar(null);
+                    setNotaDenegacion('');
+                  }}
+                  style={styles.modalDenegacionClose}
+                >
+                  <Text style={styles.modalDenegacionCloseText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.modalDenegacionBody}>
+              <Text style={styles.modalDenegacionSubtitle}>
+                Transferencia #{transferenciaDenegar?.numeroDocumento || 'N/A'}
+              </Text>
+              <Text style={styles.modalDenegacionSubtitle2}>
+                {transferenciaDenegar?.nombreUsuario || 'Sin nombre'}
+              </Text>
+
+              {/* 📝 CAMPO PARA LA NOTA */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>📝 Nota de denegación *</Text>
+                <TextInput
+                  style={styles.textArea}
+                  multiline
+                  numberOfLines={4}
+                  placeholder="Escribe el motivo de la denegación..."
+                  placeholderTextColor="#B2BEC3"
+                  value={notaDenegacion}
+                  onChangeText={setNotaDenegacion}
+                  editable={!subiendoDenegacion}
+                />
+              </View>
+
+              {/* BOTONES DE ACCIÓN */}
+              <View style={styles.modalDenegacionFooter}>
+                <TouchableOpacity
+                  style={[styles.modalDenegacionBtn, styles.modalDenegacionBtnCancel]}
+                  onPress={() => {
+                    setModalDenegacionVisible(false);
+                    setTransferenciaDenegar(null);
+                    setNotaDenegacion('');
+                  }}
+                  disabled={subiendoDenegacion}
+                >
+                  <Text style={styles.modalDenegacionBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalDenegacionBtn, 
+                    styles.modalDenegacionBtnConfirm,
+                    (!notaDenegacion.trim() || subiendoDenegacion) && styles.modalDenegacionBtnDisabled
+                  ]}
+                  onPress={confirmarDenegacion}
+                  disabled={!notaDenegacion.trim() || subiendoDenegacion}
+                >
+                  {subiendoDenegacion ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalDenegacionBtnText}>Denegar</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL PARA FOTO AMPLIADA */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -578,7 +711,6 @@ const styles = StyleSheet.create({
     color: '#636E72',
     marginTop: 2,
   },
-  // ✅ ESTILOS DE IMAGEN MEJORADOS
   imagenContainer: {
     marginTop: 10,
     borderRadius: 8,
@@ -689,29 +821,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#F0F0F0',
   },
-  // ✅ ESTILOS PARA FOTO AMPLIADA
-  fotoModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fotoModalClose: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    zIndex: 10,
-    padding: 10,
-  },
-  fotoModalCloseText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  fotoAmpliada: {
-    width: '100%',
-    height: '80%',
-  },
   modalBotones: {
     flexDirection: 'row',
     gap: 10,
@@ -745,6 +854,122 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     fontSize: 14,
     fontWeight: '500',
+  },
+  // 🆕 ESTILOS PARA MODAL DE DENEGACIÓN CON NOTA
+  modalDenegacionContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalDenegacionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    paddingBottom: 12,
+  },
+  modalDenegacionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  modalDenegacionClose: {
+    padding: 4,
+  },
+  modalDenegacionCloseText: {
+    fontSize: 20,
+    color: '#636E72',
+    fontWeight: 'bold',
+  },
+  modalDenegacionBody: {
+    flex: 1,
+  },
+  modalDenegacionSubtitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 4,
+  },
+  modalDenegacionSubtitle2: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 15,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    backgroundColor: '#F8F9FA',
+    color: '#2D3436',
+  },
+  modalDenegacionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    gap: 10,
+  },
+  modalDenegacionBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalDenegacionBtnCancel: {
+    backgroundColor: '#DFE6E9',
+  },
+  modalDenegacionBtnConfirm: {
+    backgroundColor: '#FF6B6B',
+  },
+  modalDenegacionBtnDisabled: {
+    opacity: 0.5,
+  },
+  modalDenegacionBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  // ESTILOS PARA FOTO AMPLIADA
+  fotoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fotoModalClose: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  fotoModalCloseText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  fotoAmpliada: {
+    width: '100%',
+    height: '80%',
   },
 });
 

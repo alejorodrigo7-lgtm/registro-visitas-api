@@ -30,6 +30,9 @@ import DashboardScreen from '../screens/DashboardScreen';
 // ✅ AGREGAR EJECUCION SERVICIO
 import EjecucionServicio from '../screens/EjecucionServicio';
 
+// ✅ NUEVA: TRANSFERENCIAS DENEGADAS
+import TransferenciasDenegadas from '../screens/TransferenciasDenegadas';
+
 // ============================================
 // 📱 IMPORTAR PANTALLAS DEL MÓDULO VENTAS
 // ============================================
@@ -67,6 +70,14 @@ import SolicitarRecibo from '../screens/SolicitarRecibo';
 import SubirRecibo from '../screens/SubirRecibo';
 import DescargarRecibo from '../screens/DescargarRecibo';
 
+// ============================================
+// 📱 IMPORTAR PANTALLAS DE TRANSFERENCIAS
+// ============================================
+import SubirTransferencia from '../screens/SubirTransferencia';
+import ConfirmacionTransferencias from '../screens/ConfirmacionTransferencias';
+import IngresoTransferencias from '../screens/IngresoTransferencias';
+import RevisionTransferencias from '../screens/RevisionTransferencias';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -97,7 +108,6 @@ const MainTabs = ({ navigation }) => {
         headerShown: false,
       })}
     >
-      {/* ✅ CORRECTO: Pasar navigation del Stack a MenuPrincipal */}
       <Tab.Screen name="Inicio">
         {() => {
           console.log('🔍 [MAINTABS] Renderizando MenuPrincipal con navigation del Stack');
@@ -166,7 +176,7 @@ const AppNavigator = () => {
       <Stack.Screen 
         name="TransferenciasMenu" 
         component={TransferenciasMenu}
-        options={{ headerShown: true, title: 'Transferencias' }}
+        options={{ headerShown: true, title: '💰 Transferencias' }}
       />
       <Stack.Screen 
         name="ServiciosMenu" 
@@ -219,6 +229,37 @@ const AppNavigator = () => {
         name="EjecucionServicio" 
         component={EjecucionServicio}
         options={{ headerShown: true, title: '⚙️ Ejecutar Servicio' }}
+      />
+
+      {/* ============================================
+          📱 MÓDULO TRANSFERENCIAS
+          ============================================ */}
+      <Stack.Screen 
+        name="SubirTransferencia" 
+        component={SubirTransferencia}
+        options={{ headerShown: true, title: '📤 Subir Transferencia' }}
+      />
+      <Stack.Screen 
+        name="ConfirmacionTransferencias" 
+        component={ConfirmacionTransferencias}
+        options={{ headerShown: true, title: '✅ Confirmar Transferencias' }}
+      />
+      <Stack.Screen 
+        name="IngresoTransferencias" 
+        component={IngresoTransferencias}
+        options={{ headerShown: true, title: '💰 Ingreso Transferencias' }}
+      />
+      <Stack.Screen 
+        name="RevisionTransferencias" 
+        component={RevisionTransferencias}
+        options={{ headerShown: true, title: '🔍 Revisión Transferencias' }}
+      />
+
+      {/* 🆕 NUEVA PANTALLA: TRANSFERENCIAS DENEGADAS */}
+      <Stack.Screen 
+        name="TransferenciasDenegadas" 
+        component={TransferenciasDenegadas}
+        options={{ headerShown: true, title: '❌ Transferencias Denegadas' }}
       />
 
       {/* ============================================
