@@ -70,6 +70,32 @@ const transferenciaSchema = new mongoose.Schema({
   },
   
   // ============================================
+  // 🆕 NOTA DE DENEGACIÓN
+  // ============================================
+  notaDenegacion: {
+    type: String,
+    default: null
+  },
+  denegadoPor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  fechaDenegacion: {
+    type: Date,
+    default: null
+  },
+  confirmadoPor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  fechaConfirmacion: {
+    type: Date,
+    default: null
+  },
+  
+  // ============================================
   // FECHAS DE CREACIÓN Y ACTUALIZACIÓN
   // ============================================
   createdAt: { 
