@@ -1,19 +1,13 @@
-// ✅ CONTROLADOR CORREGIDO - VERSIÓN CON ACTUALIZACIÓN DE BODEGA (RESTANDO MATERIALES)
+// ✅ CONTROLADOR CORREGIDO - VERSIÓN CON CLOUDINARY
 // ✅ CON CORREO AL TÉCNICO EN TOMAR SERVICIO
 // ✅ CON CORREO AL SOLICITANTE EN RETROALIMENTAR SERVICIO
+// ✅ GUARDA URL DE CLOUDINARY EN LUGAR DE BASE64
 
 const Servicio = require('../models/Servicio');
 const User = require('../models/User');
 const Bodega = require('../models/Bodega');
 const { enviarNotificacionPush } = require('../services/pushService');
 const emailService = require('../services/emailService');
-
-// ✅ Función para asegurar que la imagen tenga el prefijo correcto
-const formatearImagen = (imagen) => {
-  if (!imagen) return '';
-  if (imagen.startsWith('data:image')) return imagen;
-  return `data:image/jpeg;base64,${imagen}`;
-};
 
 // ============================================
 // 📦 ACTUALIZAR BODEGA DEL TÉCNICO (RESTANDO MATERIALES)
@@ -226,7 +220,7 @@ exports.asignarServicio = async (req, res) => {
 };
 
 // ============================================
-// TOMAR SERVICIO - CON CORREO AL TÉCNICO ✅
+// 📤 TOMAR SERVICIO - CON CLOUDINARY ✅ CORREGIDO
 // ============================================
 exports.tomarServicio = async (req, res) => {
   try {
@@ -252,7 +246,12 @@ exports.tomarServicio = async (req, res) => {
       imagen,
     } = req.body;
 
-    console.log('📋 Datos recibidos:', req.body);
+    console.log('📋 Datos recibidos:');
+    console.log(`📋 Cliente: ${cliente}`);
+    console.log(`📋 Servicio: ${nombreServicio}`);
+    console.log(`📋 Imagen recibida: ${imagen ? imagen.substring(0, 80) + '...' : 'Sin imagen'}`);
+    console.log(`📋 ¿Empieza con http? ${imagen?.startsWith('http')}`);
+    console.log(`📋 ¿Empieza con data:image? ${imagen?.startsWith('data:image')}`);
 
     if (!cliente || !codigoIdentificador || !barrio || !direccion || !telefono ||
         !nombreServicio || !telefonos || !observaciones || !tecnicoAsignado || !jefeAsignado) {
@@ -272,6 +271,39 @@ exports.tomarServicio = async (req, res) => {
 
     const tecnico = await User.findById(tecnicoAsignado);
     const jefe = await User.findById(jefeAsignado);
+
+    // ✅ CORRECCIÓN: Guardar la imagen correctamente
+    let imagenGuardar = '';
+    if (imagen) {
+      // ✅ Si es URL de Cloudinary (empieza con http)
+      if (imagen.startsWith('http://') || imagen.startsWith('https://')) {
+        imagenGuardar = imagen;
+        console.log(`✅ Guardando URL de Cloudinary: ${imagenGuardar.substring(0, 80)}...`);
+      } 
+      // ✅ Si es Base64 con prefijo
+      else if (imagen.startsWith('data:image')) {
+        // Esto no debería pasar porque el frontend sube a Cloudinary
+        // pero lo manejamos por si acaso
+        console.log(`⚠️ Recibido Base64, convirtiendo a URL...`);
+        imagenGuardar = imagen;
+      }
+      // ✅ Si es solo el ID o nombre de Cloudinary
+      else if (imagen.includes('cloudinary.com')) {
+        const urlCompleta = imagen.startsWith('http') ? imagen : `https://${imagen}`;
+        imagenGuardar = urlCompleta;
+        console.log(`✅ URL corregida: ${imagenGuardar.substring(0, 80)}...`);
+      }
+      // ✅ Cualquier otra cosa
+      else {
+        console.log(`⚠️ Formato de imagen no reconocido: ${typeof imagen}`);
+        imagenGuardar = '';
+      }
+    } else {
+      console.log('⚠️ Sin imagen');
+      imagenGuardar = '';
+    }
+
+    console.log(`📷 Imagen a guardar en DB: ${imagenGuardar ? imagenGuardar.substring(0, 80) + '...' : 'Sin imagen'}`);
 
     const servicio = await Servicio.create({
       cliente,
@@ -294,14 +326,13 @@ exports.tomarServicio = async (req, res) => {
         nombre: jefe.nombre,
         email: jefe.email
       } : null,
-      imagen: formatearImagen(imagen),
+      imagen: imagenGuardar,
       estado: 'TOMADO',
       activo: true,
     });
 
     console.log('✅ Servicio creado:', servicio._id);
-    console.log('✅ Técnico asignado:', tecnico ? tecnico.nombre : 'No encontrado');
-    console.log('✅ Jefe asignado:', jefe ? jefe.nombre : 'No encontrado');
+    console.log(`📷 Imagen guardada en DB: ${servicio.imagen ? servicio.imagen.substring(0, 80) + '...' : 'Sin imagen'}`);
 
     // ✅ 📧 ENVIAR CORREO AL TÉCNICO ASIGNADO
     try {
@@ -757,7 +788,6 @@ exports.retroalimentarServicio = async (req, res) => {
     console.log(`🔄 Retroalimentando servicio ID: ${id}`);
     console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
 
-    // ✅ Obtener servicio con datos del solicitante
     const servicio = await Servicio.findById(id)
       .populate('responsableId', 'nombre email');
 
@@ -789,9 +819,7 @@ exports.retroalimentarServicio = async (req, res) => {
 
     console.log(`✅ Servicio ${id} retroalimentado correctamente`);
 
-    // ============================================
     // ✅ 📧 ENVIAR CORREO AL SOLICITANTE
-    // ============================================
     try {
       const usuarioSolicitante = servicio.responsableId;
       if (usuarioSolicitante && usuarioSolicitante.email) {
