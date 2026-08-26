@@ -1,4 +1,4 @@
-﻿// ✅ MODELO CORREGIDO - VERSIÓN FINAL
+﻿// ✅ MODELO CORREGIDO - VERSIÓN FINAL CON CLOUDINARY
 
 const mongoose = require('mongoose');
 
@@ -18,8 +18,8 @@ const servicioSchema = new mongoose.Schema({
       'INTERNET DEFICIENTE',
       'SIN SEÑAL DE TV',
       'TV DEFICIENTE',
-      'CORTE TV',        // ← NUEVO
-      'CORTE INTERNET'   // ← NUEVO
+      'CORTE TV',
+      'CORTE INTERNET'
     ],
     required: true,
   },
@@ -27,6 +27,9 @@ const servicioSchema = new mongoose.Schema({
   observaciones: { type: String, required: true },
   responsable: { type: String, required: true },
   responsableId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  
+  // ✅ CAMPO PARA IMAGEN (URL DE CLOUDINARY)
+  imagen: { type: String, default: '' },
   
   // ✅ CAMPO CORRECTO: tecnico como objeto completo
   tecnico: {
@@ -42,7 +45,6 @@ const servicioSchema = new mongoose.Schema({
     email: { type: String }
   },
   
-  imagen: { type: String, default: '' },
   estado: {
     type: String,
     enum: ['TOMADO', 'EJECUTADO', 'PENDIENTE', 'RETROALIMENTADO'],
