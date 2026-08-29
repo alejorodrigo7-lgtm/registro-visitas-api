@@ -35,4 +35,20 @@ router.get('/depositos/revisar', authorize('Jefe', 'Admin'), cajaController.revi
 // Marcar depósito como revisado - Jefe y Admin
 router.put('/depositos/:id/revisar', authorize('Jefe', 'Admin'), cajaController.marcarDepositoRevisado);
 
+// ============================================
+// 📊 RUTAS DE CUADRE DE CAJA (NUEVO)
+// ============================================
+
+// Obtener cuadre por zona y fecha
+router.get('/cuadre/:zona/:fecha', cajaController.getCuadre);
+
+// Crear cuadre del día
+router.post('/cuadre', cajaController.crearCuadre);
+
+// Agregar ingreso a un cuadre
+router.post('/cuadre/:id/ingreso', cajaController.agregarIngreso);
+
+// Agregar pago a un cuadre
+router.post('/cuadre/:id/pago', cajaController.agregarPago);
+
 module.exports = router;
