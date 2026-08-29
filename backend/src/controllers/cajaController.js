@@ -404,7 +404,6 @@ exports.getCuadre = async (req, res) => {
     let cuadre = await CuadreCaja.findOne({ zona, fecha });
     
     if (!cuadre) {
-      // ✅ Si NO existe, CREAR uno nuevo
       console.log(`📊 No existe cuadre para ${zona} - ${fecha}, creando...`);
       
       const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
@@ -424,16 +423,13 @@ exports.getCuadre = async (req, res) => {
       await cuadre.save();
       console.log(`📊 Cuadre CREADO para ${zona} - ${fecha} con saldo inicial: ${saldoAnterior}`);
     } else {
-      // ✅ Si EXISTE, verificar si necesita heredar saldo
       console.log(`📊 Cuadre EXISTENTE para ${zona} - ${fecha}`);
       console.log(`📊 Saldo actual: ${cuadre.saldoDisponible}, Cerrado: ${cuadre.cerrado}`);
       console.log(`📊 Ingresos: ${cuadre.ingresos.length}, Pagos: ${cuadre.pagos.length}`);
       
-      // ✅ Si el cuadre está CERRADO, no se modifica
       if (cuadre.cerrado) {
         console.log(`📊 Cuadre CERRADO - No se modifica`);
       } 
-      // ✅ Si está ABIERTO Y sin movimientos Y saldo 0, heredar saldo del día anterior
       else if (cuadre.ingresos.length === 0 && cuadre.pagos.length === 0 && cuadre.saldoDisponible === 0) {
         console.log(`📊 Cuadre abierto sin movimientos y saldo 0, verificando herencia...`);
         
@@ -449,9 +445,7 @@ exports.getCuadre = async (req, res) => {
         } else {
           console.log(`📊 No hay saldo anterior disponible, se mantiene en 0`);
         }
-      } 
-      // ✅ Si tiene movimientos, no se modifica
-      else {
+      } else {
         console.log(`📊 Cuadre con movimientos - No se modifica`);
       }
     }
@@ -626,7 +620,7 @@ exports.cerrarCuadre = async (req, res) => {
 };
 
 // ============================================
-// ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS (SOLO UN DESTINATARIO)
+// ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS CON DETALLE DE MOVIMIENTOS
 // ============================================
 exports.enviarCorreoResumen = async (req, res) => {
   try {
@@ -659,7 +653,6 @@ exports.enviarCorreoResumen = async (req, res) => {
       }
     }
     
-    // ✅ Si hay zonas sin cuadre o no cerradas, mostrar mensaje claro
     if (zonasSinCuadre.length > 0 || zonasNoCerradas.length > 0) {
       let mensajeError = 'Para enviar el resumen, TODAS las zonas deben estar CERRADAS.\n\n';
       
@@ -688,7 +681,6 @@ exports.enviarCorreoResumen = async (req, res) => {
     const yaEnviado = cuadres.every(c => c.enviadoCorreo === true);
     const intentos = cuadres.reduce((sum, c) => sum + (c.intentosCorreo || 0), 0);
     
-    // ✅ SI YA FUE ENVIADO, NO REENVIAR
     if (yaEnviado) {
       return res.status(400).json({
         success: false,
@@ -703,10 +695,35 @@ exports.enviarCorreoResumen = async (req, res) => {
     
     const nuevoIntento = intentos + 1;
     
-    // Generar resumen HTML
+    // ============================================
+    // GENERAR RESUMEN HTML CON DETALLE DE MOVIMIENTOS
+    // ============================================
     let resumen = `
-      <h2>📊 RESUMEN DE CAJA - ${fecha}</h2>
-      <hr>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; color: #2D3436; }
+          h2 { color: #6C5CE7; }
+          h3 { color: #2D3436; margin-top: 20px; }
+          h4 { color: #636E72; margin-top: 10px; margin-bottom: 5px; }
+          table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+          td, th { padding: 8px; border: 1px solid #DFE6E9; }
+          .total { font-weight: bold; background-color: #F0F0F0; }
+          .ingreso { color: #00B894; }
+          .egreso { color: #FF6B6B; }
+          .sin-movimientos { color: #B2BEC3; font-style: italic; }
+          hr { border: 1px solid #DFE6E9; margin: 20px 0; }
+          .total-general { text-align: center; color: #6C5CE7; font-size: 20px; }
+          .estado { font-weight: bold; }
+          .cerrado { color: #00B894; }
+          .detalle-movimientos { margin: 10px 0; padding: 10px; background-color: #F8F9FA; border-radius: 8px; }
+          ul { margin: 5px 0; padding-left: 20px; }
+          li { margin: 3px 0; }
+        </style>
+      </head>
+      <body>
+        <h2>📊 RESUMEN DE CAJA - ${fecha}</h2>
+        <hr>
     `;
     
     let totalGeneral = 0;
@@ -715,18 +732,60 @@ exports.enviarCorreoResumen = async (req, res) => {
       const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
       const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
       
+      // Detalle de ingresos
+      let detalleIngresos = '';
+      if (cuadre.ingresos && cuadre.ingresos.length > 0) {
+        detalleIngresos = '<ul>';
+        for (const ingreso of cuadre.ingresos) {
+          detalleIngresos += `<li class="ingreso">📥 +$${ingreso.monto.toFixed(2)} - ${ingreso.tipo} ${ingreso.concepto ? `(${ingreso.concepto})` : ''}</li>`;
+        }
+        detalleIngresos += '</ul>';
+      } else {
+        detalleIngresos = '<p class="sin-movimientos">Sin ingresos</p>';
+      }
+      
+      // Detalle de egresos
+      let detalleEgresos = '';
+      if (cuadre.pagos && cuadre.pagos.length > 0) {
+        detalleEgresos = '<ul>';
+        for (const pago of cuadre.pagos) {
+          detalleEgresos += `<li class="egreso">📤 -$${pago.monto.toFixed(2)} - ${pago.descripcion || 'Sin descripción'}</li>`;
+        }
+        detalleEgresos += '</ul>';
+      } else {
+        detalleEgresos = '<p class="sin-movimientos">Sin egresos</p>';
+      }
+      
       resumen += `
         <h3>📍 ${cuadre.zona}</h3>
-        <table style="border-collapse: collapse; width: 100%;">
-          <tr><td><strong>Saldo Inicial:</strong></td><td>$${cuadre.saldoInicial.toFixed(2)}</td></tr>
-          <tr><td><strong>Total Ingresos:</strong></td><td>+$${totalIngresos.toFixed(2)}</td></tr>
-          <tr><td><strong>Total Egresos:</strong></td><td>-$${totalPagos.toFixed(2)}</td></tr>
-          <tr style="font-weight: bold; background-color: #f0f0f0;">
+        <table>
+          <tr>
+            <td><strong>Saldo Inicial:</strong></td>
+            <td>$${cuadre.saldoInicial.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td><strong>Total Ingresos:</strong></td>
+            <td class="ingreso">+$${totalIngresos.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td><strong>Total Egresos:</strong></td>
+            <td class="egreso">-$${totalPagos.toFixed(2)}</td>
+          </tr>
+          <tr class="total">
             <td><strong>Saldo Disponible:</strong></td>
             <td>$${cuadre.saldoDisponible.toFixed(2)}</td>
           </tr>
         </table>
-        <p><strong>Estado:</strong> ✅ CERRADO</p>
+        
+        <div class="detalle-movimientos">
+          <h4>📥 Detalle de Ingresos:</h4>
+          ${detalleIngresos}
+          
+          <h4>📤 Detalle de Egresos:</h4>
+          ${detalleEgresos}
+        </div>
+        
+        <p><span class="estado">Estado:</span> <span class="cerrado">✅ CERRADO</span></p>
         <p><strong>Correo enviado:</strong> ${cuadre.enviadoCorreo ? '✅ Sí' : '❌ No'}</p>
         <hr>
       `;
@@ -735,16 +794,18 @@ exports.enviarCorreoResumen = async (req, res) => {
     }
     
     resumen += `
-      <h3 style="text-align: center; color: #6C5CE7;">💰 TOTAL GENERAL: $${totalGeneral.toFixed(2)}</h3>
+      <h3 class="total-general">💰 TOTAL GENERAL: $${totalGeneral.toFixed(2)}</h3>
       <p style="text-align: center; color: #636E72; font-size: 12px;">
-        📧 Primer envío de este resumen
+        📧 Este resumen incluye el detalle de todos los movimientos del día
       </p>
+      </body>
+      </html>
     `;
     
     // ✅ ENVIAR CORREO A UN SOLO DESTINATARIO
     await emailService.enviarCorreo({
       to: 'alejorodrigo7@gmail.com',
-      subject: `📊 Resumen de Caja - ${fecha}`,
+      subject: `📊 Resumen de Caja - ${fecha} (Con detalle de movimientos)`,
       html: resumen,
     });
     
@@ -756,11 +817,11 @@ exports.enviarCorreoResumen = async (req, res) => {
       await cuadre.save();
     }
     
-    console.log(`✅ Correo de resumen enviado para ${fecha} a alejorodrigo7@gmail.com (Intento #${nuevoIntento})`);
+    console.log(`✅ Correo de resumen con detalle enviado para ${fecha} a alejorodrigo7@gmail.com (Intento #${nuevoIntento})`);
     
     res.json({
       success: true,
-      message: `Correo de resumen enviado correctamente a alejorodrigo7@gmail.com (Intento #${nuevoIntento})`,
+      message: `Correo de resumen con detalle enviado correctamente a alejorodrigo7@gmail.com (Intento #${nuevoIntento})`,
       data: { 
         totalGeneral, 
         fecha, 
