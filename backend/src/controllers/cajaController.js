@@ -394,7 +394,7 @@ exports.marcarDepositoRevisado = async (req, res) => {
 // 📊 CUADRE DE CAJA - FUNCIONES PRINCIPALES
 // ============================================
 
-// Obtener cuadre por zona y fecha
+// Obtener cuadre por zona y fecha - CORREGIDO
 exports.getCuadre = async (req, res) => {
   try {
     const { zona, fecha } = req.params;
@@ -404,6 +404,7 @@ exports.getCuadre = async (req, res) => {
     let cuadre = await CuadreCaja.findOne({ zona, fecha });
     
     if (!cuadre) {
+      // ✅ Si NO existe, CREAR uno nuevo
       console.log(`📊 No existe cuadre para ${zona} - ${fecha}, creando...`);
       
       const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
@@ -423,20 +424,35 @@ exports.getCuadre = async (req, res) => {
       await cuadre.save();
       console.log(`📊 Cuadre CREADO para ${zona} - ${fecha} con saldo inicial: ${saldoAnterior}`);
     } else {
+      // ✅ Si EXISTE, verificar si necesita heredar saldo
       console.log(`📊 Cuadre EXISTENTE para ${zona} - ${fecha}`);
+      console.log(`📊 Saldo actual: ${cuadre.saldoDisponible}, Cerrado: ${cuadre.cerrado}`);
+      console.log(`📊 Ingresos: ${cuadre.ingresos.length}, Pagos: ${cuadre.pagos.length}`);
       
+      // ✅ Si el cuadre está CERRADO, no se modifica
       if (cuadre.cerrado) {
         console.log(`📊 Cuadre CERRADO - No se modifica`);
-      } else {
+      } 
+      // ✅ Si está ABIERTO Y sin movimientos Y saldo 0, heredar saldo del día anterior
+      else if (cuadre.ingresos.length === 0 && cuadre.pagos.length === 0 && cuadre.saldoDisponible === 0) {
+        console.log(`📊 Cuadre abierto sin movimientos y saldo 0, verificando herencia...`);
+        
         const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
-        if (saldoAnterior > 0 && cuadre.saldoInicial !== saldoAnterior) {
-          console.log(`📊 Actualizando saldo inicial de ${cuadre.saldoInicial} a ${saldoAnterior}`);
+        console.log(`📊 Saldo anterior obtenido: ${saldoAnterior}`);
+        
+        if (saldoAnterior > 0) {
+          console.log(`📊 ACTUALIZANDO saldo de ${cuadre.saldoInicial} a ${saldoAnterior}`);
           cuadre.saldoInicial = saldoAnterior;
-          const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
-          const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
-          cuadre.saldoDisponible = saldoAnterior + totalIngresos - totalPagos;
+          cuadre.saldoDisponible = saldoAnterior;
           await cuadre.save();
+          console.log(`📊 Cuadre ACTUALIZADO para ${zona} - ${fecha} con saldo: ${saldoAnterior}`);
+        } else {
+          console.log(`📊 No hay saldo anterior disponible, se mantiene en 0`);
         }
+      } 
+      // ✅ Si tiene movimientos, no se modifica
+      else {
+        console.log(`📊 Cuadre con movimientos - No se modifica`);
       }
     }
     
