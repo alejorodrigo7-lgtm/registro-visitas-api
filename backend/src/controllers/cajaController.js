@@ -620,7 +620,7 @@ exports.cerrarCuadre = async (req, res) => {
 };
 
 // ============================================
-// ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS CON DETALLE DE MOVIMIENTOS
+// ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS CON DETALLE DE MOVIMIENTOS (SIN RESTRICCIÓN DE REENVÍO)
 // ============================================
 exports.enviarCorreoResumen = async (req, res) => {
   try {
@@ -653,6 +653,7 @@ exports.enviarCorreoResumen = async (req, res) => {
       }
     }
     
+    // ✅ Si hay zonas sin cuadre o no cerradas, mostrar mensaje claro
     if (zonasSinCuadre.length > 0 || zonasNoCerradas.length > 0) {
       let mensajeError = 'Para enviar el resumen, TODAS las zonas deben estar CERRADAS.\n\n';
       
@@ -677,22 +678,8 @@ exports.enviarCorreoResumen = async (req, res) => {
       });
     }
     
-    // ✅ VERIFICAR SI YA SE ENVIÓ EL CORREO
-    const yaEnviado = cuadres.every(c => c.enviadoCorreo === true);
+    // ✅ ELIMINADA LA RESTRICCIÓN DE "YA ENVIADO" - Ahora se puede reenviar
     const intentos = cuadres.reduce((sum, c) => sum + (c.intentosCorreo || 0), 0);
-    
-    if (yaEnviado) {
-      return res.status(400).json({
-        success: false,
-        message: `⚠️ El resumen para la fecha ${fecha} ya fue enviado anteriormente (${intentos} envíos totales). No se puede reenviar.`,
-        data: {
-          yaEnviado: true,
-          intentos: intentos,
-          fecha: fecha,
-        },
-      });
-    }
-    
     const nuevoIntento = intentos + 1;
     
     // ============================================
@@ -786,7 +773,7 @@ exports.enviarCorreoResumen = async (req, res) => {
         </div>
         
         <p><span class="estado">Estado:</span> <span class="cerrado">✅ CERRADO</span></p>
-        <p><strong>Correo enviado:</strong> ${cuadre.enviadoCorreo ? '✅ Sí' : '❌ No'}</p>
+        <p><strong>Envíos totales:</strong> ${nuevoIntento}</p>
         <hr>
       `;
       
@@ -796,7 +783,7 @@ exports.enviarCorreoResumen = async (req, res) => {
     resumen += `
       <h3 class="total-general">💰 TOTAL GENERAL: $${totalGeneral.toFixed(2)}</h3>
       <p style="text-align: center; color: #636E72; font-size: 12px;">
-        📧 Este resumen incluye el detalle de todos los movimientos del día
+        📧 Este resumen incluye el detalle de todos los movimientos del día (Envío #${nuevoIntento})
       </p>
       </body>
       </html>
@@ -809,12 +796,14 @@ exports.enviarCorreoResumen = async (req, res) => {
       html: resumen,
     });
     
-    // ✅ ACTUALIZAR ESTADO DE ENVÍO EN TODOS LOS CUADRES
+    // ✅ ACTUALIZAR intentosCorreo (solo contador, NO bloquea)
     for (const cuadre of cuadres) {
-      cuadre.enviadoCorreo = true;
-      cuadre.intentosCorreo = nuevoIntento;
-      cuadre.ultimoEnvioCorreo = new Date();
-      await cuadre.save();
+      if (cuadre) {
+        cuadre.enviadoCorreo = true;
+        cuadre.intentosCorreo = nuevoIntento;
+        cuadre.ultimoEnvioCorreo = new Date();
+        await cuadre.save();
+      }
     }
     
     console.log(`✅ Correo de resumen con detalle enviado para ${fecha} a alejorodrigo7@gmail.com (Intento #${nuevoIntento})`);
