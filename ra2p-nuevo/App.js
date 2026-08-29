@@ -68,6 +68,8 @@ import EdicionCajas from './src/screens/EdicionCajas';
 import DepositosMenu from './src/screens/DepositosMenu';
 import SubirDeposito from './src/screens/SubirDeposito';
 import RevisarDepositos from './src/screens/RevisarDepositos';
+// ✅ NUEVA: CUADRE DE CAJA
+import CuadreCajas from './src/screens/CuadreCajas';
 
 // Reportes
 import Reportes from './src/screens/Reportes';
@@ -194,6 +196,9 @@ const ThemedNavigation = () => {
         <Stack.Screen name="DepositosMenu" component={DepositosMenu} options={{ title: 'Depósitos' }} />
         <Stack.Screen name="SubirDeposito" component={SubirDeposito} options={{ title: 'Subir Depósito' }} />
         <Stack.Screen name="RevisarDepositos" component={RevisarDepositos} options={{ title: 'Revisar Depósitos' }} />
+        
+        {/* 🆕 NUEVA PANTALLA: CUADRE DE CAJA */}
+        <Stack.Screen name="CuadreCajas" component={CuadreCajas} options={{ headerShown: false }} />
 
         <Stack.Screen name="Reportes" component={Reportes} options={{ title: 'Reportes' }} />
 

@@ -33,6 +33,9 @@ import EjecucionServicio from '../screens/EjecucionServicio';
 // ✅ NUEVA: TRANSFERENCIAS DENEGADAS
 import TransferenciasDenegadas from '../screens/TransferenciasDenegadas';
 
+// ✅ NUEVA: CUADRE DE CAJAS
+import CuadreCajas from '../screens/CuadreCajas';
+
 // ============================================
 // 📱 IMPORTAR PANTALLAS DEL MÓDULO VENTAS
 // ============================================
@@ -77,6 +80,17 @@ import SubirTransferencia from '../screens/SubirTransferencia';
 import ConfirmacionTransferencias from '../screens/ConfirmacionTransferencias';
 import IngresoTransferencias from '../screens/IngresoTransferencias';
 import RevisionTransferencias from '../screens/RevisionTransferencias';
+
+// ============================================
+// 📱 IMPORTAR PANTALLAS DE CAJAS
+// ============================================
+import IngresoCaja from '../screens/IngresoCaja';
+import SaldosDisponibles from '../screens/SaldosDisponibles';
+import DetalleSaldo from '../screens/DetalleSaldo';
+import EdicionCajas from '../screens/EdicionCajas';
+import DepositosMenu from '../screens/DepositosMenu';
+import SubirDeposito from '../screens/SubirDeposito';
+import RevisarDepositos from '../screens/RevisarDepositos';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -260,6 +274,52 @@ const AppNavigator = () => {
         name="TransferenciasDenegadas" 
         component={TransferenciasDenegadas}
         options={{ headerShown: true, title: '❌ Transferencias Denegadas' }}
+      />
+
+      {/* ============================================
+          📱 MÓDULO CAJAS
+          ============================================ */}
+      <Stack.Screen 
+        name="IngresoCaja" 
+        component={IngresoCaja}
+        options={{ headerShown: true, title: '📥 Ingreso de Caja' }}
+      />
+      <Stack.Screen 
+        name="SaldosDisponibles" 
+        component={SaldosDisponibles}
+        options={{ headerShown: true, title: '📊 Saldos Disponibles' }}
+      />
+      <Stack.Screen 
+        name="DetalleSaldo" 
+        component={DetalleSaldo}
+        options={{ headerShown: true, title: 'Detalle Saldo' }}
+      />
+      <Stack.Screen 
+        name="EdicionCajas" 
+        component={EdicionCajas}
+        options={{ headerShown: true, title: '✏️ Edición de Cajas' }}
+      />
+      <Stack.Screen 
+        name="DepositosMenu" 
+        component={DepositosMenu}
+        options={{ headerShown: true, title: '🏦 Depósitos' }}
+      />
+      <Stack.Screen 
+        name="SubirDeposito" 
+        component={SubirDeposito}
+        options={{ headerShown: true, title: '📤 Subir Depósito' }}
+      />
+      <Stack.Screen 
+        name="RevisarDepositos" 
+        component={RevisarDepositos}
+        options={{ headerShown: true, title: '📋 Revisar Depósitos' }}
+      />
+
+      {/* 🆕 NUEVA PANTALLA: CUADRE DE CAJA */}
+      <Stack.Screen 
+        name="CuadreCajas" 
+        component={CuadreCajas}
+        options={{ headerShown: false }}
       />
 
       {/* ============================================

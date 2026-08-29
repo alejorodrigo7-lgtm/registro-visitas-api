@@ -7,6 +7,7 @@ import {
     View
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const CajasMenu = ({ navigation }) => {
   const { user } = useAuth();
@@ -27,12 +28,14 @@ const CajasMenu = ({ navigation }) => {
             style={styles.menuItem}
             onPress={() => navigation.navigate('IngresoCaja')}
           >
-            <Text style={styles.menuIcon}>📥</Text>
+            <View style={[styles.iconContainer, styles.iconIngreso]}>
+              <Icon name="payment" size={24} color="#FFFFFF" />
+            </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>Ingreso de Caja</Text>
+              <Text style={styles.menuTitle}>📥 Ingreso de Caja</Text>
               <Text style={styles.menuDescription}>Registrar caja del día</Text>
             </View>
-            <Text style={styles.menuArrow}>›</Text>
+            <Icon name="chevron-right" size={24} color="#B2BEC3" />
           </TouchableOpacity>
         )}
 
@@ -42,12 +45,33 @@ const CajasMenu = ({ navigation }) => {
             style={styles.menuItem}
             onPress={() => navigation.navigate('SaldosDisponibles')}
           >
-            <Text style={styles.menuIcon}>📊</Text>
+            <View style={[styles.iconContainer, styles.iconSaldos]}>
+              <Icon name="account-balance-wallet" size={24} color="#FFFFFF" />
+            </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>Saldos Disponibles</Text>
+              <Text style={styles.menuTitle}>📊 Saldos Disponibles</Text>
               <Text style={styles.menuDescription}>Ver saldos por zona</Text>
             </View>
-            <Text style={styles.menuArrow}>›</Text>
+            <Icon name="chevron-right" size={24} color="#B2BEC3" />
+          </TouchableOpacity>
+        )}
+
+        {/* 🆕 CUADRE DE CAJA - Jefe y Admin */}
+        {isJefeOrAdmin && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.menuItemCuadre]}
+            onPress={() => navigation.navigate('CuadreCajas')}
+          >
+            <View style={[styles.iconContainer, styles.iconCuadre]}>
+              <Icon name="calculate" size={24} color="#FFFFFF" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuTitle}>📊 Cuadre de Caja</Text>
+              <Text style={styles.menuDescription}>
+                Gestiona ingresos, pagos y saldo por zona (TOLA, CHILIBULO, MAGDALENA)
+              </Text>
+            </View>
+            <Icon name="chevron-right" size={24} color="#B2BEC3" />
           </TouchableOpacity>
         )}
 
@@ -57,12 +81,14 @@ const CajasMenu = ({ navigation }) => {
             style={[styles.menuItem, styles.adminMenuItem]}
             onPress={() => navigation.navigate('EdicionCajas')}
           >
-            <Text style={styles.menuIcon}>✏️</Text>
+            <View style={[styles.iconContainer, styles.iconEdicion]}>
+              <Icon name="edit" size={24} color="#FFFFFF" />
+            </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>Edición de Cajas</Text>
+              <Text style={styles.menuTitle}>✏️ Edición de Cajas</Text>
               <Text style={styles.menuDescription}>Editar cajas existentes</Text>
             </View>
-            <Text style={styles.menuArrow}>›</Text>
+            <Icon name="chevron-right" size={24} color="#B2BEC3" />
           </TouchableOpacity>
         )}
 
@@ -72,12 +98,14 @@ const CajasMenu = ({ navigation }) => {
             style={styles.menuItem}
             onPress={() => navigation.navigate('DepositosMenu')}
           >
-            <Text style={styles.menuIcon}>🏦</Text>
+            <View style={[styles.iconContainer, styles.iconDepositos]}>
+              <Icon name="savings" size={24} color="#FFFFFF" />
+            </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>Depósitos</Text>
+              <Text style={styles.menuTitle}>🏦 Depósitos</Text>
               <Text style={styles.menuDescription}>Subir y revisar depósitos</Text>
             </View>
-            <Text style={styles.menuArrow}>›</Text>
+            <Icon name="chevron-right" size={24} color="#B2BEC3" />
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -114,7 +142,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: 18,
+    padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
@@ -123,26 +151,45 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  menuIcon: {
-    fontSize: 30,
-    marginRight: 15,
+  menuItemCuadre: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#6C5CE7',
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  iconIngreso: {
+    backgroundColor: '#00B894',
+  },
+  iconSaldos: {
+    backgroundColor: '#0984E3',
+  },
+  iconCuadre: {
+    backgroundColor: '#6C5CE7',
+  },
+  iconEdicion: {
+    backgroundColor: '#E17055',
+  },
+  iconDepositos: {
+    backgroundColor: '#FDCB6E',
   },
   menuTextContainer: {
     flex: 1,
   },
   menuTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#2D3436',
   },
   menuDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#636E72',
     marginTop: 2,
-  },
-  menuArrow: {
-    fontSize: 24,
-    color: '#B2BEC3',
   },
   adminMenuItem: {
     backgroundColor: '#E8F0FE',
