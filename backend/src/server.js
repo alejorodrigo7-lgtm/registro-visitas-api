@@ -10,6 +10,11 @@ const User = require('./models/User');
 const bcrypt = require('bcryptjs');
 
 // ============================================
+// 📅 CIERRE AUTOMÁTICO DE CUADRES
+// ============================================
+const cierreAutomaticoService = require('./services/cierreAutomaticoService');
+
+// ============================================
 // RATE LIMITING
 // ============================================
 const {
@@ -330,6 +335,25 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // ============================================
+// 📅 INICIAR CIERRE AUTOMÁTICO DE CUADRES
+// ============================================
+async function iniciarCierreAutomatico() {
+  try {
+    console.log('🔄 [SERVER] Iniciando cierre automático de cuadres...');
+    
+    // Ejecutar al iniciar el servidor
+    await cierreAutomaticoService.iniciarCierreAutomatico();
+    
+    // Programar ejecución diaria
+    cierreAutomaticoService.programarCierreDiario();
+    
+    console.log('✅ [SERVER] Cierre automático configurado correctamente');
+  } catch (error) {
+    console.error('❌ [SERVER] Error al iniciar cierre automático:', error);
+  }
+}
+
+// ============================================
 // INICIAR SERVIDOR
 // ============================================
 const PORT = process.env.PORT || 5000;
@@ -359,7 +383,10 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`/api/usuarios`);
   logger.info(`/api/sync`);
   logger.info(`/api/recuperacion`);
-  logger.info(`/api/upload`); // ← NUEVO
+  logger.info(`/api/upload`);
+  
+  // ✅ INICIAR CIERRE AUTOMÁTICO DESPUÉS DE QUE EL SERVIDOR ESTÉ LISTO
+  iniciarCierreAutomatico();
 });
 
 // ============================================

@@ -5,6 +5,49 @@ const CuadreCaja = require('../models/CuadreCaja');
 const emailService = require('../services/emailService');
 
 // ============================================
+// 📊 FUNCIÓN AUXILIAR: Obtener saldo del día anterior
+// ============================================
+async function obtenerSaldoDiaAnterior(zona, fecha) {
+  try {
+    const fechaObj = new Date(fecha);
+    const diaAnterior = new Date(fechaObj);
+    diaAnterior.setDate(diaAnterior.getDate() - 1);
+    const fechaAnterior = diaAnterior.toISOString().split('T')[0];
+    
+    console.log(`📊 Buscando saldo anterior para ${zona} en fecha ${fechaAnterior}`);
+    
+    // ✅ Buscar cualquier cuadre del día anterior (cerrado o no)
+    const cuadreAnterior = await CuadreCaja.findOne({ 
+      zona, 
+      fecha: fechaAnterior 
+    });
+    
+    // ✅ Si existe, devolver el saldo disponible
+    if (cuadreAnterior) {
+      console.log(`📊 Saldo del día anterior (${fechaAnterior}): ${cuadreAnterior.saldoDisponible}`);
+      return cuadreAnterior.saldoDisponible;
+    }
+    
+    // ✅ Si no existe en esa fecha, buscar el cuadre más reciente
+    const ultimoCuadre = await CuadreCaja.findOne({ 
+      zona,
+      fecha: { $lt: fechaAnterior }
+    }).sort({ fecha: -1 });
+    
+    if (ultimoCuadre) {
+      console.log(`📊 Saldo del último cuadre disponible (${ultimoCuadre.fecha}): ${ultimoCuadre.saldoDisponible}`);
+      return ultimoCuadre.saldoDisponible;
+    }
+    
+    console.log(`📊 No se encontró saldo anterior, usando 0`);
+    return 0;
+  } catch (error) {
+    console.error('❌ Error obteniendo saldo anterior:', error);
+    return 0;
+  }
+}
+
+// ============================================
 // INGRESO DE CAJA
 // ============================================
 exports.ingresarCaja = async (req, res) => {
@@ -332,31 +375,10 @@ exports.marcarDepositoRevisado = async (req, res) => {
 };
 
 // ============================================
-// 📊 CUADRE DE CAJA - FUNCIONES COMPLETAS CORREGIDAS
+// 📊 CUADRE DE CAJA - FUNCIONES PRINCIPALES
 // ============================================
 
-// Obtener saldo del día anterior para una zona
-async function obtenerSaldoDiaAnterior(zona, fecha) {
-  try {
-    const fechaObj = new Date(fecha);
-    const diaAnterior = new Date(fechaObj);
-    diaAnterior.setDate(diaAnterior.getDate() - 1);
-    const fechaAnterior = diaAnterior.toISOString().split('T')[0];
-    
-    const cuadreAnterior = await CuadreCaja.findOne({ 
-      zona, 
-      fecha: fechaAnterior,
-      cerrado: true
-    });
-    
-    return cuadreAnterior ? cuadreAnterior.saldoDisponible : 0;
-  } catch (error) {
-    console.error('Error obteniendo saldo anterior:', error);
-    return 0;
-  }
-}
-
-// Obtener cuadre por zona y fecha
+// Obtener cuadre por zona y fecha - CORREGIDO
 exports.getCuadre = async (req, res) => {
   try {
     const { zona, fecha } = req.params;
@@ -365,8 +387,12 @@ exports.getCuadre = async (req, res) => {
     
     let cuadre = await CuadreCaja.findOne({ zona, fecha });
     
+    // ✅ SI NO EXISTE, CREAR UNO CON EL SALDO DEL DÍA ANTERIOR
     if (!cuadre) {
+      console.log(`📊 No existe cuadre para ${zona} - ${fecha}, creando...`);
+      
       const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
+      console.log(`📊 Saldo anterior obtenido: ${saldoAnterior}`);
       
       cuadre = new CuadreCaja({
         zona,
@@ -374,10 +400,22 @@ exports.getCuadre = async (req, res) => {
         saldoInicial: saldoAnterior,
         saldoDisponible: saldoAnterior,
         creadoPor: req.user._id,
+        cerrado: false,
       });
       
       await cuadre.save();
-      console.log(`📊 Cuadre creado automáticamente para ${zona} - ${fecha} con saldo inicial: ${saldoAnterior}`);
+      console.log(`📊 Cuadre CREADO para ${zona} - ${fecha} con saldo inicial: ${saldoAnterior}`);
+    } else {
+      console.log(`📊 Cuadre EXISTENTE para ${zona} - ${fecha}`);
+      
+      // ✅ VERIFICAR SI EL SALDO INICIAL ES CORRECTO
+      const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
+      if (cuadre.saldoInicial !== saldoAnterior && saldoAnterior !== 0) {
+        console.log(`📊 Actualizando saldo inicial de ${cuadre.saldoInicial} a ${saldoAnterior}`);
+        cuadre.saldoInicial = saldoAnterior;
+        cuadre.saldoDisponible = saldoAnterior;
+        await cuadre.save();
+      }
     }
     
     res.json({
@@ -557,14 +595,43 @@ exports.enviarCorreoResumen = async (req, res) => {
       zonas.map(zona => CuadreCaja.findOne({ zona, fecha }))
     );
     
-    // ✅ Verificar que TODAS las zonas estén cerradas
-    const todasCerradas = cuadres.every(c => c && c.cerrado === true);
+    // ✅ Verificar que TODAS las zonas existan y estén cerradas
+    const zonasSinCuadre = [];
+    const zonasNoCerradas = [];
+    const zonasCerradas = [];
     
-    if (!todasCerradas) {
+    for (let i = 0; i < zonas.length; i++) {
+      if (!cuadres[i]) {
+        zonasSinCuadre.push(zonas[i]);
+      } else if (!cuadres[i].cerrado) {
+        zonasNoCerradas.push(zonas[i]);
+      } else {
+        zonasCerradas.push(zonas[i]);
+      }
+    }
+    
+    // ✅ Si hay zonas sin cuadre o no cerradas, mostrar mensaje claro
+    if (zonasSinCuadre.length > 0 || zonasNoCerradas.length > 0) {
+      let mensajeError = 'Para enviar el resumen, TODAS las zonas deben estar CERRADAS.\n\n';
+      
+      if (zonasSinCuadre.length > 0) {
+        mensajeError += `❌ Zonas SIN CUADRE: ${zonasSinCuadre.join(', ')}\n`;
+      }
+      if (zonasNoCerradas.length > 0) {
+        mensajeError += `❌ Zonas ABIERTAS: ${zonasNoCerradas.join(', ')}\n`;
+      }
+      if (zonasCerradas.length > 0) {
+        mensajeError += `✅ Zonas CERRADAS: ${zonasCerradas.join(', ')}`;
+      }
+      
       return res.status(400).json({
         success: false,
-        message: 'Todas las zonas deben estar CERRADAS para enviar el resumen. Zonas pendientes: ' + 
-          cuadres.map((c, i) => !c || !c.cerrado ? zonas[i] : null).filter(Boolean).join(', '),
+        message: mensajeError,
+        data: {
+          zonasSinCuadre,
+          zonasNoCerradas,
+          zonasCerradas,
+        },
       });
     }
     
