@@ -623,7 +623,9 @@ exports.cerrarCuadre = async (req, res) => {
   }
 };
 
-// Enviar correo con resumen de las 3 zonas
+// ============================================
+// ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS (MÚLTIPLES DESTINATARIOS)
+// ============================================
 exports.enviarCorreoResumen = async (req, res) => {
   try {
     const { fecha } = req.body;
@@ -728,12 +730,20 @@ exports.enviarCorreoResumen = async (req, res) => {
       </p>
     `;
     
-    // Enviar correo
-    await emailService.enviarCorreo({
-      to: 'alejorodrigo7@gmail.com',
-      subject: `📊 Resumen de Caja - ${fecha}${yaEnviado ? ` (RE-ENVÍO #${nuevoIntento})` : ''}`,
-      html: resumen,
-    });
+    // ✅ ENVIAR CORREO A MÚLTIPLES DESTINATARIOS
+    const destinatarios = [
+      'alejorodrigo7@gmail.com',
+      'cordobaisabelag@gmail.com',
+      'isabellacordobag@hotmail.com'
+    ];
+    
+    for (const destinatario of destinatarios) {
+      await emailService.enviarCorreo({
+        to: destinatario,
+        subject: `📊 Resumen de Caja - ${fecha}${yaEnviado ? ` (RE-ENVÍO #${nuevoIntento})` : ''}`,
+        html: resumen,
+      });
+    }
     
     // ✅ Actualizar estado de envío en TODOS los cuadres
     for (const cuadre of cuadres) {
@@ -743,17 +753,18 @@ exports.enviarCorreoResumen = async (req, res) => {
       await cuadre.save();
     }
     
-    console.log(`✅ Correo de resumen enviado para ${fecha} (Intento #${nuevoIntento})`);
+    console.log(`✅ Correo de resumen enviado para ${fecha} a ${destinatarios.length} destinatarios (Intento #${nuevoIntento})`);
     
     res.json({
       success: true,
-      message: `Correo de resumen enviado correctamente${yaEnviado ? ` (Reenvío #${nuevoIntento})` : ''}`,
+      message: `Correo de resumen enviado correctamente a ${destinatarios.length} destinatarios${yaEnviado ? ` (Reenvío #${nuevoIntento})` : ''}`,
       data: { 
         totalGeneral, 
         fecha, 
         enviadoAnteriormente: yaEnviado,
         intento: nuevoIntento,
         reenvio: yaEnviado,
+        destinatarios: destinatarios.length,
       },
     });
   } catch (error) {
