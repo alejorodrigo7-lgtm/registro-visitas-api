@@ -332,8 +332,29 @@ exports.marcarDepositoRevisado = async (req, res) => {
 };
 
 // ============================================
-// 📊 CUADRE DE CAJA - FUNCIONES COMPLETAS
+// 📊 CUADRE DE CAJA - FUNCIONES COMPLETAS CORREGIDAS
 // ============================================
+
+// Obtener saldo del día anterior para una zona
+async function obtenerSaldoDiaAnterior(zona, fecha) {
+  try {
+    const fechaObj = new Date(fecha);
+    const diaAnterior = new Date(fechaObj);
+    diaAnterior.setDate(diaAnterior.getDate() - 1);
+    const fechaAnterior = diaAnterior.toISOString().split('T')[0];
+    
+    const cuadreAnterior = await CuadreCaja.findOne({ 
+      zona, 
+      fecha: fechaAnterior,
+      cerrado: true
+    });
+    
+    return cuadreAnterior ? cuadreAnterior.saldoDisponible : 0;
+  } catch (error) {
+    console.error('Error obteniendo saldo anterior:', error);
+    return 0;
+  }
+}
 
 // Obtener cuadre por zona y fecha
 exports.getCuadre = async (req, res) => {
@@ -344,7 +365,6 @@ exports.getCuadre = async (req, res) => {
     
     let cuadre = await CuadreCaja.findOne({ zona, fecha });
     
-    // Si no existe, crear uno con saldo del día anterior
     if (!cuadre) {
       const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
       
@@ -370,26 +390,6 @@ exports.getCuadre = async (req, res) => {
   }
 };
 
-// Obtener saldo del día anterior para una zona
-async function obtenerSaldoDiaAnterior(zona, fecha) {
-  try {
-    const fechaObj = new Date(fecha);
-    const diaAnterior = new Date(fechaObj);
-    diaAnterior.setDate(diaAnterior.getDate() - 1);
-    const fechaAnterior = diaAnterior.toISOString().split('T')[0];
-    
-    const cuadreAnterior = await CuadreCaja.findOne({ 
-      zona, 
-      fecha: fechaAnterior 
-    });
-    
-    return cuadreAnterior ? cuadreAnterior.saldoDisponible : 0;
-  } catch (error) {
-    console.error('Error obteniendo saldo anterior:', error);
-    return 0;
-  }
-}
-
 // Agregar ingreso a un cuadre
 exports.agregarIngreso = async (req, res) => {
   try {
@@ -407,6 +407,7 @@ exports.agregarIngreso = async (req, res) => {
       });
     }
     
+    // ✅ Validar que el cuadre no esté cerrado
     if (cuadre.cerrado) {
       return res.status(400).json({
         success: false,
@@ -422,7 +423,6 @@ exports.agregarIngreso = async (req, res) => {
       usuario: req.user._id,
     });
     
-    // Recalcular saldo disponible
     const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
     const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
     cuadre.saldoDisponible = cuadre.saldoInicial + totalIngresos - totalPagos;
@@ -451,6 +451,15 @@ exports.agregarPago = async (req, res) => {
     console.log(`📊 Agregando pago al cuadre ${id}`);
     console.log(`📊 Motivo: ${motivo}, Monto: ${monto}`);
     
+    // ✅ Validar que el motivo sea válido
+    const motivosValidos = ['PAGO PROVEEDOR', 'PAGO PERSONAL', 'PAGO SERVICIOS', 'OTROS'];
+    if (!motivosValidos.includes(motivo)) {
+      return res.status(400).json({
+        success: false,
+        message: `Motivo inválido. Motivos válidos: ${motivosValidos.join(', ')}`,
+      });
+    }
+    
     const cuadre = await CuadreCaja.findById(id);
     if (!cuadre) {
       return res.status(404).json({
@@ -459,6 +468,7 @@ exports.agregarPago = async (req, res) => {
       });
     }
     
+    // ✅ Validar que el cuadre no esté cerrado
     if (cuadre.cerrado) {
       return res.status(400).json({
         success: false,
@@ -474,7 +484,6 @@ exports.agregarPago = async (req, res) => {
       usuario: req.user._id,
     });
     
-    // Recalcular saldo disponible
     const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
     const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
     cuadre.saldoDisponible = cuadre.saldoInicial + totalIngresos - totalPagos;
@@ -543,41 +552,41 @@ exports.enviarCorreoResumen = async (req, res) => {
       });
     }
     
-    // Obtener los cuadres de las 3 zonas
     const zonas = ['TOLA', 'CHILIBULO', 'MAGDALENA'];
     const cuadres = await Promise.all(
       zonas.map(zona => CuadreCaja.findOne({ zona, fecha }))
     );
     
-    // Verificar que todas las zonas estén cerradas
-    const hayCerradas = cuadres.some(c => c && c.cerrado);
-    const todasCerradas = cuadres.every(c => c && c.cerrado);
+    // ✅ Verificar que TODAS las zonas estén cerradas
+    const todasCerradas = cuadres.every(c => c && c.cerrado === true);
     
-    if (!hayCerradas) {
+    if (!todasCerradas) {
       return res.status(400).json({
         success: false,
-        message: 'No hay cuadres cerrados para esta fecha',
+        message: 'Todas las zonas deben estar CERRADAS para enviar el resumen. Zonas pendientes: ' + 
+          cuadres.map((c, i) => !c || !c.cerrado ? zonas[i] : null).filter(Boolean).join(', '),
       });
     }
     
-    // Generar resumen
+    // ✅ Verificar si ya se envió el correo
+    const yaEnviado = cuadres.some(c => c.enviadoCorreo === true);
+    const intentos = cuadres.reduce((sum, c) => sum + (c.intentosCorreo || 0), 0);
+    const nuevoIntento = intentos + 1;
+    
+    let mensajeAdicional = '';
+    if (yaEnviado) {
+      mensajeAdicional = ` (REENVÍO #${nuevoIntento})`;
+    }
+    
+    // Generar resumen HTML
     let resumen = `
-      <h2>📊 RESUMEN DE CAJA - ${fecha}</h2>
+      <h2>📊 RESUMEN DE CAJA - ${fecha}${mensajeAdicional}</h2>
       <hr>
     `;
     
     let totalGeneral = 0;
     
     for (const cuadre of cuadres) {
-      if (!cuadre) {
-        resumen += `
-          <h3>📍 SIN DATOS</h3>
-          <p><strong>Estado:</strong> No se ha realizado cuadre</p>
-          <hr>
-        `;
-        continue;
-      }
-      
       const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
       const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
       
@@ -592,7 +601,8 @@ exports.enviarCorreoResumen = async (req, res) => {
             <td>$${cuadre.saldoDisponible.toFixed(2)}</td>
           </tr>
         </table>
-        <p><strong>Estado:</strong> ${cuadre.cerrado ? '✅ CERRADO' : '❌ ABIERTO'}</p>
+        <p><strong>Estado:</strong> ✅ CERRADO</p>
+        <p><strong>Correo enviado:</strong> ${cuadre.enviadoCorreo ? '✅ Sí' : '❌ No'}</p>
         <hr>
       `;
       
@@ -601,29 +611,38 @@ exports.enviarCorreoResumen = async (req, res) => {
     
     resumen += `
       <h3 style="text-align: center; color: #6C5CE7;">💰 TOTAL GENERAL: $${totalGeneral.toFixed(2)}</h3>
+      <p style="text-align: center; color: #636E72; font-size: 12px;">
+        ${yaEnviado ? `⚠️ Este resumen ya fue enviado anteriormente (Intento #${nuevoIntento})` : '📧 Primer envío de este resumen'}
+      </p>
     `;
     
     // Enviar correo
     await emailService.enviarCorreo({
       to: 'alejorodrigo7@gmail.com',
-      subject: `📊 Resumen de Caja - ${fecha}`,
+      subject: `📊 Resumen de Caja - ${fecha}${yaEnviado ? ` (RE-ENVÍO #${nuevoIntento})` : ''}`,
       html: resumen,
     });
     
-    // Marcar como enviados
+    // ✅ Actualizar estado de envío en TODOS los cuadres
     for (const cuadre of cuadres) {
-      if (cuadre) {
-        cuadre.enviadoCorreo = true;
-        await cuadre.save();
-      }
+      cuadre.enviadoCorreo = true;
+      cuadre.intentosCorreo = nuevoIntento;
+      cuadre.ultimoEnvioCorreo = new Date();
+      await cuadre.save();
     }
     
-    console.log(`✅ Correo de resumen enviado para ${fecha}`);
+    console.log(`✅ Correo de resumen enviado para ${fecha} (Intento #${nuevoIntento})`);
     
     res.json({
       success: true,
-      message: 'Correo de resumen enviado correctamente',
-      data: { totalGeneral, fecha },
+      message: `Correo de resumen enviado correctamente${yaEnviado ? ` (Reenvío #${nuevoIntento})` : ''}`,
+      data: { 
+        totalGeneral, 
+        fecha, 
+        enviadoAnteriormente: yaEnviado,
+        intento: nuevoIntento,
+        reenvio: yaEnviado,
+      },
     });
   } catch (error) {
     console.error('❌ Error enviarCorreoResumen:', error);
@@ -653,6 +672,8 @@ exports.getResumenDia = async (req, res) => {
           totalPagos: 0,
           ingresos: [],
           pagos: [],
+          enviadoCorreo: false,
+          intentosCorreo: 0,
         };
       }
       
@@ -670,6 +691,7 @@ exports.getResumenDia = async (req, res) => {
         ingresos: cuadre.ingresos,
         pagos: cuadre.pagos,
         enviadoCorreo: cuadre.enviadoCorreo || false,
+        intentosCorreo: cuadre.intentosCorreo || 0,
       };
     });
     
