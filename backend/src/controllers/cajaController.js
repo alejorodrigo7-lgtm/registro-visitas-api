@@ -5,14 +5,24 @@ const CuadreCaja = require('../models/CuadreCaja');
 const emailService = require('../services/emailService');
 
 // ============================================
-// 📊 FUNCIÓN AUXILIAR: Obtener saldo del día anterior
+// 📊 FUNCIÓN AUXILIAR: Obtener saldo del día anterior (CORREGIDA)
 // ============================================
 async function obtenerSaldoDiaAnterior(zona, fecha) {
   try {
-    const fechaObj = new Date(fecha);
-    const diaAnterior = new Date(fechaObj);
-    diaAnterior.setDate(diaAnterior.getDate() - 1);
-    const fechaAnterior = diaAnterior.toISOString().split('T')[0];
+    // ✅ La fecha viene como String "YYYY-MM-DD", NO usar new Date() directamente
+    // Calcular el día anterior restando 1 día al String
+    const fechaParts = fecha.split('-');
+    const year = parseInt(fechaParts[0]);
+    const month = parseInt(fechaParts[1]) - 1; // Mes en JS es 0-11
+    const day = parseInt(fechaParts[2]);
+    
+    const fechaObj = new Date(year, month, day);
+    fechaObj.setDate(fechaObj.getDate() - 1);
+    
+    const yearAnterior = fechaObj.getFullYear();
+    const monthAnterior = String(fechaObj.getMonth() + 1).padStart(2, '0');
+    const dayAnterior = String(fechaObj.getDate()).padStart(2, '0');
+    const fechaAnterior = `${yearAnterior}-${monthAnterior}-${dayAnterior}`;
     
     console.log(`📊 Buscando saldo anterior para ${zona} en fecha ${fechaAnterior}`);
     
@@ -386,10 +396,10 @@ exports.marcarDepositoRevisado = async (req, res) => {
 };
 
 // ============================================
-// 📊 CUADRE DE CAJA - FUNCIONES PRINCIPALES CORREGIDAS
+// 📊 CUADRE DE CAJA - FUNCIONES PRINCIPALES
 // ============================================
 
-// Obtener cuadre por zona y fecha - CORREGIDO
+// Obtener cuadre por zona y fecha
 exports.getCuadre = async (req, res) => {
   try {
     const { zona, fecha } = req.params;
@@ -412,6 +422,8 @@ exports.getCuadre = async (req, res) => {
         saldoDisponible: saldoAnterior,
         creadoPor: req.user._id,
         cerrado: false,
+        ingresos: [],
+        pagos: [],
       });
       
       await cuadre.save();
@@ -428,7 +440,10 @@ exports.getCuadre = async (req, res) => {
         if (saldoAnterior > 0 && cuadre.saldoInicial !== saldoAnterior) {
           console.log(`📊 Actualizando saldo inicial de ${cuadre.saldoInicial} a ${saldoAnterior}`);
           cuadre.saldoInicial = saldoAnterior;
-          cuadre.saldoDisponible = saldoAnterior;
+          // ✅ Recalcular saldo disponible con el nuevo saldo inicial
+          const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
+          const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
+          cuadre.saldoDisponible = saldoAnterior + totalIngresos - totalPagos;
           await cuadre.save();
         }
       }
@@ -465,7 +480,7 @@ exports.agregarIngreso = async (req, res) => {
     if (cuadre.cerrado) {
       return res.status(400).json({
         success: false,
-        message: 'Este cuadre ya está cerrado, no se pueden agregar más movimientos',
+        message: '⚠️ Este cuadre ya está CERRADO, no se pueden agregar más movimientos',
       });
     }
     
@@ -496,7 +511,7 @@ exports.agregarIngreso = async (req, res) => {
   }
 };
 
-// Agregar egreso a un cuadre (antes pago) - CORREGIDO
+// Agregar egreso a un cuadre
 exports.agregarPago = async (req, res) => {
   try {
     const { id } = req.params;
@@ -534,7 +549,7 @@ exports.agregarPago = async (req, res) => {
     if (cuadre.cerrado) {
       return res.status(400).json({
         success: false,
-        message: 'Este cuadre ya está cerrado, no se pueden agregar más movimientos',
+        message: '⚠️ Este cuadre ya está CERRADO, no se pueden agregar más movimientos',
       });
     }
     
@@ -585,15 +600,21 @@ exports.cerrarCuadre = async (req, res) => {
       });
     }
     
+    // ✅ Recalcular saldo final antes de cerrar
+    const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
+    const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
+    cuadre.saldoDisponible = cuadre.saldoInicial + totalIngresos - totalPagos;
+    
     cuadre.cerrado = true;
     cuadre.fechaCierre = new Date();
     await cuadre.save();
     
-    console.log(`✅ Cuadre cerrado para ${cuadre.zona} - ${cuadre.fecha}`);
+    console.log(`✅ Cuadre CERRADO para ${cuadre.zona} - ${cuadre.fecha}`);
+    console.log(`✅ Saldo Final: ${cuadre.saldoDisponible}`);
     
     res.json({
       success: true,
-      message: 'Cuadre cerrado correctamente',
+      message: `Cuadre de ${cuadre.zona} cerrado correctamente`,
       data: cuadre,
     });
   } catch (error) {
