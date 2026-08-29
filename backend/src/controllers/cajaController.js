@@ -2,6 +2,7 @@ const Caja = require('../models/Caja');
 const Deposito = require('../models/Deposito');
 const User = require('../models/User');
 const CuadreCaja = require('../models/CuadreCaja');
+const emailService = require('../services/emailService');
 
 // ============================================
 // INGRESO DE CAJA
@@ -331,7 +332,7 @@ exports.marcarDepositoRevisado = async (req, res) => {
 };
 
 // ============================================
-// 📊 CUADRE DE CAJA - FUNCIONES
+// 📊 CUADRE DE CAJA - FUNCIONES COMPLETAS
 // ============================================
 
 // Obtener cuadre por zona y fecha
@@ -341,13 +342,22 @@ exports.getCuadre = async (req, res) => {
     
     console.log(`📊 Buscando cuadre para ${zona} - ${fecha}`);
     
-    const cuadre = await CuadreCaja.findOne({ zona, fecha });
+    let cuadre = await CuadreCaja.findOne({ zona, fecha });
     
+    // Si no existe, crear uno con saldo del día anterior
     if (!cuadre) {
-      return res.status(404).json({
-        success: false,
-        message: 'No hay cuadre para esta fecha y zona',
+      const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
+      
+      cuadre = new CuadreCaja({
+        zona,
+        fecha,
+        saldoInicial: saldoAnterior,
+        saldoDisponible: saldoAnterior,
+        creadoPor: req.user._id,
       });
+      
+      await cuadre.save();
+      console.log(`📊 Cuadre creado automáticamente para ${zona} - ${fecha} con saldo inicial: ${saldoAnterior}`);
     }
     
     res.json({
@@ -360,44 +370,25 @@ exports.getCuadre = async (req, res) => {
   }
 };
 
-// Crear cuadre del día
-exports.crearCuadre = async (req, res) => {
+// Obtener saldo del día anterior para una zona
+async function obtenerSaldoDiaAnterior(zona, fecha) {
   try {
-    const { zona, fecha, saldoInicial } = req.body;
+    const fechaObj = new Date(fecha);
+    const diaAnterior = new Date(fechaObj);
+    diaAnterior.setDate(diaAnterior.getDate() - 1);
+    const fechaAnterior = diaAnterior.toISOString().split('T')[0];
     
-    console.log(`📊 Creando cuadre para ${zona} - ${fecha}`);
-    console.log(`📊 Saldo inicial: ${saldoInicial}`);
-    
-    const existe = await CuadreCaja.findOne({ zona, fecha });
-    if (existe) {
-      return res.status(400).json({
-        success: false,
-        message: 'Ya existe un cuadre para esta fecha y zona',
-      });
-    }
-    
-    const cuadre = new CuadreCaja({
-      zona,
-      fecha,
-      saldoInicial: saldoInicial || 0,
-      saldoDisponible: saldoInicial || 0,
-      creadoPor: req.user._id,
+    const cuadreAnterior = await CuadreCaja.findOne({ 
+      zona, 
+      fecha: fechaAnterior 
     });
     
-    await cuadre.save();
-    
-    console.log(`✅ Cuadre creado: ${cuadre._id}`);
-    
-    res.status(201).json({
-      success: true,
-      message: 'Cuadre creado correctamente',
-      data: cuadre,
-    });
+    return cuadreAnterior ? cuadreAnterior.saldoDisponible : 0;
   } catch (error) {
-    console.error('❌ Error crearCuadre:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Error obteniendo saldo anterior:', error);
+    return 0;
   }
-};
+}
 
 // Agregar ingreso a un cuadre
 exports.agregarIngreso = async (req, res) => {
@@ -416,6 +407,13 @@ exports.agregarIngreso = async (req, res) => {
       });
     }
     
+    if (cuadre.cerrado) {
+      return res.status(400).json({
+        success: false,
+        message: 'Este cuadre ya está cerrado, no se pueden agregar más movimientos',
+      });
+    }
+    
     cuadre.ingresos.push({
       tipo,
       monto,
@@ -424,6 +422,7 @@ exports.agregarIngreso = async (req, res) => {
       usuario: req.user._id,
     });
     
+    // Recalcular saldo disponible
     const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
     const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
     cuadre.saldoDisponible = cuadre.saldoInicial + totalIngresos - totalPagos;
@@ -460,6 +459,13 @@ exports.agregarPago = async (req, res) => {
       });
     }
     
+    if (cuadre.cerrado) {
+      return res.status(400).json({
+        success: false,
+        message: 'Este cuadre ya está cerrado, no se pueden agregar más movimientos',
+      });
+    }
+    
     cuadre.pagos.push({
       motivo,
       monto,
@@ -468,6 +474,7 @@ exports.agregarPago = async (req, res) => {
       usuario: req.user._id,
     });
     
+    // Recalcular saldo disponible
     const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
     const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
     cuadre.saldoDisponible = cuadre.saldoInicial + totalIngresos - totalPagos;
@@ -483,6 +490,195 @@ exports.agregarPago = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error agregarPago:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Cerrar cuadre del día para una zona
+exports.cerrarCuadre = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const cuadre = await CuadreCaja.findById(id);
+    if (!cuadre) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cuadre no encontrado',
+      });
+    }
+    
+    if (cuadre.cerrado) {
+      return res.status(400).json({
+        success: false,
+        message: 'Este cuadre ya está cerrado',
+      });
+    }
+    
+    cuadre.cerrado = true;
+    cuadre.fechaCierre = new Date();
+    await cuadre.save();
+    
+    console.log(`✅ Cuadre cerrado para ${cuadre.zona} - ${cuadre.fecha}`);
+    
+    res.json({
+      success: true,
+      message: 'Cuadre cerrado correctamente',
+      data: cuadre,
+    });
+  } catch (error) {
+    console.error('❌ Error cerrarCuadre:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Enviar correo con resumen de las 3 zonas
+exports.enviarCorreoResumen = async (req, res) => {
+  try {
+    const { fecha } = req.body;
+    
+    if (!fecha) {
+      return res.status(400).json({
+        success: false,
+        message: 'La fecha es requerida',
+      });
+    }
+    
+    // Obtener los cuadres de las 3 zonas
+    const zonas = ['TOLA', 'CHILIBULO', 'MAGDALENA'];
+    const cuadres = await Promise.all(
+      zonas.map(zona => CuadreCaja.findOne({ zona, fecha }))
+    );
+    
+    // Verificar que todas las zonas estén cerradas
+    const hayCerradas = cuadres.some(c => c && c.cerrado);
+    const todasCerradas = cuadres.every(c => c && c.cerrado);
+    
+    if (!hayCerradas) {
+      return res.status(400).json({
+        success: false,
+        message: 'No hay cuadres cerrados para esta fecha',
+      });
+    }
+    
+    // Generar resumen
+    let resumen = `
+      <h2>📊 RESUMEN DE CAJA - ${fecha}</h2>
+      <hr>
+    `;
+    
+    let totalGeneral = 0;
+    
+    for (const cuadre of cuadres) {
+      if (!cuadre) {
+        resumen += `
+          <h3>📍 SIN DATOS</h3>
+          <p><strong>Estado:</strong> No se ha realizado cuadre</p>
+          <hr>
+        `;
+        continue;
+      }
+      
+      const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
+      const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
+      
+      resumen += `
+        <h3>📍 ${cuadre.zona}</h3>
+        <table style="border-collapse: collapse; width: 100%;">
+          <tr><td><strong>Saldo Inicial:</strong></td><td>$${cuadre.saldoInicial.toFixed(2)}</td></tr>
+          <tr><td><strong>Total Ingresos:</strong></td><td>+$${totalIngresos.toFixed(2)}</td></tr>
+          <tr><td><strong>Total Pagos:</strong></td><td>-$${totalPagos.toFixed(2)}</td></tr>
+          <tr style="font-weight: bold; background-color: #f0f0f0;">
+            <td><strong>Saldo Disponible:</strong></td>
+            <td>$${cuadre.saldoDisponible.toFixed(2)}</td>
+          </tr>
+        </table>
+        <p><strong>Estado:</strong> ${cuadre.cerrado ? '✅ CERRADO' : '❌ ABIERTO'}</p>
+        <hr>
+      `;
+      
+      totalGeneral += cuadre.saldoDisponible;
+    }
+    
+    resumen += `
+      <h3 style="text-align: center; color: #6C5CE7;">💰 TOTAL GENERAL: $${totalGeneral.toFixed(2)}</h3>
+    `;
+    
+    // Enviar correo
+    await emailService.enviarCorreo({
+      to: 'alejorodrigo7@gmail.com',
+      subject: `📊 Resumen de Caja - ${fecha}`,
+      html: resumen,
+    });
+    
+    // Marcar como enviados
+    for (const cuadre of cuadres) {
+      if (cuadre) {
+        cuadre.enviadoCorreo = true;
+        await cuadre.save();
+      }
+    }
+    
+    console.log(`✅ Correo de resumen enviado para ${fecha}`);
+    
+    res.json({
+      success: true,
+      message: 'Correo de resumen enviado correctamente',
+      data: { totalGeneral, fecha },
+    });
+  } catch (error) {
+    console.error('❌ Error enviarCorreoResumen:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Obtener resumen del día para las 3 zonas
+exports.getResumenDia = async (req, res) => {
+  try {
+    const { fecha } = req.params;
+    
+    const zonas = ['TOLA', 'CHILIBULO', 'MAGDALENA'];
+    const cuadres = await Promise.all(
+      zonas.map(zona => CuadreCaja.findOne({ zona, fecha }))
+    );
+    
+    const resumen = cuadres.map((cuadre, index) => {
+      if (!cuadre) {
+        return {
+          zona: zonas[index],
+          existe: false,
+          cerrado: false,
+          saldoInicial: 0,
+          saldoDisponible: 0,
+          totalIngresos: 0,
+          totalPagos: 0,
+          ingresos: [],
+          pagos: [],
+        };
+      }
+      
+      const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
+      const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
+      
+      return {
+        zona: cuadre.zona,
+        existe: true,
+        cerrado: cuadre.cerrado,
+        saldoInicial: cuadre.saldoInicial,
+        saldoDisponible: cuadre.saldoDisponible,
+        totalIngresos,
+        totalPagos,
+        ingresos: cuadre.ingresos,
+        pagos: cuadre.pagos,
+        enviadoCorreo: cuadre.enviadoCorreo || false,
+      };
+    });
+    
+    res.json({
+      success: true,
+      data: resumen,
+    });
+  } catch (error) {
+    console.error('❌ Error getResumenDia:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

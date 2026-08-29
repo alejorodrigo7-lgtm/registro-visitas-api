@@ -36,19 +36,25 @@ router.get('/depositos/revisar', authorize('Jefe', 'Admin'), cajaController.revi
 router.put('/depositos/:id/revisar', authorize('Jefe', 'Admin'), cajaController.marcarDepositoRevisado);
 
 // ============================================
-// 📊 RUTAS DE CUADRE DE CAJA (NUEVO)
+// 📊 RUTAS DE CUADRE DE CAJA
 // ============================================
 
-// Obtener cuadre por zona y fecha
+// Obtener cuadre por zona y fecha (crea automáticamente si no existe)
 router.get('/cuadre/:zona/:fecha', cajaController.getCuadre);
-
-// Crear cuadre del día
-router.post('/cuadre', cajaController.crearCuadre);
 
 // Agregar ingreso a un cuadre
 router.post('/cuadre/:id/ingreso', cajaController.agregarIngreso);
 
 // Agregar pago a un cuadre
 router.post('/cuadre/:id/pago', cajaController.agregarPago);
+
+// Cerrar cuadre del día para una zona
+router.put('/cuadre/:id/cerrar', cajaController.cerrarCuadre);
+
+// Enviar correo con resumen de las 3 zonas
+router.post('/cuadre/enviar-correo', cajaController.enviarCorreoResumen);
+
+// Obtener resumen del día para las 3 zonas
+router.get('/resumen/:fecha', cajaController.getResumenDia);
 
 module.exports = router;

@@ -44,7 +44,7 @@ const cuadreCajaSchema = new mongoose.Schema({
   pagos: [{
     motivo: {
       type: String,
-      enum: ['PAGO', 'OTRO'],
+      enum: ['PAGO PROVEEDOR', 'PAGO PERSONAL', 'PAGO SERVICIOS', 'OTROS'],
       required: true,
     },
     monto: {
@@ -75,6 +75,10 @@ const cuadreCajaSchema = new mongoose.Schema({
   },
   fechaCierre: {
     type: Date,
+  },
+  enviadoCorreo: {
+    type: Boolean,
+    default: false,
   },
 }, {
   timestamps: true,
