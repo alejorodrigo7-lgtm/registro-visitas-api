@@ -9,11 +9,9 @@ const emailService = require('../services/emailService');
 // ============================================
 async function obtenerSaldoDiaAnterior(zona, fecha) {
   try {
-    // ✅ La fecha viene como String "YYYY-MM-DD", NO usar new Date() directamente
-    // Calcular el día anterior restando 1 día al String
     const fechaParts = fecha.split('-');
     const year = parseInt(fechaParts[0]);
-    const month = parseInt(fechaParts[1]) - 1; // Mes en JS es 0-11
+    const month = parseInt(fechaParts[1]) - 1;
     const day = parseInt(fechaParts[2]);
     
     const fechaObj = new Date(year, month, day);
@@ -26,7 +24,6 @@ async function obtenerSaldoDiaAnterior(zona, fecha) {
     
     console.log(`📊 Buscando saldo anterior para ${zona} en fecha ${fechaAnterior}`);
     
-    // ✅ Buscar cuadre cerrado del día anterior
     let cuadreAnterior = await CuadreCaja.findOne({ 
       zona, 
       fecha: fechaAnterior,
@@ -38,7 +35,6 @@ async function obtenerSaldoDiaAnterior(zona, fecha) {
       return cuadreAnterior.saldoDisponible;
     }
     
-    // ✅ Si no está cerrado, buscar cualquier cuadre del día anterior
     cuadreAnterior = await CuadreCaja.findOne({ 
       zona, 
       fecha: fechaAnterior 
@@ -49,7 +45,6 @@ async function obtenerSaldoDiaAnterior(zona, fecha) {
       return cuadreAnterior.saldoDisponible;
     }
     
-    // ✅ Si no existe, buscar el cuadre más reciente
     const ultimoCuadre = await CuadreCaja.findOne({ 
       zona,
       fecha: { $lt: fechaAnterior }
@@ -408,7 +403,6 @@ exports.getCuadre = async (req, res) => {
     
     let cuadre = await CuadreCaja.findOne({ zona, fecha });
     
-    // ✅ SI NO EXISTE, CREAR UNO CON EL SALDO DEL DÍA ANTERIOR
     if (!cuadre) {
       console.log(`📊 No existe cuadre para ${zona} - ${fecha}, creando...`);
       
@@ -431,16 +425,13 @@ exports.getCuadre = async (req, res) => {
     } else {
       console.log(`📊 Cuadre EXISTENTE para ${zona} - ${fecha}`);
       
-      // ✅ NO MODIFICAR SI ESTÁ CERRADO
       if (cuadre.cerrado) {
         console.log(`📊 Cuadre CERRADO - No se modifica`);
       } else {
-        // Solo actualizar si está abierto
         const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
         if (saldoAnterior > 0 && cuadre.saldoInicial !== saldoAnterior) {
           console.log(`📊 Actualizando saldo inicial de ${cuadre.saldoInicial} a ${saldoAnterior}`);
           cuadre.saldoInicial = saldoAnterior;
-          // ✅ Recalcular saldo disponible con el nuevo saldo inicial
           const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
           const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
           cuadre.saldoDisponible = saldoAnterior + totalIngresos - totalPagos;
@@ -476,7 +467,6 @@ exports.agregarIngreso = async (req, res) => {
       });
     }
     
-    // ✅ Validar que el cuadre no esté cerrado
     if (cuadre.cerrado) {
       return res.status(400).json({
         success: false,
@@ -521,7 +511,6 @@ exports.agregarPago = async (req, res) => {
     console.log(`📊 Monto: ${monto}`);
     console.log(`📊 Descripción: ${descripcion}`);
     
-    // ✅ Validar que el motivo sea EGRESO
     if (motivo !== 'EGRESO') {
       return res.status(400).json({
         success: false,
@@ -529,7 +518,6 @@ exports.agregarPago = async (req, res) => {
       });
     }
     
-    // ✅ Validar que la descripción no esté vacía
     if (!descripcion || descripcion.trim() === '') {
       return res.status(400).json({
         success: false,
@@ -545,7 +533,6 @@ exports.agregarPago = async (req, res) => {
       });
     }
     
-    // ✅ Validar que el cuadre no esté cerrado
     if (cuadre.cerrado) {
       return res.status(400).json({
         success: false,
@@ -600,7 +587,6 @@ exports.cerrarCuadre = async (req, res) => {
       });
     }
     
-    // ✅ Recalcular saldo final antes de cerrar
     const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
     const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
     cuadre.saldoDisponible = cuadre.saldoInicial + totalIngresos - totalPagos;
@@ -624,7 +610,7 @@ exports.cerrarCuadre = async (req, res) => {
 };
 
 // ============================================
-// ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS (MÚLTIPLES DESTINATARIOS)
+// ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS (SOLO UN DESTINATARIO)
 // ============================================
 exports.enviarCorreoResumen = async (req, res) => {
   try {
@@ -682,19 +668,28 @@ exports.enviarCorreoResumen = async (req, res) => {
       });
     }
     
-    // ✅ Verificar si ya se envió el correo
-    const yaEnviado = cuadres.some(c => c.enviadoCorreo === true);
+    // ✅ VERIFICAR SI YA SE ENVIÓ EL CORREO
+    const yaEnviado = cuadres.every(c => c.enviadoCorreo === true);
     const intentos = cuadres.reduce((sum, c) => sum + (c.intentosCorreo || 0), 0);
-    const nuevoIntento = intentos + 1;
     
-    let mensajeAdicional = '';
+    // ✅ SI YA FUE ENVIADO, NO REENVIAR
     if (yaEnviado) {
-      mensajeAdicional = ` (REENVÍO #${nuevoIntento})`;
+      return res.status(400).json({
+        success: false,
+        message: `⚠️ El resumen para la fecha ${fecha} ya fue enviado anteriormente (${intentos} envíos totales). No se puede reenviar.`,
+        data: {
+          yaEnviado: true,
+          intentos: intentos,
+          fecha: fecha,
+        },
+      });
     }
+    
+    const nuevoIntento = intentos + 1;
     
     // Generar resumen HTML
     let resumen = `
-      <h2>📊 RESUMEN DE CAJA - ${fecha}${mensajeAdicional}</h2>
+      <h2>📊 RESUMEN DE CAJA - ${fecha}</h2>
       <hr>
     `;
     
@@ -726,26 +721,18 @@ exports.enviarCorreoResumen = async (req, res) => {
     resumen += `
       <h3 style="text-align: center; color: #6C5CE7;">💰 TOTAL GENERAL: $${totalGeneral.toFixed(2)}</h3>
       <p style="text-align: center; color: #636E72; font-size: 12px;">
-        ${yaEnviado ? `⚠️ Este resumen ya fue enviado anteriormente (Intento #${nuevoIntento})` : '📧 Primer envío de este resumen'}
+        📧 Primer envío de este resumen
       </p>
     `;
     
-    // ✅ ENVIAR CORREO A MÚLTIPLES DESTINATARIOS
-    const destinatarios = [
-      'alejorodrigo7@gmail.com',
-      'cordobaisabelag@gmail.com',
-      'isabellacordobag@hotmail.com'
-    ];
+    // ✅ ENVIAR CORREO A UN SOLO DESTINATARIO
+    await emailService.enviarCorreo({
+      to: 'alejorodrigo7@gmail.com',
+      subject: `📊 Resumen de Caja - ${fecha}`,
+      html: resumen,
+    });
     
-    for (const destinatario of destinatarios) {
-      await emailService.enviarCorreo({
-        to: destinatario,
-        subject: `📊 Resumen de Caja - ${fecha}${yaEnviado ? ` (RE-ENVÍO #${nuevoIntento})` : ''}`,
-        html: resumen,
-      });
-    }
-    
-    // ✅ Actualizar estado de envío en TODOS los cuadres
+    // ✅ ACTUALIZAR ESTADO DE ENVÍO EN TODOS LOS CUADRES
     for (const cuadre of cuadres) {
       cuadre.enviadoCorreo = true;
       cuadre.intentosCorreo = nuevoIntento;
@@ -753,18 +740,15 @@ exports.enviarCorreoResumen = async (req, res) => {
       await cuadre.save();
     }
     
-    console.log(`✅ Correo de resumen enviado para ${fecha} a ${destinatarios.length} destinatarios (Intento #${nuevoIntento})`);
+    console.log(`✅ Correo de resumen enviado para ${fecha} a alejorodrigo7@gmail.com (Intento #${nuevoIntento})`);
     
     res.json({
       success: true,
-      message: `Correo de resumen enviado correctamente a ${destinatarios.length} destinatarios${yaEnviado ? ` (Reenvío #${nuevoIntento})` : ''}`,
+      message: `Correo de resumen enviado correctamente a alejorodrigo7@gmail.com (Intento #${nuevoIntento})`,
       data: { 
         totalGeneral, 
         fecha, 
-        enviadoAnteriormente: yaEnviado,
         intento: nuevoIntento,
-        reenvio: yaEnviado,
-        destinatarios: destinatarios.length,
       },
     });
   } catch (error) {
