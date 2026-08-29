@@ -44,7 +44,7 @@ const cuadreCajaSchema = new mongoose.Schema({
   pagos: [{
     motivo: {
       type: String,
-      enum: ['PAGO PROVEEDOR', 'PAGO PERSONAL', 'PAGO SERVICIOS', 'OTROS'],
+      enum: ['EGRESO'],
       required: true,
     },
     monto: {
@@ -53,7 +53,7 @@ const cuadreCajaSchema = new mongoose.Schema({
     },
     descripcion: {
       type: String,
-      default: '',
+      required: true,
     },
     fecha: {
       type: Date,
@@ -76,7 +76,6 @@ const cuadreCajaSchema = new mongoose.Schema({
   fechaCierre: {
     type: Date,
   },
-  // ✅ NUEVOS CAMPOS PARA CONTROL DE ENVÍO DE CORREO
   enviadoCorreo: {
     type: Boolean,
     default: false,
@@ -137,7 +136,7 @@ cuadreCajaSchema.statics.obtenerSaldoAnterior = async function(zona, fecha) {
     const cuadreAnterior = await this.findOne({ 
       zona, 
       fecha: fechaAnterior,
-      cerrado: true, // Solo si está cerrado
+      cerrado: true,
     });
     
     return cuadreAnterior ? cuadreAnterior.saldoDisponible : 0;

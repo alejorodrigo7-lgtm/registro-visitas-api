@@ -16,19 +16,30 @@ async function obtenerSaldoDiaAnterior(zona, fecha) {
     
     console.log(`📊 Buscando saldo anterior para ${zona} en fecha ${fechaAnterior}`);
     
-    // ✅ Buscar cualquier cuadre del día anterior (cerrado o no)
-    const cuadreAnterior = await CuadreCaja.findOne({ 
+    // ✅ Buscar cuadre cerrado del día anterior
+    let cuadreAnterior = await CuadreCaja.findOne({ 
+      zona, 
+      fecha: fechaAnterior,
+      cerrado: true 
+    });
+    
+    if (cuadreAnterior) {
+      console.log(`📊 Saldo del día anterior CERRADO (${fechaAnterior}): ${cuadreAnterior.saldoDisponible}`);
+      return cuadreAnterior.saldoDisponible;
+    }
+    
+    // ✅ Si no está cerrado, buscar cualquier cuadre del día anterior
+    cuadreAnterior = await CuadreCaja.findOne({ 
       zona, 
       fecha: fechaAnterior 
     });
     
-    // ✅ Si existe, devolver el saldo disponible
     if (cuadreAnterior) {
       console.log(`📊 Saldo del día anterior (${fechaAnterior}): ${cuadreAnterior.saldoDisponible}`);
       return cuadreAnterior.saldoDisponible;
     }
     
-    // ✅ Si no existe en esa fecha, buscar el cuadre más reciente
+    // ✅ Si no existe, buscar el cuadre más reciente
     const ultimoCuadre = await CuadreCaja.findOne({ 
       zona,
       fecha: { $lt: fechaAnterior }
@@ -375,7 +386,7 @@ exports.marcarDepositoRevisado = async (req, res) => {
 };
 
 // ============================================
-// 📊 CUADRE DE CAJA - FUNCIONES PRINCIPALES
+// 📊 CUADRE DE CAJA - FUNCIONES PRINCIPALES CORREGIDAS
 // ============================================
 
 // Obtener cuadre por zona y fecha - CORREGIDO
@@ -408,13 +419,18 @@ exports.getCuadre = async (req, res) => {
     } else {
       console.log(`📊 Cuadre EXISTENTE para ${zona} - ${fecha}`);
       
-      // ✅ VERIFICAR SI EL SALDO INICIAL ES CORRECTO
-      const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
-      if (cuadre.saldoInicial !== saldoAnterior && saldoAnterior !== 0) {
-        console.log(`📊 Actualizando saldo inicial de ${cuadre.saldoInicial} a ${saldoAnterior}`);
-        cuadre.saldoInicial = saldoAnterior;
-        cuadre.saldoDisponible = saldoAnterior;
-        await cuadre.save();
+      // ✅ NO MODIFICAR SI ESTÁ CERRADO
+      if (cuadre.cerrado) {
+        console.log(`📊 Cuadre CERRADO - No se modifica`);
+      } else {
+        // Solo actualizar si está abierto
+        const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
+        if (saldoAnterior > 0 && cuadre.saldoInicial !== saldoAnterior) {
+          console.log(`📊 Actualizando saldo inicial de ${cuadre.saldoInicial} a ${saldoAnterior}`);
+          cuadre.saldoInicial = saldoAnterior;
+          cuadre.saldoDisponible = saldoAnterior;
+          await cuadre.save();
+        }
       }
     }
     
@@ -480,21 +496,29 @@ exports.agregarIngreso = async (req, res) => {
   }
 };
 
-// Agregar pago a un cuadre
+// Agregar egreso a un cuadre (antes pago) - CORREGIDO
 exports.agregarPago = async (req, res) => {
   try {
     const { id } = req.params;
     const { motivo, monto, descripcion } = req.body;
     
-    console.log(`📊 Agregando pago al cuadre ${id}`);
-    console.log(`📊 Motivo: ${motivo}, Monto: ${monto}`);
+    console.log(`📊 Agregando egreso al cuadre ${id}`);
+    console.log(`📊 Monto: ${monto}`);
+    console.log(`📊 Descripción: ${descripcion}`);
     
-    // ✅ Validar que el motivo sea válido
-    const motivosValidos = ['PAGO PROVEEDOR', 'PAGO PERSONAL', 'PAGO SERVICIOS', 'OTROS'];
-    if (!motivosValidos.includes(motivo)) {
+    // ✅ Validar que el motivo sea EGRESO
+    if (motivo !== 'EGRESO') {
       return res.status(400).json({
         success: false,
-        message: `Motivo inválido. Motivos válidos: ${motivosValidos.join(', ')}`,
+        message: 'Solo se permite EGRESO como motivo',
+      });
+    }
+    
+    // ✅ Validar que la descripción no esté vacía
+    if (!descripcion || descripcion.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Debes escribir una descripción para el egreso',
       });
     }
     
@@ -515,9 +539,9 @@ exports.agregarPago = async (req, res) => {
     }
     
     cuadre.pagos.push({
-      motivo,
+      motivo: 'EGRESO',
       monto,
-      descripcion: descripcion || '',
+      descripcion: descripcion.trim(),
       fecha: new Date(),
       usuario: req.user._id,
     });
@@ -528,11 +552,11 @@ exports.agregarPago = async (req, res) => {
     
     await cuadre.save();
     
-    console.log(`✅ Pago agregado. Nuevo saldo: ${cuadre.saldoDisponible}`);
+    console.log(`✅ Egreso agregado. Nuevo saldo: ${cuadre.saldoDisponible}`);
     
     res.json({
       success: true,
-      message: 'Pago agregado correctamente',
+      message: 'Egreso agregado correctamente',
       data: cuadre,
     });
   } catch (error) {
@@ -662,7 +686,7 @@ exports.enviarCorreoResumen = async (req, res) => {
         <table style="border-collapse: collapse; width: 100%;">
           <tr><td><strong>Saldo Inicial:</strong></td><td>$${cuadre.saldoInicial.toFixed(2)}</td></tr>
           <tr><td><strong>Total Ingresos:</strong></td><td>+$${totalIngresos.toFixed(2)}</td></tr>
-          <tr><td><strong>Total Pagos:</strong></td><td>-$${totalPagos.toFixed(2)}</td></tr>
+          <tr><td><strong>Total Egresos:</strong></td><td>-$${totalPagos.toFixed(2)}</td></tr>
           <tr style="font-weight: bold; background-color: #f0f0f0;">
             <td><strong>Saldo Disponible:</strong></td>
             <td>$${cuadre.saldoDisponible.toFixed(2)}</td>
