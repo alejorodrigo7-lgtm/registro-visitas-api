@@ -15,73 +15,80 @@ class EmailService {
   }
 
   // ============================================
-  // FUNCIÓN PRIVADA PARA ENVIAR CORREOS
+  // ✅ FUNCIÓN PRINCIPAL PARA ENVIAR CORREOS (NUEVA)
   // ============================================
-  async _enviarCorreo({ to, cc = [], subject, html }) {
-    // Si no hay API Key, simular envío
-    if (!process.env.SENDGRID_API_KEY) {
-      console.log('📧 [SIMULADO] Correo enviado (sin API Key)');
-      console.log(`   Para: ${to.join(', ')}`);
-      if (cc.length > 0) console.log(`   CC: ${cc.join(', ')}`);
-      console.log(`   Asunto: ${subject}`);
-      return { success: true, simulated: true };
-    }
-
-    // Filtrar destinatarios vacíos
-    const toList = to.filter(email => email && email.trim() !== '');
-    const ccList = cc.filter(email => email && email.trim() !== '');
-
-    // Si no hay destinatarios, no enviar
-    if (toList.length === 0 && ccList.length === 0) {
-      console.log('⚠️ No hay destinatarios para enviar el correo');
-      return { success: false, message: 'No hay destinatarios' };
-    }
-
-    // Filtrar cc para eliminar duplicados con to
-    const filteredCC = ccList.filter(email => !toList.includes(email));
-
-    const msg = {
-      to: toList,
-      from: {
-        email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
-        name: 'RA²P Notificaciones'
-      },
-      replyTo: {
-        email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
-        name: 'RA²P Soporte'
-      },
-      subject: subject,
-      html: html,
-      trackingSettings: {
-        clickTracking: { enable: false },
-        openTracking: { enable: false },
-        subscriptionTracking: { enable: false }
-      }
-    };
-
-    if (filteredCC.length > 0) {
-      msg.cc = filteredCC;
-    }
-
+  async enviarCorreo({ to, cc = [], subject, html, text }) {
     try {
+      // Si no hay API Key, simular envío
+      if (!process.env.SENDGRID_API_KEY) {
+        console.log('📧 [SIMULADO] Correo enviado (sin API Key)');
+        console.log(`   Para: ${to}`);
+        if (cc.length > 0) console.log(`   CC: ${cc.join(', ')}`);
+        console.log(`   Asunto: ${subject}`);
+        return { success: true, simulated: true };
+      }
+
+      // Filtrar destinatarios vacíos
+      const toList = Array.isArray(to) ? to.filter(email => email && email.trim() !== '') : [to].filter(email => email && email.trim() !== '');
+      const ccList = cc.filter(email => email && email.trim() !== '');
+
+      if (toList.length === 0 && ccList.length === 0) {
+        console.log('⚠️ No hay destinatarios para enviar el correo');
+        return { success: false, message: 'No hay destinatarios' };
+      }
+
+      // Filtrar cc para eliminar duplicados con to
+      const filteredCC = ccList.filter(email => !toList.includes(email));
+
+      const msg = {
+        to: toList,
+        from: {
+          email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
+          name: 'RA²P Notificaciones'
+        },
+        replyTo: {
+          email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
+          name: 'RA²P Soporte'
+        },
+        subject: subject,
+        html: html || text || 'Correo enviado desde RA²P',
+        text: text || 'Correo enviado desde RA²P',
+        trackingSettings: {
+          clickTracking: { enable: false },
+          openTracking: { enable: false },
+          subscriptionTracking: { enable: false }
+        }
+      };
+
+      if (filteredCC.length > 0) {
+        msg.cc = filteredCC;
+      }
+
       const result = await sgMail.send(msg);
       console.log('✅ Correo enviado exitosamente via SendGrid');
       console.log(`   Para: ${toList.join(', ')}`);
       if (filteredCC.length > 0) {
         console.log(`   CC: ${filteredCC.join(', ')}`);
       }
-      return result;
+      return { success: true, result };
     } catch (error) {
       console.error('❌ Error enviando correo via SendGrid:', error.message);
       if (error.response) {
         console.error('   Detalle:', error.response.body);
       }
-      throw error;
+      return { success: false, error: error.message };
     }
   }
 
   // ============================================
-  // FUNCIÓN EXISTENTE: Notificación de Desconexión/Reconexión (NO TOCAR)
+  // FUNCIÓN PRIVADA PARA ENVIAR CORREOS (INTERNA)
+  // ============================================
+  async _enviarCorreo({ to, cc = [], subject, html }) {
+    return this.enviarCorreo({ to, cc, subject, html });
+  }
+
+  // ============================================
+  // FUNCIÓN EXISTENTE: Notificación de Desconexión/Reconexión
   // Envía a: Admin (alejorodrigo7@gmail.com)
   // ============================================
   async enviarNotificacionDesconexion(data) {
@@ -104,7 +111,7 @@ class EmailService {
     // DESTINATARIO: SOLO Admin
     const toList = ['alejorodrigo7@gmail.com'];
 
-    return this._enviarCorreo({
+    return this.enviarCorreo({
       to: toList,
       cc: [],
       subject: asunto,
@@ -113,7 +120,7 @@ class EmailService {
   }
 
   // ============================================
-  // FUNCIÓN EXISTENTE: Template Generator (NO TOCAR)
+  // FUNCIÓN EXISTENTE: Template Generator
   // ============================================
   generarTemplate(data) {
     const { cliente, motivo, observaciones, usuario, fecha, tipo, urlAccion } = data;
@@ -332,7 +339,7 @@ class EmailService {
       </html>
     `;
 
-    return this._enviarCorreo({
+    return this.enviarCorreo({
       to: [usuarioSolicitante.email],
       cc: [],
       subject: asunto,
@@ -412,7 +419,7 @@ class EmailService {
       </html>
     `;
 
-    return this._enviarCorreo({
+    return this.enviarCorreo({
       to: [usuarioSolicitante.email],
       cc: [],
       subject: asunto,
@@ -499,7 +506,7 @@ class EmailService {
       </html>
     `;
 
-    return this._enviarCorreo({
+    return this.enviarCorreo({
       to: [tecnico.email],
       cc: [],
       subject: asunto,
@@ -576,7 +583,7 @@ class EmailService {
       </html>
     `;
 
-    return this._enviarCorreo({
+    return this.enviarCorreo({
       to: [usuarioSolicitante.email],
       cc: [],
       subject: asunto,
@@ -660,8 +667,111 @@ class EmailService {
       </html>
     `;
 
-    return this._enviarCorreo({
+    return this.enviarCorreo({
       to: [usuarioSolicitante.email],
+      cc: [],
+      subject: asunto,
+      html: html
+    });
+  }
+
+  // ============================================
+  // ✅ NUEVA FUNCIÓN 6: ENVIAR CORREO DE RESUMEN DE CAJA
+  // → Envía el resumen de caja a alejorodrigo7@gmail.com
+  // ============================================
+  async enviarResumenCaja(fecha, resumenHtml) {
+    const asunto = `📊 Resumen de Caja - ${fecha}`;
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Resumen de Caja - ${fecha}</title>
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+          .container { max-width: 700px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          .header { background: #6C5CE7; color: white; padding: 25px 20px; text-align: center; }
+          .header h1 { margin: 0; font-size: 24px; }
+          .header p { margin: 5px 0 0 0; opacity: 0.8; font-size: 14px; }
+          .content { padding: 30px 25px; background: #ffffff; }
+          .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
+          .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
+          .footer .brand { font-weight: 600; color: #6C5CE7; }
+          .resumen-caja {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+          }
+          .resumen-caja th {
+            background: #6C5CE7;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-size: 13px;
+          }
+          .resumen-caja td {
+            padding: 10px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 14px;
+          }
+          .resumen-caja tr:hover td {
+            background: #f8f9fa;
+          }
+          .total-general {
+            font-size: 20px;
+            font-weight: bold;
+            color: #6C5CE7;
+            text-align: center;
+            padding: 15px;
+            background: #f0edff;
+            border-radius: 8px;
+            margin-top: 15px;
+          }
+          .badge-cerrado {
+            background: #00b894;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+          }
+          .badge-abierto {
+            background: #fdcb6e;
+            color: #2d3436;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+          }
+          .monto-positivo { color: #00b894; font-weight: 600; }
+          .monto-negativo { color: #ff6b6b; font-weight: 600; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📊 Resumen de Caja</h1>
+            <p>${fecha}</p>
+          </div>
+          <div class="content">
+            ${resumenHtml}
+          </div>
+          <div class="footer">
+            <p class="brand">RA²P - Sistema de Gestión</p>
+            <p>Este es un mensaje automático del sistema.</p>
+            <p style="font-size: 11px; color: #adb5bd;">
+              &copy; ${new Date().getFullYear()} RA²P - Todos los derechos reservados
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return this.enviarCorreo({
+      to: ['alejorodrigo7@gmail.com'],
       cc: [],
       subject: asunto,
       html: html
