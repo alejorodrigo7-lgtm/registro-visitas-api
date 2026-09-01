@@ -15,11 +15,10 @@ class EmailService {
   }
 
   // ============================================
-  // ✅ FUNCIÓN PRINCIPAL PARA ENVIAR CORREOS (NUEVA)
+  // ✅ FUNCIÓN PRINCIPAL PARA ENVIAR CORREOS
   // ============================================
   async enviarCorreo({ to, cc = [], subject, html, text }) {
     try {
-      // Si no hay API Key, simular envío
       if (!process.env.SENDGRID_API_KEY) {
         console.log('📧 [SIMULADO] Correo enviado (sin API Key)');
         console.log(`   Para: ${to}`);
@@ -28,7 +27,6 @@ class EmailService {
         return { success: true, simulated: true };
       }
 
-      // Filtrar destinatarios vacíos
       const toList = Array.isArray(to) ? to.filter(email => email && email.trim() !== '') : [to].filter(email => email && email.trim() !== '');
       const ccList = cc.filter(email => email && email.trim() !== '');
 
@@ -37,7 +35,6 @@ class EmailService {
         return { success: false, message: 'No hay destinatarios' };
       }
 
-      // Filtrar cc para eliminar duplicados con to
       const filteredCC = ccList.filter(email => !toList.includes(email));
 
       const msg = {
@@ -89,7 +86,6 @@ class EmailService {
 
   // ============================================
   // FUNCIÓN EXISTENTE: Notificación de Desconexión/Reconexión
-  // Envía a: Admin (alejorodrigo7@gmail.com)
   // ============================================
   async enviarNotificacionDesconexion(data) {
     const { 
@@ -108,7 +104,6 @@ class EmailService {
       urlAccion: `${process.env.FRONTEND_URL}/ejecucion`
     });
 
-    // DESTINATARIO: SOLO Admin
     const toList = ['alejorodrigo7@gmail.com'];
 
     return this.enviarCorreo({
@@ -133,94 +128,19 @@ class EmailService {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Nueva Solicitud de ${tipo}</title>
         <style>
-          body { 
-            font-family: Arial, Helvetica, sans-serif; 
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-          }
-          .container { 
-            max-width: 600px; 
-            margin: 20px auto; 
-            padding: 0;
-            background: #ffffff; 
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-          }
-          .header { 
-            background: #1a237e; 
-            color: white; 
-            padding: 25px 20px; 
-            text-align: center;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-          }
-          .content { 
-            padding: 30px 25px; 
-            background: #ffffff;
-          }
-          .field { 
-            margin: 0 0 15px 0; 
-            padding: 12px 15px; 
-            background: #f8f9fa; 
-            border-radius: 6px;
-            border-left: 4px solid #1a237e;
-          }
-          .field strong {
-            color: #1a237e;
-            display: block;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
-          }
-          .field span {
-            font-size: 15px;
-            color: #333;
-          }
-          .badge { 
-            background: ${tipo === 'DESCONEXION' ? '#d32f2f' : '#2e7d32'};
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            display: inline-block;
-            font-weight: 600;
-          }
-          .button { 
-            display: inline-block; 
-            padding: 12px 30px; 
-            background: #1a237e; 
-            color: white; 
-            text-decoration: none; 
-            border-radius: 6px;
-            margin: 15px 0 5px 0;
-            font-weight: 600;
-          }
-          .footer {
-            padding: 20px 25px;
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
-            text-align: center;
-          }
-          .footer p {
-            margin: 5px 0;
-            color: #6c757d;
-            font-size: 12px;
-          }
-          .footer .brand {
-            font-weight: 600;
-            color: #1a237e;
-          }
-          @media only screen and (max-width: 480px) {
-            .container { margin: 10px; }
-            .content { padding: 20px; }
-            .header h1 { font-size: 20px; }
-          }
+          body { font-family: Arial, Helvetica, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 20px auto; padding: 0; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          .header { background: #1a237e; color: white; padding: 25px 20px; text-align: center; }
+          .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+          .content { padding: 30px 25px; background: #ffffff; }
+          .field { margin: 0 0 15px 0; padding: 12px 15px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #1a237e; }
+          .field strong { color: #1a237e; display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+          .field span { font-size: 15px; color: #333; }
+          .badge { background: ${tipo === 'DESCONEXION' ? '#d32f2f' : '#2e7d32'}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; display: inline-block; font-weight: 600; }
+          .button { display: inline-block; padding: 12px 30px; background: #1a237e; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0 5px 0; font-weight: 600; }
+          .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
+          .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
+          .footer .brand { font-weight: 600; color: #1a237e; }
         </style>
       </head>
       <body>
@@ -268,8 +188,211 @@ class EmailService {
   }
 
   // ============================================
-  // NUEVA FUNCIÓN 1: DESCONEXIÓN EJECUTADA
-  // → Envía al usuario que SOLICITÓ la desconexión
+  // ✅ NUEVA FUNCIÓN: ENVIAR CORREO DE RECIBO CON ADJUNTOS
+  // ============================================
+  async enviarCorreoRecibo({ 
+    to, 
+    clienteNombre, 
+    fechaSolicitud, 
+    observaciones, 
+    archivosBase64 = [], 
+    archivosNombres = [], 
+    estado = 'APROBADO',
+    motivoDenegacion = '',
+    usuarioSolicitante = ''
+  }) {
+    try {
+      console.log(`📧 Enviando correo de recibo a: ${to}`);
+      console.log(`📧 Estado: ${estado}`);
+      console.log(`📧 Archivos: ${archivosBase64.length}`);
+
+      // Construir contenido HTML
+      let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${estado === 'APROBADO' ? '✅ Recibo Aprobado' : '❌ Recibo Denegado'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { background: ${estado === 'APROBADO' ? '#2e7d32' : '#c62828'}; color: white; padding: 25px 20px; text-align: center; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 30px 25px; background: #ffffff; }
+            .field { margin: 0 0 15px 0; padding: 12px 15px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid ${estado === 'APROBADO' ? '#2e7d32' : '#c62828'}; }
+            .field strong { color: ${estado === 'APROBADO' ? '#2e7d32' : '#c62828'}; display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+            .field span { font-size: 15px; color: #333; }
+            .badge { background: ${estado === 'APROBADO' ? '#2e7d32' : '#c62828'}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; display: inline-block; font-weight: 600; }
+            .button { display: inline-block; padding: 12px 30px; background: ${estado === 'APROBADO' ? '#2e7d32' : '#c62828'}; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0 5px 0; font-weight: 600; }
+            .archivo-item { background: #f0edff; padding: 10px 15px; border-radius: 6px; margin: 5px 0; display: flex; align-items: center; gap: 10px; }
+            .archivo-item .icon { font-size: 20px; }
+            .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
+            .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
+            .footer .brand { font-weight: 600; color: #6C5CE7; }
+            .motivo-denegacion { background: #fff3e0; padding: 15px; border-radius: 6px; border-left: 4px solid #ff6f00; margin: 10px 0; }
+            .motivo-denegacion strong { color: #e65100; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${estado === 'APROBADO' ? '✅ Recibo Aprobado' : '❌ Recibo Denegado'}</h1>
+            </div>
+            <div class="content">
+              <p><strong>Hola ${usuarioSolicitante || clienteNombre},</strong></p>
+              <p>Su solicitud de recibo ha sido <span class="badge">${estado}</span>.</p>
+      `;
+
+      if (estado === 'DENEGADO' && motivoDenegacion) {
+        htmlContent += `
+          <div class="motivo-denegacion">
+            <strong>📝 Motivo de denegación:</strong>
+            <p style="margin: 8px 0 0 0; color: #333;">${motivoDenegacion}</p>
+          </div>
+        `;
+      }
+
+      htmlContent += `
+              <div class="field">
+                <strong>Cliente</strong>
+                <span>${clienteNombre}</span>
+              </div>
+              <div class="field">
+                <strong>Fecha de Solicitud</strong>
+                <span>${fechaSolicitud}</span>
+              </div>
+      `;
+
+      if (observaciones) {
+        htmlContent += `
+              <div class="field">
+                <strong>Observaciones</strong>
+                <span>${observaciones}</span>
+              </div>
+        `;
+      }
+
+      if (estado === 'APROBADO' && archivosNombres.length > 0) {
+        htmlContent += `
+              <div class="field">
+                <strong>📎 Archivos Adjuntos (${archivosNombres.length})</strong>
+                <div style="margin-top: 8px;">
+        `;
+        for (const nombre of archivosNombres) {
+          htmlContent += `
+                  <div class="archivo-item">
+                    <span class="icon">📄</span>
+                    <span>${nombre}</span>
+                  </div>
+          `;
+        }
+        htmlContent += `
+                </div>
+              </div>
+              <p style="color: #636E72; font-size: 13px;">
+                💡 Los archivos se encuentran adjuntos a este correo.
+              </p>
+        `;
+      }
+
+      htmlContent += `
+              <div style="text-align: center; margin: 20px 0 10px 0;">
+                <a href="${process.env.FRONTEND_URL || 'https://ra2p-app.com'}" class="button">📋 Ver en RA²P</a>
+              </div>
+            </div>
+            <div class="footer">
+              <p class="brand">RA²P - Sistema de Gestión</p>
+              <p>Este es un mensaje automático del sistema.</p>
+              <p style="font-size: 11px; color: #adb5bd;">
+                &copy; ${new Date().getFullYear()} RA²P - Todos los derechos reservados
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // ✅ Construir adjuntos para SendGrid
+      const attachments = [];
+      
+      if (estado === 'APROBADO' && archivosBase64.length > 0) {
+        for (let i = 0; i < archivosBase64.length; i++) {
+          const base64Data = archivosBase64[i];
+          const nombre = archivosNombres[i] || `recibo_${i+1}.pdf`;
+          
+          let mimeType = 'application/pdf';
+          const nombreLower = nombre.toLowerCase();
+          if (nombreLower.endsWith('.jpg') || nombreLower.endsWith('.jpeg')) {
+            mimeType = 'image/jpeg';
+          } else if (nombreLower.endsWith('.png')) {
+            mimeType = 'image/png';
+          } else if (nombreLower.endsWith('.pdf')) {
+            mimeType = 'application/pdf';
+          }
+
+          let cleanBase64 = base64Data;
+          if (base64Data && base64Data.includes(',')) {
+            cleanBase64 = base64Data.split(',')[1];
+          }
+
+          if (cleanBase64 && cleanBase64.length > 0) {
+            attachments.push({
+              content: cleanBase64,
+              filename: nombre,
+              type: mimeType,
+              disposition: 'attachment',
+            });
+            console.log(`📎 Adjuntando: ${nombre} (${mimeType})`);
+          }
+        }
+      }
+
+      const msg = {
+        to: to,
+        from: {
+          email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
+          name: 'RA²P Recibos'
+        },
+        replyTo: {
+          email: process.env.EMAIL_FROM || 'alejorodrigo7@gmail.com',
+          name: 'RA²P Soporte'
+        },
+        subject: estado === 'APROBADO' 
+          ? `✅ Recibo Aprobado - ${clienteNombre}`
+          : `❌ Recibo Denegado - ${clienteNombre}`,
+        html: htmlContent,
+        attachments: attachments,
+        trackingSettings: {
+          clickTracking: { enable: false },
+          openTracking: { enable: false },
+          subscriptionTracking: { enable: false }
+        }
+      };
+
+      console.log(`📧 Enviando correo a ${to} con ${attachments.length} adjuntos...`);
+
+      const result = await sgMail.send(msg);
+      
+      console.log(`✅ Correo enviado exitosamente a ${to}`);
+      console.log(`✅ Status: ${result[0]?.statusCode}`);
+      
+      return { success: true, message: 'Correo enviado correctamente' };
+
+    } catch (error) {
+      console.error('❌ Error enviando correo de recibo:', error);
+      console.error('❌ Detalle:', error.response?.body || error.message);
+      
+      return { 
+        success: false, 
+        message: 'Error al enviar correo',
+        error: error.message 
+      };
+    }
+  }
+
+  // ============================================
+  // FUNCIONES EXISTENTES: Desconexión/Reconexión Ejecutada
   // ============================================
   async enviarNotificacionDesconexionEjecutada(desconexion, usuarioEjecutor, usuarioSolicitante) {
     const asunto = `✅ DESCONEXIÓN EJECUTADA - ${desconexion.cliente}`;
@@ -290,7 +413,6 @@ class EmailService {
           .field { margin: 0 0 15px 0; padding: 12px 15px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #2e7d32; }
           .field strong { color: #2e7d32; display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
           .field span { font-size: 15px; color: #333; }
-          .badge { background: #2e7d32; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; display: inline-block; font-weight: 600; }
           .button { display: inline-block; padding: 12px 30px; background: #2e7d32; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0 5px 0; font-weight: 600; }
           .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
           .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
@@ -347,10 +469,6 @@ class EmailService {
     });
   }
 
-  // ============================================
-  // NUEVA FUNCIÓN 2: RECONEXIÓN EJECUTADA
-  // → Envía al usuario que SOLICITÓ la reconexión
-  // ============================================
   async enviarNotificacionReconexionEjecutada(reconexion, usuarioEjecutor, usuarioSolicitante) {
     const asunto = `✅ RECONEXIÓN EJECUTADA - ${reconexion.cliente}`;
     
@@ -370,7 +488,6 @@ class EmailService {
           .field { margin: 0 0 15px 0; padding: 12px 15px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #1565c0; }
           .field strong { color: #1565c0; display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
           .field span { font-size: 15px; color: #333; }
-          .badge { background: #1565c0; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; display: inline-block; font-weight: 600; }
           .button { display: inline-block; padding: 12px 30px; background: #1565c0; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0 5px 0; font-weight: 600; }
           .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
           .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
@@ -427,10 +544,6 @@ class EmailService {
     });
   }
 
-  // ============================================
-  // NUEVA FUNCIÓN 3: SERVICIO ASIGNADO
-  // → Envía al técnico ASIGNADO
-  // ============================================
   async enviarNotificacionServicioAsignado(servicio, tecnico) {
     const asunto = `🔧 NUEVO SERVICIO ASIGNADO - ${servicio.cliente}`;
     
@@ -450,7 +563,6 @@ class EmailService {
           .field { margin: 0 0 15px 0; padding: 12px 15px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #e65100; }
           .field strong { color: #e65100; display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
           .field span { font-size: 15px; color: #333; }
-          .badge { background: #e65100; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; display: inline-block; font-weight: 600; }
           .button { display: inline-block; padding: 12px 30px; background: #e65100; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0 5px 0; font-weight: 600; }
           .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
           .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
@@ -514,10 +626,6 @@ class EmailService {
     });
   }
 
-  // ============================================
-  // NUEVA FUNCIÓN 4: SERVICIO EJECUTADO
-  // → Envía al usuario que SOLICITÓ el servicio
-  // ============================================
   async enviarNotificacionServicioEjecutado(servicio, usuarioSolicitante) {
     const asunto = `✅ SERVICIO EJECUTADO - ${servicio.cliente}`;
     
@@ -537,7 +645,6 @@ class EmailService {
           .field { margin: 0 0 15px 0; padding: 12px 15px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #2e7d32; }
           .field strong { color: #2e7d32; display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
           .field span { font-size: 15px; color: #333; }
-          .badge { background: #2e7d32; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; display: inline-block; font-weight: 600; }
           .button { display: inline-block; padding: 12px 30px; background: #2e7d32; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0 5px 0; font-weight: 600; }
           .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
           .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
@@ -591,10 +698,6 @@ class EmailService {
     });
   }
 
-  // ============================================
-  // ✅ NUEVA FUNCIÓN 5: SERVICIO RETROALIMENTADO
-  // → Envía al usuario que SOLICITÓ el servicio
-  // ============================================
   async enviarNotificacionServicioRetroalimentado(servicio, usuarioSolicitante) {
     const asunto = `💬 SERVICIO RETROALIMENTADO - ${servicio.cliente}`;
     
@@ -614,7 +717,6 @@ class EmailService {
           .field { margin: 0 0 15px 0; padding: 12px 15px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #6a1b9a; }
           .field strong { color: #6a1b9a; display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
           .field span { font-size: 15px; color: #333; }
-          .badge { background: #6a1b9a; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; display: inline-block; font-weight: 600; }
           .button { display: inline-block; padding: 12px 30px; background: #6a1b9a; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0 5px 0; font-weight: 600; }
           .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
           .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
@@ -675,10 +777,6 @@ class EmailService {
     });
   }
 
-  // ============================================
-  // ✅ NUEVA FUNCIÓN 6: ENVIAR CORREO DE RESUMEN DE CAJA
-  // → Envía el resumen de caja a alejorodrigo7@gmail.com
-  // ============================================
   async enviarResumenCaja(fecha, resumenHtml) {
     const asunto = `📊 Resumen de Caja - ${fecha}`;
     
@@ -699,52 +797,13 @@ class EmailService {
           .footer { padding: 20px 25px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; }
           .footer p { margin: 5px 0; color: #6c757d; font-size: 12px; }
           .footer .brand { font-weight: 600; color: #6C5CE7; }
-          .resumen-caja {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 15px 0;
-          }
-          .resumen-caja th {
-            background: #6C5CE7;
-            color: white;
-            padding: 10px;
-            text-align: left;
-            font-size: 13px;
-          }
-          .resumen-caja td {
-            padding: 10px;
-            border-bottom: 1px solid #e9ecef;
-            font-size: 14px;
-          }
-          .resumen-caja tr:hover td {
-            background: #f8f9fa;
-          }
-          .total-general {
-            font-size: 20px;
-            font-weight: bold;
-            color: #6C5CE7;
-            text-align: center;
-            padding: 15px;
-            background: #f0edff;
-            border-radius: 8px;
-            margin-top: 15px;
-          }
-          .badge-cerrado {
-            background: #00b894;
-            color: white;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-          }
-          .badge-abierto {
-            background: #fdcb6e;
-            color: #2d3436;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-          }
+          .resumen-caja { width: 100%; border-collapse: collapse; margin: 15px 0; }
+          .resumen-caja th { background: #6C5CE7; color: white; padding: 10px; text-align: left; font-size: 13px; }
+          .resumen-caja td { padding: 10px; border-bottom: 1px solid #e9ecef; font-size: 14px; }
+          .resumen-caja tr:hover td { background: #f8f9fa; }
+          .total-general { font-size: 20px; font-weight: bold; color: #6C5CE7; text-align: center; padding: 15px; background: #f0edff; border-radius: 8px; margin-top: 15px; }
+          .badge-cerrado { background: #00b894; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+          .badge-abierto { background: #fdcb6e; color: #2d3436; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
           .monto-positivo { color: #00b894; font-weight: 600; }
           .monto-negativo { color: #ff6b6b; font-weight: 600; }
         </style>
