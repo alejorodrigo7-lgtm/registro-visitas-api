@@ -31,17 +31,18 @@ const EjecutarOrden = ({ navigation }) => {
   const [coordinadorFiltro, setCoordinadorFiltro] = useState('');
   const [coordinadores, setCoordinadores] = useState([]);
 
-  // ✅ LOG: Verificar el rol del usuario
+  // ✅ CORREGIDO: Obtener ID de la propiedad correcta
+  const userId = user?.id || user?._id; // Primero intenta con 'id', luego con '_id'
   const rolUsuario = user?.rol?.toLowerCase() || '';
   const isCoordinador = rolUsuario === 'coordinador';
   const isAdminOrJefe = ['admin', 'jefe'].includes(rolUsuario);
 
   console.log('👤 ===== DATOS DEL USUARIO =====');
   console.log('👤 Usuario completo:', JSON.stringify(user, null, 2));
-  console.log('👤 ID:', user?._id);
-  console.log('👤 Nombre:', user?.nombre);
+  console.log('👤 user.id:', user?.id);
+  console.log('👤 user._id:', user?._id);
+  console.log('👤 userId (final):', userId);
   console.log('👤 Rol:', user?.rol);
-  console.log('👤 Rol (lowercase):', rolUsuario);
   console.log('👤 isCoordinador:', isCoordinador);
   console.log('👤 isAdminOrJefe:', isAdminOrJefe);
 
@@ -74,7 +75,6 @@ const EjecutarOrden = ({ navigation }) => {
       console.log('📡 Respuesta status:', res.status);
       console.log('📡 success:', res.data.success);
       console.log('📡 Total órdenes:', res.data.data?.length || 0);
-      console.log('📡 Datos completos:', JSON.stringify(res.data.data, null, 2));
       
       if (res.data.success) {
         let data = res.data.data || [];
@@ -89,10 +89,10 @@ const EjecutarOrden = ({ navigation }) => {
           console.log(`  - Coordinador Nombre: ${orden.coordinadorAsignado?.nombre || 'N/A'}`);
         });
         
-        // ✅ FILTRAR PARA COORDINADOR
+        // ✅ CORREGIDO: FILTRAR PARA COORDINADOR usando userId
         if (isCoordinador) {
-          console.log(`🔍 Filtrando órdenes para Coordinador: ${user?._id}`);
-          const userIdStr = String(user?._id);
+          console.log(`🔍 Filtrando órdenes para Coordinador: ${userId}`);
+          const userIdStr = String(userId);
           console.log(`🔍 User ID (string): ${userIdStr}`);
           
           data = data.filter(o => {
