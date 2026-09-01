@@ -19,7 +19,6 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 const CuadreCajas = ({ navigation }) => {
   const { user } = useAuth();
@@ -52,7 +51,6 @@ const CuadreCajas = ({ navigation }) => {
     descripcion: '',
   });
 
-  // 📸 Estados para la imagen del egreso
   const [imagenEgreso, setImagenEgreso] = useState(null);
   const [imagenBase64, setImagenBase64] = useState(null);
 
@@ -60,7 +58,6 @@ const CuadreCajas = ({ navigation }) => {
   const [resumenData, setResumenData] = useState([]);
 
   const tiposIngreso = ['OFICINA', 'EFECTIVO COORDINADOR', 'OTRO'];
-  const motivosPago = ['EGRESO'];
 
   const formatFecha = (date) => {
     if (!date) return '';
@@ -102,19 +99,8 @@ const CuadreCajas = ({ navigation }) => {
 
       if (!result.canceled) {
         const asset = result.assets[0];
-        
-        // Comprimir la imagen
-        const manipulated = await manipulateAsync(
-          asset.uri,
-          [{ resize: { width: 800 } }],
-          { compress: 0.7, format: SaveFormat.JPEG }
-        );
-        
-        setImagenEgreso(manipulated.uri);
-        
-        // Obtener base64
-        const base64 = await getBase64(manipulated.uri);
-        setImagenBase64(base64);
+        setImagenEgreso(asset.uri);
+        setImagenBase64(asset.base64);
       }
     } catch (error) {
       console.error('Error tomando foto:', error);
@@ -139,41 +125,12 @@ const CuadreCajas = ({ navigation }) => {
 
       if (!result.canceled) {
         const asset = result.assets[0];
-        
-        // Comprimir la imagen
-        const manipulated = await manipulateAsync(
-          asset.uri,
-          [{ resize: { width: 800 } }],
-          { compress: 0.7, format: SaveFormat.JPEG }
-        );
-        
-        setImagenEgreso(manipulated.uri);
-        
-        // Obtener base64
-        const base64 = await getBase64(manipulated.uri);
-        setImagenBase64(base64);
+        setImagenEgreso(asset.uri);
+        setImagenBase64(asset.base64);
       }
     } catch (error) {
       console.error('Error seleccionando foto:', error);
       Alert.alert('Error', 'No se pudo seleccionar la foto');
-    }
-  };
-
-  const getBase64 = async (uri) => {
-    try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          resolve(reader.result);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      console.error('Error convirtiendo a base64:', error);
-      return null;
     }
   };
 
@@ -197,12 +154,10 @@ const CuadreCajas = ({ navigation }) => {
           console.log(`📊 [${zona}] Solicitando datos...`);
           const response = await api.get(`/cajas/cuadre/${zona}/${fecha}`);
           
-          console.log(`📊 [${zona}] Datos recibidos:`, JSON.stringify(response.data.data, null, 2));
           console.log(`📊 [${zona}] Ingresos:`, response.data.data?.ingresos?.length || 0);
           console.log(`📊 [${zona}] Pagos:`, response.data.data?.pagos?.length || 0);
           console.log(`📊 [${zona}] Saldo Inicial:`, response.data.data?.saldoInicial);
           console.log(`📊 [${zona}] Saldo Disponible:`, response.data.data?.saldoDisponible);
-          console.log(`📊 [${zona}] Cerrado:`, response.data.data?.cerrado);
           
           resultados[zona] = response.data.data;
         } catch (error) {
@@ -232,7 +187,6 @@ const CuadreCajas = ({ navigation }) => {
       const fecha = formatFecha(fechaSeleccionada);
       console.log(`📊 [RESUMEN] Cargando resumen para ${fecha}`);
       const response = await api.get(`/cajas/resumen/${fecha}`);
-      console.log(`📊 [RESUMEN] Datos:`, JSON.stringify(response.data.data, null, 2));
       setResumenData(response.data.data);
       setResumenVisible(true);
     } catch (error) {
@@ -250,18 +204,13 @@ const CuadreCajas = ({ navigation }) => {
     try {
       setLoading(true);
       const fecha = formatFecha(fechaSeleccionada);
-      console.log(`📊 [INGRESO] Agregando ingreso a ${zonaIngreso} - ${fecha}`);
       
       let cuadre = cuadres[zonaIngreso];
       if (!cuadre) {
-        console.log(`📊 [INGRESO] No hay cuadre, creando...`);
         const response = await api.get(`/cajas/cuadre/${zonaIngreso}/${fecha}`);
         cuadre = response.data.data;
         setCuadres(prev => ({ ...prev, [zonaIngreso]: cuadre }));
-        console.log(`📊 [INGRESO] Cuadre creado:`, cuadre._id);
       }
-      
-      console.log(`📊 [INGRESO] Enviando: tipo=${nuevoIngreso.tipo}, monto=${nuevoIngreso.monto}, concepto=${nuevoIngreso.concepto}`);
       
       const response = await api.post(`/cajas/cuadre/${cuadre._id}/ingreso`, {
         tipo: nuevoIngreso.tipo,
@@ -270,7 +219,6 @@ const CuadreCajas = ({ navigation }) => {
       });
 
       if (response.data.success) {
-        console.log(`📊 [INGRESO] Ingreso agregado correctamente`);
         setCuadres(prev => ({ ...prev, [zonaIngreso]: response.data.data }));
         setModalIngresoVisible(false);
         setNuevoIngreso({ tipo: 'OFICINA', monto: '', concepto: '' });
@@ -298,16 +246,12 @@ const CuadreCajas = ({ navigation }) => {
     try {
       setLoading(true);
       const fecha = formatFecha(fechaSeleccionada);
-      console.log(`📊 [EGRESO] Agregando egreso a ${zonaPago} - ${fecha}`);
-      console.log(`📊 [EGRESO] Tiene imagen: ${!!imagenBase64}`);
       
       let cuadre = cuadres[zonaPago];
       if (!cuadre) {
-        console.log(`📊 [EGRESO] No hay cuadre, creando...`);
         const response = await api.get(`/cajas/cuadre/${zonaPago}/${fecha}`);
         cuadre = response.data.data;
         setCuadres(prev => ({ ...prev, [zonaPago]: cuadre }));
-        console.log(`📊 [EGRESO] Cuadre creado:`, cuadre._id);
       }
       
       const payload = {
@@ -316,21 +260,17 @@ const CuadreCajas = ({ navigation }) => {
         descripcion: nuevoPago.descripcion.trim(),
       };
       
-      // ✅ Agregar imagen si existe
       if (imagenBase64) {
         payload.imagenBase64 = imagenBase64;
       }
       
-      console.log(`📊 [EGRESO] Enviando payload con imagen: ${!!payload.imagenBase64}`);
-      
       const response = await api.post(`/cajas/cuadre/${cuadre._id}/pago`, payload);
 
       if (response.data.success) {
-        console.log(`📊 [EGRESO] Egreso agregado correctamente`);
         setCuadres(prev => ({ ...prev, [zonaPago]: response.data.data }));
         setModalPagoVisible(false);
         setNuevoPago({ motivo: 'EGRESO', monto: '', descripcion: '' });
-        limpiarImagen(); // ✅ Limpiar imagen después de guardar
+        limpiarImagen();
         Alert.alert('Éxito', 'Egreso agregado correctamente');
       }
     } catch (error) {
@@ -363,10 +303,8 @@ const CuadreCajas = ({ navigation }) => {
           onPress: async () => {
             try {
               setLoading(true);
-              console.log(`📊 [CERRAR] Cerrando cuadre ${zona} - ${formatFecha(fechaSeleccionada)}`);
               const response = await api.put(`/cajas/cuadre/${cuadre._id}/cerrar`);
               if (response.data.success) {
-                console.log(`📊 [CERRAR] Cuadre cerrado correctamente`);
                 setCuadres(prev => ({ ...prev, [zona]: response.data.data }));
                 Alert.alert('Éxito', `Cuadre de ${zona} cerrado correctamente`);
               }
@@ -395,10 +333,8 @@ const CuadreCajas = ({ navigation }) => {
           onPress: async () => {
             try {
               setLoading(true);
-              console.log(`📊 [EMAIL] Enviando resumen para ${fecha}`);
               const response = await api.post('/cajas/cuadre/enviar-correo', { fecha });
               if (response.data.success) {
-                console.log(`📊 [EMAIL] Resumen enviado correctamente`);
                 Alert.alert('Éxito', 'Resumen enviado correctamente a los destinatarios');
               }
             } catch (error) {
@@ -433,24 +369,10 @@ const CuadreCajas = ({ navigation }) => {
   const renderZonaCard = (zona) => {
     const cuadre = cuadres[zona];
     
-    // ✅ LOGS PARA VER LOS DATOS REALES EN RENDER
-    console.log(`📊 [RENDER] ${zona}:`, {
-      existe: !!cuadre,
-      saldoInicial: cuadre?.saldoInicial,
-      saldoDisponible: cuadre?.saldoDisponible,
-      ingresosCount: cuadre?.ingresos?.length || 0,
-      pagosCount: cuadre?.pagos?.length || 0,
-      cerrado: cuadre?.cerrado,
-      ingresos: cuadre?.ingresos,
-      pagos: cuadre?.pagos
-    });
-    
     const totalIngresos = cuadre?.ingresos?.reduce((sum, i) => sum + i.monto, 0) || 0;
     const totalPagos = cuadre?.pagos?.reduce((sum, p) => sum + p.monto, 0) || 0;
     const saldoDisponible = cuadre?.saldoDisponible || 0;
     const saldoInicial = cuadre?.saldoInicial || 0;
-    
-    console.log(`📊 [RENDER] ${zona} - Totales calculados: Ingresos: ${totalIngresos}, Pagos: ${totalPagos}, Saldo: ${saldoDisponible}`);
     
     const coloresZona = {
       TOLA: { bg: '#E8F0FE', border: '#4A90D9' },
@@ -721,7 +643,6 @@ const CuadreCajas = ({ navigation }) => {
               numberOfLines={3}
             />
 
-            {/* 📸 Sección de foto */}
             <Text style={styles.modalLabel}>📸 Foto del comprobante (opcional)</Text>
             <View style={styles.fotoContainer}>
               {imagenEgreso ? (
@@ -1174,7 +1095,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginTop: 4,
   },
-  // 📸 Estilos para la foto
   fotoContainer: {
     marginVertical: 8,
   },
