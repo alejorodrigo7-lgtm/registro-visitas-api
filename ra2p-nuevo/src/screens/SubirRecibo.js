@@ -11,12 +11,10 @@ import {
   TextInput,
   Modal,
   ScrollView,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
-import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -31,7 +29,7 @@ const SubirRecibo = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedSolicitud, setSelectedSolicitud] = useState(null);
   
-  // ✅ Estados para múltiples archivos (máximo 3)
+  // ✅ Estados para múltiples archivos PDF (máximo 3)
   const [archivos, setArchivos] = useState([]);
   const [archivosBase64, setArchivosBase64] = useState([]);
   const [archivosNombre, setArchivosNombre] = useState([]);
@@ -83,106 +81,51 @@ const SubirRecibo = ({ navigation }) => {
   };
 
   // ============================================
-  // 📎 FUNCIONES PARA ARCHIVOS MÚLTIPLES
+  // 📎 FUNCIONES PARA PDF (SOLO PDF)
   // ============================================
 
   const handleSelectFile = async () => {
     if (archivos.length >= 3) {
-      Alert.alert('Límite alcanzado', 'Máximo 3 archivos por solicitud');
+      Alert.alert('Límite alcanzado', 'Máximo 3 archivos PDF por solicitud');
       return;
     }
 
-    Alert.alert(
-      'Seleccionar archivo',
-      'Elige el origen del archivo',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: '📸 Tomar Foto',
-          onPress: tomarFoto,
-        },
-        {
-          text: '🖼️ Galería',
-          onPress: seleccionarDeGaleria,
-        },
-        {
-          text: '📄 Documento PDF',
-          onPress: seleccionarPDF,
-        },
-      ]
-    );
-  };
-
-  const tomarFoto = async () => {
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Error', 'Se necesita permiso para usar la cámara');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.7,
-        base64: true,
-      });
-
-      if (!result.canceled) {
-        const asset = result.assets[0];
-        agregarArchivo(asset.uri, asset.base64, asset.fileName || 'foto.jpg', 'image/jpeg');
-      }
-    } catch (error) {
-      console.error('Error tomando foto:', error);
-      Alert.alert('Error', 'No se pudo tomar la foto');
-    }
-  };
-
-  const seleccionarDeGaleria = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Error', 'Se necesita permiso para acceder a la galería');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.7,
-        base64: true,
-      });
-
-      if (!result.canceled) {
-        const asset = result.assets[0];
-        agregarArchivo(asset.uri, asset.base64, asset.fileName || 'imagen.jpg', 'image/jpeg');
-      }
-    } catch (error) {
-      console.error('Error seleccionando de galería:', error);
-      Alert.alert('Error', 'No se pudo seleccionar la imagen');
-    }
-  };
-
-  const seleccionarPDF = async () => {
-    try {
+      console.log('📄 Abriendo selector de PDF...');
+      
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf'],
+        type: 'application/pdf',  // ✅ SOLO PDF
         copyToCacheDirectory: true,
       });
 
-      if (result.type === 'success') {
-        const file = result.assets ? result.assets[0] : result;
-        console.log('📄 PDF seleccionado:', file.name);
+      console.log('📄 Resultado:', JSON.stringify(result, null, 2));
+
+      if (result.canceled === true) {
+        console.log('❌ Usuario canceló la selección');
+        return;
+      }
+
+      if (result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        console.log('✅ PDF seleccionado:', file.name);
+        console.log('📁 URI:', file.uri);
+        console.log('📊 Tamaño:', file.size, 'bytes');
         
+        // Leer el archivo y convertir a Base64
         const fileContent = await FileSystem.readAsStringAsync(file.uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
         
-        agregarArchivo(file.uri, fileContent, file.name || 'documento.pdf', 'application/pdf');
+        console.log('✅ Base64 generado. Tamaño:', fileContent.length);
+        console.log('✅ Base64 primeros 50 chars:', fileContent.substring(0, 50));
+        
+        agregarArchivo(file.uri, fileContent, file.name, 'application/pdf');
+      } else {
+        console.log('❌ No se encontraron archivos en el resultado');
       }
     } catch (error) {
-      console.error('Error seleccionando PDF:', error);
-      Alert.alert('Error', 'No se pudo seleccionar el PDF');
+      console.error('❌ Error seleccionando PDF:', error);
+      Alert.alert('Error', 'No se pudo seleccionar el PDF: ' + error.message);
     }
   };
 
@@ -196,7 +139,7 @@ const SubirRecibo = ({ navigation }) => {
     setArchivosBase64([...archivosBase64, base64]);
     setArchivosNombre([...archivosNombre, nombre]);
     
-    console.log(`📎 Archivo agregado: ${nombre} (${archivos.length + 1}/3)`);
+    console.log(`📎 Archivo PDF agregado: ${nombre} (${archivos.length + 1}/3)`);
   };
 
   const eliminarArchivo = (index) => {
@@ -214,12 +157,12 @@ const SubirRecibo = ({ navigation }) => {
   };
 
   // ============================================
-  // ENVIAR RECIBO CON MÚLTIPLES ARCHIVOS
+  // ENVIAR RECIBO CON MÚLTIPLES PDF
   // ============================================
 
   const handleEnviar = async () => {
     if (archivos.length === 0) {
-      Alert.alert('Error', 'Selecciona al menos un archivo');
+      Alert.alert('Error', 'Selecciona al menos un archivo PDF');
       return;
     }
 
@@ -229,7 +172,7 @@ const SubirRecibo = ({ navigation }) => {
     try {
       console.log('📤 ===== INICIANDO ENVÍO =====');
       console.log('📤 Solicitud ID:', selectedSolicitud._id);
-      console.log(`📤 Archivos: ${archivos.length}`);
+      console.log(`📤 Archivos PDF: ${archivos.length}`);
 
       // ✅ Enviar múltiples archivos
       const payload = {
@@ -253,7 +196,7 @@ const SubirRecibo = ({ navigation }) => {
       if (response.data.success) {
         Alert.alert(
           '✅ Recibo Enviado',
-          `El recibo se ha enviado exitosamente con ${archivos.length} archivo(s)`,
+          `El recibo se ha enviado exitosamente con ${archivos.length} PDF(s)`,
           [
             {
               text: 'OK',
@@ -323,24 +266,14 @@ const SubirRecibo = ({ navigation }) => {
   // ============================================
 
   const renderArchivoPreview = (archivo, index) => {
-    const esImagen = archivo.mimeType?.startsWith('image/');
     const esPDF = archivo.mimeType === 'application/pdf';
 
     return (
       <View key={index} style={styles.archivoItem}>
-        {esImagen ? (
-          <Image source={{ uri: archivo.uri }} style={styles.archivoPreview} />
-        ) : esPDF ? (
-          <View style={styles.pdfPreview}>
-            <Ionicons name="document-text" size={40} color="#FF6B6B" />
-            <Text style={styles.pdfNombre} numberOfLines={2}>{archivo.nombre}</Text>
-          </View>
-        ) : (
-          <View style={styles.pdfPreview}>
-            <Ionicons name="document" size={40} color="#6C5CE7" />
-            <Text style={styles.pdfNombre} numberOfLines={2}>{archivo.nombre}</Text>
-          </View>
-        )}
+        <View style={styles.pdfPreview}>
+          <Ionicons name="document-text" size={40} color="#FF6B6B" />
+          <Text style={styles.pdfNombre} numberOfLines={2}>{archivo.nombre}</Text>
+        </View>
         
         <TouchableOpacity
           style={styles.btnEliminarArchivo}
@@ -455,7 +388,7 @@ const SubirRecibo = ({ navigation }) => {
         />
       )}
 
-      {/* MODAL CON MÚLTIPLES ARCHIVOS */}
+      {/* MODAL CON SELECCIÓN DE PDF */}
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -478,27 +411,28 @@ const SubirRecibo = ({ navigation }) => {
               </View>
             )}
 
-            {/* 📎 Sección de archivos */}
+            {/* 📎 Sección de archivos PDF */}
             <Text style={styles.archivosLabel}>
-              Archivos Adjuntos ({archivos.length}/3)
+              📄 Archivos PDF ({archivos.length}/3)
             </Text>
             <Text style={styles.helperText}>
-              Puedes subir hasta 3 archivos (imágenes o PDFs)
+              Puedes subir hasta 3 archivos PDF
             </Text>
 
             {archivos.length < 3 && (
               <TouchableOpacity
                 style={styles.selectFileButton}
                 onPress={handleSelectFile}
+                disabled={uploading}
               >
-                <Ionicons name="add-circle" size={24} color="#4CAF50" />
+                <Ionicons name="document-attach" size={24} color="#4CAF50" />
                 <Text style={styles.selectFileButtonText}>
-                  Agregar archivo ({archivos.length}/3)
+                  📄 Seleccionar PDF ({archivos.length}/3)
                 </Text>
               </TouchableOpacity>
             )}
 
-            {/* Vista previa de archivos */}
+            {/* Vista previa de archivos PDF */}
             {archivos.length > 0 && (
               <ScrollView 
                 horizontal 
@@ -624,7 +558,7 @@ const styles = StyleSheet.create({
   modalClienteNombre: { fontSize: 16, fontWeight: '600', color: '#2C3E50' },
   modalClienteCodigo: { fontSize: 13, color: '#7F8C8D', marginTop: 2 },
   
-  // Archivos
+  // Archivos PDF
   archivosLabel: { fontSize: 14, fontWeight: '600', color: '#2C3E50', marginBottom: 4 },
   helperText: { fontSize: 12, color: '#999', marginBottom: 10 },
   selectFileButton: {
@@ -653,11 +587,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  archivoPreview: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
   },
   pdfPreview: {
     justifyContent: 'center',
