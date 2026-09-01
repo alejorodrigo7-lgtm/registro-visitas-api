@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView,
   FlatList, Alert, ActivityIndicator, TextInput, Modal, Image
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';  // ✅ IMPORTACIÓN AGREGADA
+import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -31,8 +31,12 @@ const EjecutarOrden = ({ navigation }) => {
   const [coordinadorFiltro, setCoordinadorFiltro] = useState('');
   const [coordinadores, setCoordinadores] = useState([]);
 
-  const isCoordinador = user?.rol === 'Coordinador';
-  const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
+  // ✅ CORREGIDO: Verificar roles correctamente (case insensitive)
+  const rolUsuario = user?.rol?.toLowerCase() || '';
+  const isCoordinador = rolUsuario === 'coordinador';
+  const isAdminOrJefe = ['admin', 'jefe'].includes(rolUsuario);
+
+  console.log(`👤 Usuario: ${user?.nombre}, Rol: ${user?.rol}, isCoordinador: ${isCoordinador}, isAdminOrJefe: ${isAdminOrJefe}`);
 
   // Cargar coordinadores para el filtro
   useEffect(() => {
@@ -59,12 +63,25 @@ const EjecutarOrden = ({ navigation }) => {
       
       if (res.data.success) {
         let data = res.data.data;
+        
+        // ✅ CORREGIDO: Filtro para Coordinador con comparación de strings
         if (isCoordinador) {
-          data = data.filter(o => o.coordinadorAsignado?._id === user._id);
+          console.log(`🔍 Filtrando órdenes para Coordinador: ${user?._id}`);
+          data = data.filter(o => {
+            const coordId = o.coordinadorAsignado?._id || o.coordinadorAsignado;
+            return String(coordId) === String(user?._id);
+          });
+          console.log(`📋 Órdenes encontradas: ${data.length}`);
         }
+        
+        // Filtro para Admin/Jefe
         if (isAdminOrJefe && coordinadorFiltro) {
-          data = data.filter(o => o.coordinadorAsignado?._id === coordinadorFiltro);
+          data = data.filter(o => {
+            const coordId = o.coordinadorAsignado?._id || o.coordinadorAsignado;
+            return String(coordId) === String(coordinadorFiltro);
+          });
         }
+        
         setOrdenes(data);
         setFilteredOrdenes(data);
       }
@@ -86,8 +103,8 @@ const EjecutarOrden = ({ navigation }) => {
       setFilteredOrdenes(ordenes);
     } else {
       const filtered = ordenes.filter(o =>
-        o.cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.cliente.codigo.toLowerCase().includes(searchTerm.toLowerCase())
+        o.cliente?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.cliente?.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredOrdenes(filtered);
     }
@@ -170,12 +187,12 @@ const EjecutarOrden = ({ navigation }) => {
   const renderItem = ({ item }) => (
     <TouchableOpacity style={styles.card} onPress={() => openModal(item)}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardCliente}>{item.cliente.nombre}</Text>
-        <Text style={styles.cardCodigo}>Código: {item.cliente.codigo}</Text>
+        <Text style={styles.cardCliente}>{item.cliente?.nombre || 'Sin nombre'}</Text>
+        <Text style={styles.cardCodigo}>Código: {item.cliente?.codigo || 'N/A'}</Text>
       </View>
-      <Text style={styles.cardInfo}>📶 MAC: {item.mac}</Text>
+      <Text style={styles.cardInfo}>📶 MAC: {item.mac || 'N/A'}</Text>
       <Text style={styles.cardInfo}>👤 Coordinador: {item.coordinadorAsignado?.nombre || 'N/A'}</Text>
-      <Text style={styles.cardInfo}>📅 Subida: {new Date(item.fechaSubida).toLocaleDateString()}</Text>
+      <Text style={styles.cardInfo}>📅 Subida: {item.fechaSubida ? new Date(item.fechaSubida).toLocaleDateString() : 'N/A'}</Text>
     </TouchableOpacity>
   );
 
@@ -218,6 +235,13 @@ const EjecutarOrden = ({ navigation }) => {
             </Picker>
           </View>
         )}
+        
+        {/* ✅ Mostrar rol actual para depuración */}
+        <View style={styles.rolInfoContainer}>
+          <Text style={styles.rolInfoText}>
+            👤 Rol: {user?.rol || 'No definido'} | Órdenes: {filteredOrdenes.length}
+          </Text>
+        </View>
       </View>
 
       {loading ? (
@@ -229,6 +253,11 @@ const EjecutarOrden = ({ navigation }) => {
         <View style={styles.centerContainer}>
           <Ionicons name="clipboard-outline" size={64} color="#ccc" />
           <Text style={styles.emptyText}>No hay órdenes asignadas</Text>
+          {isCoordinador && (
+            <Text style={styles.emptySubtext}>
+              Espera a que te asignen órdenes de recuperación
+            </Text>
+          )}
         </View>
       ) : (
         <FlatList
@@ -247,9 +276,9 @@ const EjecutarOrden = ({ navigation }) => {
             
             {selectedOrden && (
               <View style={styles.ordenResumen}>
-                <Text style={styles.ordenResumenText}>Cliente: {selectedOrden.cliente.nombre}</Text>
-                <Text style={styles.ordenResumenText}>Código: {selectedOrden.cliente.codigo}</Text>
-                <Text style={styles.ordenResumenText}>MAC: {selectedOrden.mac}</Text>
+                <Text style={styles.ordenResumenText}>Cliente: {selectedOrden.cliente?.nombre || 'N/A'}</Text>
+                <Text style={styles.ordenResumenText}>Código: {selectedOrden.cliente?.codigo || 'N/A'}</Text>
+                <Text style={styles.ordenResumenText}>MAC: {selectedOrden.mac || 'N/A'}</Text>
               </View>
             )}
 
@@ -350,9 +379,12 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, marginLeft: 8, fontSize: 14 },
   filterPickerContainer: { marginTop: 8, backgroundColor: '#F5F7FA', borderRadius: 8, overflow: 'hidden' },
   filterPicker: { height: 40, width: '100%' },
+  rolInfoContainer: { marginTop: 8, alignItems: 'center' },
+  rolInfoText: { fontSize: 12, color: '#636E72' },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   loadingText: { marginTop: 10, color: '#636E72' },
   emptyText: { fontSize: 16, color: '#999', marginTop: 12, textAlign: 'center' },
+  emptySubtext: { fontSize: 14, color: '#B2BEC3', marginTop: 4, textAlign: 'center' },
   listContainer: { padding: 16 },
   card: {
     backgroundColor: '#fff',
