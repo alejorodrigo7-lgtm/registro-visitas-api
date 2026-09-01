@@ -55,6 +55,14 @@ const cuadreCajaSchema = new mongoose.Schema({
       type: String,
       required: true,
     },
+    imagen: {
+      type: String,
+      default: '', // URL de Cloudinary
+    },
+    imagenPublicId: {
+      type: String,
+      default: '', // ID para eliminar de Cloudinary
+    },
     fecha: {
       type: Date,
       default: Date.now,

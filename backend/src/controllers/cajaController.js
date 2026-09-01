@@ -3,6 +3,7 @@ const Deposito = require('../models/Deposito');
 const User = require('../models/User');
 const CuadreCaja = require('../models/CuadreCaja');
 const emailService = require('../services/emailService');
+const cloudinaryService = require('../services/cloudinaryService');
 
 // ============================================
 // 📊 FUNCIÓN AUXILIAR: Obtener saldo del día anterior (CORREGIDA)
@@ -511,15 +512,16 @@ exports.agregarIngreso = async (req, res) => {
   }
 };
 
-// Agregar egreso a un cuadre
+// Agregar egreso a un cuadre CON FOTO
 exports.agregarPago = async (req, res) => {
   try {
     const { id } = req.params;
-    const { motivo, monto, descripcion } = req.body;
+    const { motivo, monto, descripcion, imagenBase64 } = req.body;
     
     console.log(`📊 Agregando egreso al cuadre ${id}`);
     console.log(`📊 Monto: ${monto}`);
     console.log(`📊 Descripción: ${descripcion}`);
+    console.log(`📊 Tiene imagen: ${!!imagenBase64}`);
     
     if (motivo !== 'EGRESO') {
       return res.status(400).json({
@@ -550,13 +552,39 @@ exports.agregarPago = async (req, res) => {
       });
     }
     
-    cuadre.pagos.push({
+    // ✅ Subir imagen a Cloudinary si existe
+    let imagenUrl = '';
+    let imagenPublicId = '';
+    
+    if (imagenBase64) {
+      try {
+        console.log('📸 Subiendo imagen a Cloudinary...');
+        // Convertir base64 a buffer
+        const base64Data = imagenBase64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        const result = await cloudinaryService.uploadImage(buffer, 'cuadre-egresos');
+        imagenUrl = result.url;
+        imagenPublicId = result.publicId;
+        console.log(`✅ Imagen subida: ${imagenUrl}`);
+      } catch (error) {
+        console.error('❌ Error subiendo imagen:', error);
+        // No falla el egreso si la imagen no se sube, solo se registra el error
+      }
+    }
+    
+    // ✅ Crear el pago con la imagen
+    const nuevoPago = {
       motivo: 'EGRESO',
       monto,
       descripcion: descripcion.trim(),
+      imagen: imagenUrl,
+      imagenPublicId: imagenPublicId,
       fecha: new Date(),
       usuario: req.user._id,
-    });
+    };
+    
+    cuadre.pagos.push(nuevoPago);
     
     const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
     const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
@@ -708,6 +736,7 @@ exports.enviarCorreoResumen = async (req, res) => {
           li { margin: 3px 0; }
           .footer { text-align: center; color: #636E72; font-size: 12px; margin-top: 20px; border-top: 1px solid #DFE6E9; padding-top: 20px; }
           .destinatarios { background-color: #E8F0FE; padding: 10px; border-radius: 8px; margin: 10px 0; }
+          .imagen-egreso { max-width: 200px; max-height: 150px; border-radius: 8px; margin: 5px 0; border: 1px solid #DFE6E9; }
         </style>
       </head>
       <body>
@@ -733,12 +762,13 @@ exports.enviarCorreoResumen = async (req, res) => {
         detalleIngresos = '<p class="sin-movimientos">Sin ingresos</p>';
       }
       
-      // Detalle de egresos
+      // Detalle de egresos con imágenes
       let detalleEgresos = '';
       if (cuadre.pagos && cuadre.pagos.length > 0) {
         detalleEgresos = '<ul>';
         for (const pago of cuadre.pagos) {
-          detalleEgresos += `<li class="egreso">📤 -$${pago.monto.toFixed(2)} - ${pago.descripcion || 'Sin descripción'}</li>`;
+          const imagenHtml = pago.imagen ? `<br><img src="${pago.imagen}" class="imagen-egreso" />` : '';
+          detalleEgresos += `<li class="egreso">📤 -$${pago.monto.toFixed(2)} - ${pago.descripcion || 'Sin descripción'}${imagenHtml}</li>`;
         }
         detalleEgresos += '</ul>';
       } else {
