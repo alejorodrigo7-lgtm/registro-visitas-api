@@ -31,18 +31,26 @@ const EjecutarOrden = ({ navigation }) => {
   const [coordinadorFiltro, setCoordinadorFiltro] = useState('');
   const [coordinadores, setCoordinadores] = useState([]);
 
-  // ✅ CORREGIDO: Verificar roles correctamente (case insensitive)
+  // ✅ LOG: Verificar el rol del usuario
   const rolUsuario = user?.rol?.toLowerCase() || '';
   const isCoordinador = rolUsuario === 'coordinador';
   const isAdminOrJefe = ['admin', 'jefe'].includes(rolUsuario);
 
-  console.log(`👤 Usuario: ${user?.nombre}, Rol: ${user?.rol}, isCoordinador: ${isCoordinador}, isAdminOrJefe: ${isAdminOrJefe}`);
+  console.log('👤 ===== DATOS DEL USUARIO =====');
+  console.log('👤 Usuario completo:', JSON.stringify(user, null, 2));
+  console.log('👤 ID:', user?._id);
+  console.log('👤 Nombre:', user?.nombre);
+  console.log('👤 Rol:', user?.rol);
+  console.log('👤 Rol (lowercase):', rolUsuario);
+  console.log('👤 isCoordinador:', isCoordinador);
+  console.log('👤 isAdminOrJefe:', isAdminOrJefe);
 
   // Cargar coordinadores para el filtro
   useEffect(() => {
     const fetchCoordinadores = async () => {
       try {
         const res = await api.get('/recuperacion/coordinadores');
+        console.log('📡 Coordinadores cargados:', res.data.data?.length || 0);
         if (res.data.success) {
           setCoordinadores(res.data.data);
         }
@@ -56,37 +64,67 @@ const EjecutarOrden = ({ navigation }) => {
   }, []);
 
   const cargarOrdenes = async () => {
+    console.log('🔄 ===== CARGANDO ÓRDENES =====');
     setLoading(true);
     try {
       let url = '/recuperacion/ordenes/estado/asignada';
+      console.log('📡 URL:', url);
+      
       const res = await api.get(url);
+      console.log('📡 Respuesta status:', res.status);
+      console.log('📡 success:', res.data.success);
+      console.log('📡 Total órdenes:', res.data.data?.length || 0);
+      console.log('📡 Datos completos:', JSON.stringify(res.data.data, null, 2));
       
       if (res.data.success) {
-        let data = res.data.data;
+        let data = res.data.data || [];
+        console.log('📋 Órdenes recibidas:', data.length);
         
-        // ✅ CORREGIDO: Filtro para Coordinador con comparación de strings
+        // ✅ Mostrar cada orden con su coordinador asignado
+        data.forEach((orden, index) => {
+          console.log(`📋 Orden ${index + 1}:`);
+          console.log(`  - ID: ${orden._id}`);
+          console.log(`  - Cliente: ${orden.cliente?.nombre || 'N/A'}`);
+          console.log(`  - Coordinador ID: ${orden.coordinadorAsignado?._id || 'N/A'}`);
+          console.log(`  - Coordinador Nombre: ${orden.coordinadorAsignado?.nombre || 'N/A'}`);
+        });
+        
+        // ✅ FILTRAR PARA COORDINADOR
         if (isCoordinador) {
           console.log(`🔍 Filtrando órdenes para Coordinador: ${user?._id}`);
+          const userIdStr = String(user?._id);
+          console.log(`🔍 User ID (string): ${userIdStr}`);
+          
           data = data.filter(o => {
             const coordId = o.coordinadorAsignado?._id || o.coordinadorAsignado;
-            return String(coordId) === String(user?._id);
+            const coordIdStr = String(coordId);
+            const coincide = coordIdStr === userIdStr;
+            console.log(`  - Comparando: ${coordIdStr} === ${userIdStr} => ${coincide}`);
+            return coincide;
           });
-          console.log(`📋 Órdenes encontradas: ${data.length}`);
+          
+          console.log(`📋 Órdenes filtradas para Coordinador: ${data.length}`);
         }
         
         // Filtro para Admin/Jefe
         if (isAdminOrJefe && coordinadorFiltro) {
+          console.log(`🔍 Filtrando por coordinador: ${coordinadorFiltro}`);
           data = data.filter(o => {
             const coordId = o.coordinadorAsignado?._id || o.coordinadorAsignado;
             return String(coordId) === String(coordinadorFiltro);
           });
+          console.log(`📋 Órdenes filtradas por coordinador: ${data.length}`);
         }
         
         setOrdenes(data);
         setFilteredOrdenes(data);
+        console.log('✅ Órdenes finales:', data.length);
+      } else {
+        console.log('❌ Error en respuesta:', res.data.message);
       }
     } catch (error) {
-      console.error('Error cargando órdenes:', error);
+      console.error('❌ Error cargando órdenes:', error);
+      console.error('❌ Detalle:', error.response?.data);
       Alert.alert('Error', 'No se pudieron cargar las órdenes');
     } finally {
       setLoading(false);
@@ -236,7 +274,6 @@ const EjecutarOrden = ({ navigation }) => {
           </View>
         )}
         
-        {/* ✅ Mostrar rol actual para depuración */}
         <View style={styles.rolInfoContainer}>
           <Text style={styles.rolInfoText}>
             👤 Rol: {user?.rol || 'No definido'} | Órdenes: {filteredOrdenes.length}
