@@ -12,11 +12,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 const CuadreCajas = ({ navigation }) => {
   const { user } = useAuth();
@@ -49,6 +52,10 @@ const CuadreCajas = ({ navigation }) => {
     descripcion: '',
   });
 
+  // 📸 Estados para la imagen del egreso
+  const [imagenEgreso, setImagenEgreso] = useState(null);
+  const [imagenBase64, setImagenBase64] = useState(null);
+
   const [resumenVisible, setResumenVisible] = useState(false);
   const [resumenData, setResumenData] = useState([]);
 
@@ -58,7 +65,10 @@ const CuadreCajas = ({ navigation }) => {
   const formatFecha = (date) => {
     if (!date) return '';
     const d = new Date(date);
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const formatFechaDisplay = (date) => {
@@ -71,30 +81,145 @@ const CuadreCajas = ({ navigation }) => {
     });
   };
 
+  // ============================================
+  // 📸 FUNCIONES PARA MANEJAR LA IMAGEN DEL EGRESO
+  // ============================================
+
+  const tomarFoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Error', 'Se necesita permiso para usar la cámara');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        
+        // Comprimir la imagen
+        const manipulated = await manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.7, format: SaveFormat.JPEG }
+        );
+        
+        setImagenEgreso(manipulated.uri);
+        
+        // Obtener base64
+        const base64 = await getBase64(manipulated.uri);
+        setImagenBase64(base64);
+      }
+    } catch (error) {
+      console.error('Error tomando foto:', error);
+      Alert.alert('Error', 'No se pudo tomar la foto');
+    }
+  };
+
+  const seleccionarFoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Error', 'Se necesita permiso para acceder a la galería');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        
+        // Comprimir la imagen
+        const manipulated = await manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.7, format: SaveFormat.JPEG }
+        );
+        
+        setImagenEgreso(manipulated.uri);
+        
+        // Obtener base64
+        const base64 = await getBase64(manipulated.uri);
+        setImagenBase64(base64);
+      }
+    } catch (error) {
+      console.error('Error seleccionando foto:', error);
+      Alert.alert('Error', 'No se pudo seleccionar la foto');
+    }
+  };
+
+  const getBase64 = async (uri) => {
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          resolve(reader.result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error convirtiendo a base64:', error);
+      return null;
+    }
+  };
+
+  const limpiarImagen = () => {
+    setImagenEgreso(null);
+    setImagenBase64(null);
+  };
+
   const cargarCuadres = async () => {
     try {
       setLoading(true);
       const fecha = formatFecha(fechaSeleccionada);
       
+      console.log(`📊 [CARGANDO] Fecha: ${fecha}`);
+      console.log(`📊 [CARGANDO] Usuario: ${user?.email}`);
+      
       const resultados = {};
       
       for (const zona of zonas) {
         try {
+          console.log(`📊 [${zona}] Solicitando datos...`);
           const response = await api.get(`/cajas/cuadre/${zona}/${fecha}`);
+          
+          console.log(`📊 [${zona}] Datos recibidos:`, JSON.stringify(response.data.data, null, 2));
+          console.log(`📊 [${zona}] Ingresos:`, response.data.data?.ingresos?.length || 0);
+          console.log(`📊 [${zona}] Pagos:`, response.data.data?.pagos?.length || 0);
+          console.log(`📊 [${zona}] Saldo Inicial:`, response.data.data?.saldoInicial);
+          console.log(`📊 [${zona}] Saldo Disponible:`, response.data.data?.saldoDisponible);
+          console.log(`📊 [${zona}] Cerrado:`, response.data.data?.cerrado);
+          
           resultados[zona] = response.data.data;
         } catch (error) {
           if (error.response?.status === 404) {
+            console.log(`📊 [${zona}] No existe cuadre para esta fecha`);
             resultados[zona] = null;
           } else {
-            console.error(`Error cargando ${zona}:`, error);
+            console.error(`❌ Error cargando ${zona}:`, error);
             resultados[zona] = null;
           }
         }
       }
       
+      console.log(`📊 [RESULTADO FINAL] Cuadres cargados:`, Object.keys(resultados));
       setCuadres(resultados);
     } catch (error) {
-      console.error('Error cargando cuadres:', error);
+      console.error('❌ Error cargando cuadres:', error);
       Alert.alert('Error', 'No se pudieron cargar los cuadres');
     } finally {
       setLoading(false);
@@ -105,11 +230,13 @@ const CuadreCajas = ({ navigation }) => {
   const cargarResumen = async () => {
     try {
       const fecha = formatFecha(fechaSeleccionada);
+      console.log(`📊 [RESUMEN] Cargando resumen para ${fecha}`);
       const response = await api.get(`/cajas/resumen/${fecha}`);
+      console.log(`📊 [RESUMEN] Datos:`, JSON.stringify(response.data.data, null, 2));
       setResumenData(response.data.data);
       setResumenVisible(true);
     } catch (error) {
-      console.error('Error cargando resumen:', error);
+      console.error('❌ Error cargando resumen:', error);
       Alert.alert('Error', 'No se pudo cargar el resumen');
     }
   };
@@ -123,13 +250,18 @@ const CuadreCajas = ({ navigation }) => {
     try {
       setLoading(true);
       const fecha = formatFecha(fechaSeleccionada);
+      console.log(`📊 [INGRESO] Agregando ingreso a ${zonaIngreso} - ${fecha}`);
       
       let cuadre = cuadres[zonaIngreso];
       if (!cuadre) {
+        console.log(`📊 [INGRESO] No hay cuadre, creando...`);
         const response = await api.get(`/cajas/cuadre/${zonaIngreso}/${fecha}`);
         cuadre = response.data.data;
         setCuadres(prev => ({ ...prev, [zonaIngreso]: cuadre }));
+        console.log(`📊 [INGRESO] Cuadre creado:`, cuadre._id);
       }
+      
+      console.log(`📊 [INGRESO] Enviando: tipo=${nuevoIngreso.tipo}, monto=${nuevoIngreso.monto}, concepto=${nuevoIngreso.concepto}`);
       
       const response = await api.post(`/cajas/cuadre/${cuadre._id}/ingreso`, {
         tipo: nuevoIngreso.tipo,
@@ -138,13 +270,14 @@ const CuadreCajas = ({ navigation }) => {
       });
 
       if (response.data.success) {
+        console.log(`📊 [INGRESO] Ingreso agregado correctamente`);
         setCuadres(prev => ({ ...prev, [zonaIngreso]: response.data.data }));
         setModalIngresoVisible(false);
         setNuevoIngreso({ tipo: 'OFICINA', monto: '', concepto: '' });
         Alert.alert('Éxito', 'Ingreso agregado correctamente');
       }
     } catch (error) {
-      console.error('Error agregando ingreso:', error);
+      console.error('❌ Error agregando ingreso:', error);
       Alert.alert('Error', error.response?.data?.message || 'Error al agregar ingreso');
     } finally {
       setLoading(false);
@@ -165,28 +298,43 @@ const CuadreCajas = ({ navigation }) => {
     try {
       setLoading(true);
       const fecha = formatFecha(fechaSeleccionada);
+      console.log(`📊 [EGRESO] Agregando egreso a ${zonaPago} - ${fecha}`);
+      console.log(`📊 [EGRESO] Tiene imagen: ${!!imagenBase64}`);
       
       let cuadre = cuadres[zonaPago];
       if (!cuadre) {
+        console.log(`📊 [EGRESO] No hay cuadre, creando...`);
         const response = await api.get(`/cajas/cuadre/${zonaPago}/${fecha}`);
         cuadre = response.data.data;
         setCuadres(prev => ({ ...prev, [zonaPago]: cuadre }));
+        console.log(`📊 [EGRESO] Cuadre creado:`, cuadre._id);
       }
       
-      const response = await api.post(`/cajas/cuadre/${cuadre._id}/pago`, {
+      const payload = {
         motivo: 'EGRESO',
         monto: parseFloat(nuevoPago.monto),
         descripcion: nuevoPago.descripcion.trim(),
-      });
+      };
+      
+      // ✅ Agregar imagen si existe
+      if (imagenBase64) {
+        payload.imagenBase64 = imagenBase64;
+      }
+      
+      console.log(`📊 [EGRESO] Enviando payload con imagen: ${!!payload.imagenBase64}`);
+      
+      const response = await api.post(`/cajas/cuadre/${cuadre._id}/pago`, payload);
 
       if (response.data.success) {
+        console.log(`📊 [EGRESO] Egreso agregado correctamente`);
         setCuadres(prev => ({ ...prev, [zonaPago]: response.data.data }));
         setModalPagoVisible(false);
         setNuevoPago({ motivo: 'EGRESO', monto: '', descripcion: '' });
+        limpiarImagen(); // ✅ Limpiar imagen después de guardar
         Alert.alert('Éxito', 'Egreso agregado correctamente');
       }
     } catch (error) {
-      console.error('Error agregando egreso:', error);
+      console.error('❌ Error agregando egreso:', error);
       Alert.alert('Error', error.response?.data?.message || 'Error al agregar egreso');
     } finally {
       setLoading(false);
@@ -215,13 +363,15 @@ const CuadreCajas = ({ navigation }) => {
           onPress: async () => {
             try {
               setLoading(true);
+              console.log(`📊 [CERRAR] Cerrando cuadre ${zona} - ${formatFecha(fechaSeleccionada)}`);
               const response = await api.put(`/cajas/cuadre/${cuadre._id}/cerrar`);
               if (response.data.success) {
+                console.log(`📊 [CERRAR] Cuadre cerrado correctamente`);
                 setCuadres(prev => ({ ...prev, [zona]: response.data.data }));
                 Alert.alert('Éxito', `Cuadre de ${zona} cerrado correctamente`);
               }
             } catch (error) {
-              console.error('Error cerrando cuadre:', error);
+              console.error('❌ Error cerrando cuadre:', error);
               Alert.alert('Error', error.response?.data?.message || 'Error al cerrar cuadre');
             } finally {
               setLoading(false);
@@ -245,12 +395,14 @@ const CuadreCajas = ({ navigation }) => {
           onPress: async () => {
             try {
               setLoading(true);
+              console.log(`📊 [EMAIL] Enviando resumen para ${fecha}`);
               const response = await api.post('/cajas/cuadre/enviar-correo', { fecha });
               if (response.data.success) {
-                Alert.alert('Éxito', 'Resumen enviado correctamente a alejorodrigo7@gmail.com');
+                console.log(`📊 [EMAIL] Resumen enviado correctamente`);
+                Alert.alert('Éxito', 'Resumen enviado correctamente a los destinatarios');
               }
             } catch (error) {
-              console.error('Error enviando resumen:', error);
+              console.error('❌ Error enviando resumen:', error);
               Alert.alert('Error', error.response?.data?.message || 'Error al enviar resumen');
             } finally {
               setLoading(false);
@@ -280,8 +432,25 @@ const CuadreCajas = ({ navigation }) => {
 
   const renderZonaCard = (zona) => {
     const cuadre = cuadres[zona];
+    
+    // ✅ LOGS PARA VER LOS DATOS REALES EN RENDER
+    console.log(`📊 [RENDER] ${zona}:`, {
+      existe: !!cuadre,
+      saldoInicial: cuadre?.saldoInicial,
+      saldoDisponible: cuadre?.saldoDisponible,
+      ingresosCount: cuadre?.ingresos?.length || 0,
+      pagosCount: cuadre?.pagos?.length || 0,
+      cerrado: cuadre?.cerrado,
+      ingresos: cuadre?.ingresos,
+      pagos: cuadre?.pagos
+    });
+    
     const totalIngresos = cuadre?.ingresos?.reduce((sum, i) => sum + i.monto, 0) || 0;
     const totalPagos = cuadre?.pagos?.reduce((sum, p) => sum + p.monto, 0) || 0;
+    const saldoDisponible = cuadre?.saldoDisponible || 0;
+    const saldoInicial = cuadre?.saldoInicial || 0;
+    
+    console.log(`📊 [RENDER] ${zona} - Totales calculados: Ingresos: ${totalIngresos}, Pagos: ${totalPagos}, Saldo: ${saldoDisponible}`);
     
     const coloresZona = {
       TOLA: { bg: '#E8F0FE', border: '#4A90D9' },
@@ -290,7 +459,7 @@ const CuadreCajas = ({ navigation }) => {
     };
 
     return (
-      <View key={zona} style={[styles.zonaCard, { borderLeftColor: coloresZona[zona].border }]}>
+      <View key={zona} style={[styles.zonaCard, { borderLeftColor: coloresZona[zona]?.border || '#6C5CE7' }]}>
         <View style={styles.zonaCardHeader}>
           <Text style={styles.zonaCardTitle}>📍 {zona}</Text>
           {cuadre?.cerrado ? (
@@ -309,12 +478,12 @@ const CuadreCajas = ({ navigation }) => {
             <View style={styles.saldoContainer}>
               <View style={styles.saldoItem}>
                 <Text style={styles.saldoLabel}>Saldo Inicial</Text>
-                <Text style={styles.saldoValor}>${cuadre.saldoInicial?.toFixed(2) || '0.00'}</Text>
+                <Text style={styles.saldoValor}>${saldoInicial.toFixed(2)}</Text>
               </View>
               <View style={styles.saldoItem}>
                 <Text style={styles.saldoLabel}>Saldo Disponible</Text>
                 <Text style={[styles.saldoValor, styles.saldoDisponible]}>
-                  ${cuadre.saldoDisponible?.toFixed(2) || '0.00'}
+                  ${saldoDisponible.toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -362,17 +531,18 @@ const CuadreCajas = ({ navigation }) => {
 
             <View style={styles.ultimosMovimientos}>
               <Text style={styles.ultimosMovimientosTitle}>Últimos movimientos</Text>
-              {cuadre.ingresos?.slice(-3).map((item, index) => (
+              {cuadre.ingresos?.slice(-2).map((item, index) => (
                 <Text key={`i-${index}`} style={styles.movimientoText}>
                   📥 +${item.monto.toFixed(2)} - {item.tipo} {item.concepto ? `(${item.concepto})` : ''}
                 </Text>
               ))}
-              {cuadre.pagos?.slice(-3).map((item, index) => (
+              {cuadre.pagos?.slice(-2).map((item, index) => (
                 <Text key={`p-${index}`} style={styles.movimientoText}>
                   📤 -${item.monto.toFixed(2)} - {item.descripcion || 'Sin descripción'}
+                  {item.imagen ? ' 📸' : ''}
                 </Text>
               ))}
-              {cuadre.ingresos?.length === 0 && cuadre.pagos?.length === 0 && (
+              {(!cuadre.ingresos || cuadre.ingresos.length === 0) && (!cuadre.pagos || cuadre.pagos.length === 0) && (
                 <Text style={styles.sinMovimientos}>Sin movimientos</Text>
               )}
             </View>
@@ -513,12 +683,15 @@ const CuadreCajas = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Modal de egreso */}
+      {/* Modal de egreso CON FOTO */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={modalPagoVisible}
-        onRequestClose={() => setModalPagoVisible(false)}
+        onRequestClose={() => {
+          setModalPagoVisible(false);
+          limpiarImagen();
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -548,12 +721,51 @@ const CuadreCajas = ({ navigation }) => {
               numberOfLines={3}
             />
 
+            {/* 📸 Sección de foto */}
+            <Text style={styles.modalLabel}>📸 Foto del comprobante (opcional)</Text>
+            <View style={styles.fotoContainer}>
+              {imagenEgreso ? (
+                <View style={styles.fotoPreviewContainer}>
+                  <Image 
+                    source={{ uri: imagenEgreso }} 
+                    style={styles.fotoPreview} 
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity 
+                    style={styles.btnEliminarFoto}
+                    onPress={limpiarImagen}
+                  >
+                    <Ionicons name="close-circle" size={28} color="#FF6B6B" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.fotoBotonesContainer}>
+                  <TouchableOpacity
+                    style={[styles.btnFoto, styles.btnTomarFoto]}
+                    onPress={tomarFoto}
+                  >
+                    <Ionicons name="camera" size={24} color="#FFFFFF" />
+                    <Text style={styles.btnFotoText}>Tomar Foto</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.btnFoto, styles.btnSeleccionarFoto]}
+                    onPress={seleccionarFoto}
+                  >
+                    <Ionicons name="images" size={24} color="#FFFFFF" />
+                    <Text style={styles.btnFotoText}>Galería</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => {
                   setModalPagoVisible(false);
                   setNuevoPago({ motivo: 'EGRESO', monto: '', descripcion: '' });
+                  limpiarImagen();
                 }}
               >
                 <Text style={styles.modalButtonText}>Cancelar</Text>
@@ -961,6 +1173,52 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'right',
     marginTop: 4,
+  },
+  // 📸 Estilos para la foto
+  fotoContainer: {
+    marginVertical: 8,
+  },
+  fotoBotonesContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  btnFoto: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  btnTomarFoto: {
+    backgroundColor: '#6C5CE7',
+  },
+  btnSeleccionarFoto: {
+    backgroundColor: '#0984E3',
+  },
+  btnFotoText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  fotoPreviewContainer: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  fotoPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+  },
+  btnEliminarFoto: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 20,
   },
 });
 
