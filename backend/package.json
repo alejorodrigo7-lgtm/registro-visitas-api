@@ -33,6 +33,7 @@
     "node-cron": "^3.0.2",
     "nodemailer": "^9.0.5",
     "sharp": "^0.35.3",
+    "streamifier": "^0.1.1",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"
   },
