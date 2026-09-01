@@ -620,7 +620,7 @@ exports.cerrarCuadre = async (req, res) => {
 };
 
 // ============================================
-// ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS CON DETALLE DE MOVIMIENTOS (SIN RESTRICCIÓN DE REENVÍO)
+// ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS CON DETALLE DE MOVIMIENTOS (A 3 DESTINATARIOS)
 // ============================================
 exports.enviarCorreoResumen = async (req, res) => {
   try {
@@ -706,6 +706,8 @@ exports.enviarCorreoResumen = async (req, res) => {
           .detalle-movimientos { margin: 10px 0; padding: 10px; background-color: #F8F9FA; border-radius: 8px; }
           ul { margin: 5px 0; padding-left: 20px; }
           li { margin: 3px 0; }
+          .footer { text-align: center; color: #636E72; font-size: 12px; margin-top: 20px; border-top: 1px solid #DFE6E9; padding-top: 20px; }
+          .destinatarios { background-color: #E8F0FE; padding: 10px; border-radius: 8px; margin: 10px 0; }
         </style>
       </head>
       <body>
@@ -782,19 +784,51 @@ exports.enviarCorreoResumen = async (req, res) => {
     
     resumen += `
       <h3 class="total-general">💰 TOTAL GENERAL: $${totalGeneral.toFixed(2)}</h3>
-      <p style="text-align: center; color: #636E72; font-size: 12px;">
-        📧 Este resumen incluye el detalle de todos los movimientos del día (Envío #${nuevoIntento})
+      
+      <div class="destinatarios">
+        <p><strong>📧 Enviado a:</strong></p>
+        <ul>
+          <li>📧 alejorodrigo7@gmail.com</li>
+          <li>📧 cordobaisabelag@gmail.com</li>
+          <li>📧 isabellacordobag@hotmail.com</li>
+        </ul>
+      </div>
+      
+      <p class="footer">
+        📧 Este resumen incluye el detalle de todos los movimientos del día (Envío #${nuevoIntento})<br>
+        Enviado por: Sistema de Cuadre de Caja RAÍ²P
       </p>
       </body>
       </html>
     `;
     
-    // ✅ ENVIAR CORREO A UN SOLO DESTINATARIO
-    await emailService.enviarCorreo({
-      to: 'alejorodrigo7@gmail.com',
-      subject: `📊 Resumen de Caja - ${fecha} (Con detalle de movimientos)`,
-      html: resumen,
-    });
+    // ✅ ENVIAR CORREO A 3 DESTINATARIOS
+    const destinatarios = [
+      'alejorodrigo7@gmail.com',
+      'cordobaisabelag@gmail.com',
+      'isabellacordobag@hotmail.com'
+    ];
+    
+    console.log(`📊 Enviando resumen a ${destinatarios.length} destinatarios...`);
+    
+    let enviados = 0;
+    let errores = [];
+    
+    for (const destinatario of destinatarios) {
+      try {
+        await emailService.enviarCorreo({
+          to: destinatario,
+          subject: `📊 Resumen de Caja - ${fecha} (Con detalle de movimientos)`,
+          html: resumen,
+        });
+        console.log(`✅ Correo enviado a: ${destinatario}`);
+        enviados++;
+      } catch (error) {
+        console.error(`❌ Error enviando a ${destinatario}:`, error.message);
+        errores.push({ destinatario, error: error.message });
+        // No detenemos el proceso si un correo falla
+      }
+    }
     
     // ✅ ACTUALIZAR intentosCorreo (solo contador, NO bloquea)
     for (const cuadre of cuadres) {
@@ -806,15 +840,18 @@ exports.enviarCorreoResumen = async (req, res) => {
       }
     }
     
-    console.log(`✅ Correo de resumen con detalle enviado para ${fecha} a alejorodrigo7@gmail.com (Intento #${nuevoIntento})`);
+    console.log(`✅ Correo de resumen con detalle enviado para ${fecha} a ${enviados}/${destinatarios.length} destinatarios (Intento #${nuevoIntento})`);
     
     res.json({
       success: true,
-      message: `Correo de resumen con detalle enviado correctamente a alejorodrigo7@gmail.com (Intento #${nuevoIntento})`,
+      message: `Correo de resumen con detalle enviado a ${enviados}/${destinatarios.length} destinatarios (Intento #${nuevoIntento})`,
       data: { 
         totalGeneral, 
         fecha, 
         intento: nuevoIntento,
+        destinatarios: destinatarios,
+        enviados: enviados,
+        errores: errores.length > 0 ? errores : undefined,
       },
     });
   } catch (error) {
