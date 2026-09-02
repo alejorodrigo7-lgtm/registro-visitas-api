@@ -1,14 +1,24 @@
 const CuadreCaja = require('../models/CuadreCaja');
+const cron = require('node-cron');
 
 // ============================================
 // 📅 CERRAR CUADRES AUTOMÁTICAMENTE
 // ============================================
 async function cerrarCuadresAutomaticos() {
   try {
-    const hoy = new Date();
-    const fechaAyer = new Date(hoy);
-    fechaAyer.setDate(fechaAyer.getDate() - 1);
-    const fechaAyerStr = fechaAyer.toISOString().split('T')[0];
+    // ✅ Usar fecha en zona horaria de Ecuador
+    const ahora = new Date();
+    const formatter = new Intl.DateTimeFormat('es-EC', {
+      timeZone: 'America/Guayaquil',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = formatter.formatToParts(ahora);
+    const year = parts.find(p => p.type === 'year').value;
+    const month = parts.find(p => p.type === 'month').value;
+    const day = parts.find(p => p.type === 'day').value;
+    const fechaAyerStr = `${year}-${month}-${day}`;
     
     console.log(`📅 [CIERRE AUTOMÁTICO] Procesando cuadres para: ${fechaAyerStr}`);
     
@@ -17,14 +27,12 @@ async function cerrarCuadresAutomaticos() {
     let creados = 0;
     
     for (const zona of zonas) {
-      // ✅ Buscar cuadre del día anterior
       let cuadre = await CuadreCaja.findOne({ 
         zona, 
         fecha: fechaAyerStr 
       });
       
       if (cuadre) {
-        // ✅ Si existe y no está cerrado, cerrarlo
         if (!cuadre.cerrado) {
           cuadre.cerrado = true;
           cuadre.fechaCierre = new Date();
@@ -35,10 +43,7 @@ async function cerrarCuadresAutomaticos() {
           console.log(`ℹ️ [CIERRE AUTOMÁTICO] Ya cerrado: ${zona} - ${fechaAyerStr}`);
         }
       } else {
-        // ✅ Si no existe, crear cuadre cerrado automáticamente
         console.log(`📊 [CIERRE AUTOMÁTICO] Creando cuadre para ${zona} - ${fechaAyerStr}`);
-        
-        // Obtener saldo del día anterior
         const saldoAnterior = await obtenerSaldoAnterior(zona, fechaAyerStr);
         
         cuadre = new CuadreCaja({
@@ -46,7 +51,7 @@ async function cerrarCuadresAutomaticos() {
           fecha: fechaAyerStr,
           saldoInicial: saldoAnterior,
           saldoDisponible: saldoAnterior,
-          creadoPor: null, // Sistema
+          creadoPor: null,
           cerrado: true,
           fechaCierre: new Date(),
           ingresos: [],
@@ -77,7 +82,6 @@ async function obtenerSaldoAnterior(zona, fecha) {
     diaAnterior.setDate(diaAnterior.getDate() - 1);
     const fechaAnteriorStr = diaAnterior.toISOString().split('T')[0];
     
-    // Buscar cuadre del día anterior
     let cuadreAnterior = await CuadreCaja.findOne({ 
       zona, 
       fecha: fechaAnteriorStr,
@@ -88,7 +92,6 @@ async function obtenerSaldoAnterior(zona, fecha) {
       return cuadreAnterior.saldoDisponible;
     }
     
-    // Si no está cerrado, buscar cualquier cuadre del día anterior
     cuadreAnterior = await CuadreCaja.findOne({ 
       zona, 
       fecha: fechaAnteriorStr 
@@ -98,7 +101,6 @@ async function obtenerSaldoAnterior(zona, fecha) {
       return cuadreAnterior.saldoDisponible;
     }
     
-    // Si no existe, buscar el último cuadre disponible
     const ultimoCuadre = await CuadreCaja.findOne({ 
       zona,
       fecha: { $lt: fechaAnteriorStr }
@@ -130,25 +132,21 @@ async function iniciarCierreAutomatico() {
 // 📅 PROGRAMAR CIERRE AUTOMÁTICO DIARIO
 // ============================================
 function programarCierreDiario() {
-  // Calcular la hora para ejecutar (12:05 AM)
-  const ahora = new Date();
-  const horaEjecucion = new Date(ahora);
-  horaEjecucion.setHours(0, 5, 0, 0); // 12:05 AM
-  
-  // Si ya pasó la hora, programar para mañana
-  if (ahora > horaEjecucion) {
-    horaEjecucion.setDate(horaEjecucion.getDate() + 1);
-  }
-  
-  const msHastaEjecucion = horaEjecucion - ahora;
-  console.log(`⏰ [CIERRE AUTOMÁTICO] Próxima ejecución en ${Math.round(msHastaEjecucion / 60000)} minutos (${horaEjecucion.toLocaleString()})`);
-  
-  setTimeout(() => {
+  // ✅ Usar node-cron con zona horaria de Ecuador
+  cron.schedule('59 23 * * *', () => {
     console.log('🔄 [CIERRE AUTOMÁTICO] Ejecutando cierre automático programado...');
     cerrarCuadresAutomaticos();
-    // Programar el siguiente
-    programarCierreDiario();
-  }, msHastaEjecucion);
+  }, {
+    timezone: "America/Guayaquil"
+  });
+  
+  console.log('⏰ [CIERRE AUTOMÁTICO] Programado para las 23:59 (hora Ecuador)');
+  
+  // ✅ También ejecutar al iniciar (si es necesario)
+  setTimeout(async () => {
+    console.log('🔄 [CIERRE AUTOMÁTICO] Ejecutando cierre automático inicial...');
+    await cerrarCuadresAutomaticos();
+  }, 3000);
 }
 
 module.exports = {
