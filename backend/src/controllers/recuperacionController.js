@@ -128,7 +128,7 @@ const getOrdenes = async (req, res) => {
   }
 };
 
-// Ejecutar visita
+// ✅ EJECUTAR VISITA - CORREGIDO
 const ejecutarVisita = async (req, res) => {
   try {
     const { id } = req.params;
@@ -160,14 +160,11 @@ const ejecutarVisita = async (req, res) => {
     orden.visitas.push(nuevaVisita);
     orden.numeroVisitas += 1;
 
+    // ✅ CORREGIDO: Actualizar estado correctamente
     if (retirado) {
       orden.estado = 'retirado';
     } else {
-      if (orden.numeroVisitas >= 3) {
-        orden.estado = 'revisar';
-      } else {
-        orden.estado = 'en_progreso';
-      }
+      orden.estado = 'no_retirado';  // ← Ahora usa 'no_retirado'
     }
 
     orden.actualizado = new Date();
@@ -176,7 +173,7 @@ const ejecutarVisita = async (req, res) => {
     await orden.populate('coordinadorAsignado', 'nombre email');
     await orden.populate('creadoPor', 'nombre email');
 
-    console.log('✅ Visita ejecutada correctamente');
+    console.log('✅ Visita ejecutada correctamente. Estado:', orden.estado);
 
     res.json({ success: true, data: orden });
   } catch (error) {
@@ -210,12 +207,14 @@ const actualizarVisita = async (req, res) => {
     if (adicionales !== undefined) visita.adicionales = adicionales;
     if (observaciones) visita.observaciones = observaciones;
     if (foto) visita.foto = foto;
+    
+    // ✅ CORREGIDO: Actualizar estado correctamente al editar
     if (retirado !== undefined) {
       visita.retirado = retirado;
       if (retirado) {
         orden.estado = 'retirado';
       } else {
-        orden.estado = orden.numeroVisitas >= 3 ? 'revisar' : 'en_progreso';
+        orden.estado = 'no_retirado';
       }
     }
 
@@ -225,7 +224,7 @@ const actualizarVisita = async (req, res) => {
     await orden.populate('coordinadorAsignado', 'nombre email');
     await orden.populate('creadoPor', 'nombre email');
 
-    console.log('✅ Visita actualizada correctamente');
+    console.log('✅ Visita actualizada correctamente. Estado:', orden.estado);
 
     res.json({ success: true, data: orden });
   } catch (error) {
