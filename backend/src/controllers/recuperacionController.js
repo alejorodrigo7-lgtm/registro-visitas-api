@@ -161,10 +161,10 @@ const ejecutarVisita = async (req, res) => {
     orden.numeroVisitas += 1;
 
     // ✅ CORREGIDO: Actualizar estado correctamente
-    if (retirado) {
+    if (retirado === true) {
       orden.estado = 'retirado';
     } else {
-      orden.estado = 'no_retirado';  // ← Ahora usa 'no_retirado'
+      orden.estado = 'no_retirado';
     }
 
     orden.actualizado = new Date();
@@ -173,7 +173,7 @@ const ejecutarVisita = async (req, res) => {
     await orden.populate('coordinadorAsignado', 'nombre email');
     await orden.populate('creadoPor', 'nombre email');
 
-    console.log('✅ Visita ejecutada correctamente. Estado:', orden.estado);
+    console.log(`✅ Visita ejecutada correctamente. Estado: ${orden.estado}`);
 
     res.json({ success: true, data: orden });
   } catch (error) {
@@ -208,10 +208,9 @@ const actualizarVisita = async (req, res) => {
     if (observaciones) visita.observaciones = observaciones;
     if (foto) visita.foto = foto;
     
-    // ✅ CORREGIDO: Actualizar estado correctamente al editar
     if (retirado !== undefined) {
       visita.retirado = retirado;
-      if (retirado) {
+      if (retirado === true) {
         orden.estado = 'retirado';
       } else {
         orden.estado = 'no_retirado';
@@ -224,7 +223,7 @@ const actualizarVisita = async (req, res) => {
     await orden.populate('coordinadorAsignado', 'nombre email');
     await orden.populate('creadoPor', 'nombre email');
 
-    console.log('✅ Visita actualizada correctamente. Estado:', orden.estado);
+    console.log(`✅ Visita actualizada correctamente. Estado: ${orden.estado}`);
 
     res.json({ success: true, data: orden });
   } catch (error) {
@@ -253,6 +252,62 @@ const getOrdenById = async (req, res) => {
   }
 };
 
+// ✅ NUEVA FUNCIÓN: MARCAR ORDEN COMO RETIRADA (desde PendientesRetirar)
+const marcarRetirado = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { observaciones } = req.body;
+
+    console.log(`📤 Marcando orden como RETIRADA: ${id}`);
+
+    const orden = await RecuperacionEquipo.findById(id);
+    if (!orden) {
+      return res.status(404).json({ success: false, message: 'Orden no encontrada' });
+    }
+
+    // Verificar que la orden esté en estado 'no_retirado'
+    if (orden.estado !== 'no_retirado') {
+      return res.status(400).json({ 
+        success: false, 
+        message: `La orden está en estado "${orden.estado}". Solo se pueden retirar órdenes en estado "no_retirado".` 
+      });
+    }
+
+    // Actualizar estado
+    orden.estado = 'retirado';
+    orden.observacionesRetiro = observaciones || 'Equipo retirado';
+    orden.fechaRetiro = new Date();
+    orden.actualizado = new Date();
+
+    // Agregar una visita de retiro
+    orden.visitas.push({
+      fecha: new Date(),
+      hora: new Date().toLocaleTimeString(),
+      observaciones: observaciones || 'Equipo retirado',
+      retirado: true,
+      fechaVisita: new Date()
+    });
+
+    orden.numeroVisitas += 1;
+
+    await orden.save();
+
+    await orden.populate('coordinadorAsignado', 'nombre email');
+    await orden.populate('creadoPor', 'nombre email');
+
+    console.log(`✅ Orden marcada como RETIRADA: ${id}`);
+
+    res.json({
+      success: true,
+      message: 'Equipo marcado como RETIRADO',
+      data: orden
+    });
+  } catch (error) {
+    console.error('❌ Error marcando retirado:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getCoordinadores,
   crearOrden,
@@ -260,5 +315,6 @@ module.exports = {
   getOrdenesPorEstado,
   ejecutarVisita,
   actualizarVisita,
-  getOrdenById
+  getOrdenById,
+  marcarRetirado  // ✅ NUEVA FUNCIÓN EXPORTADA
 };
