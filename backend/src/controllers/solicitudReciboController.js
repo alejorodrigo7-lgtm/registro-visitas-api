@@ -82,16 +82,36 @@ const crearSolicitud = async (req, res) => {
   }
 };
 
-// ✅ APROBAR SOLICITUD CON MÚLTIPLES ARCHIVOS Y ENVÍO DE CORREO
+// ✅ APROBAR SOLICITUD CON MÚLTIPLES ARCHIVOS - CORREGIDO
 const aprobarSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
-    const { archivosNombre = [], archivosBase64 = [], archivoPublicId } = req.body;
+    const { archivosNombre = [], archivosBase64 = [], archivosPublicId = [] } = req.body;
     const usuarioId = req.user.id;
 
     console.log('📤 ===== APROBANDO SOLICITUD =====');
     console.log('📤 Solicitud ID:', id);
-    console.log(`📤 Archivos: ${archivosBase64.length}`);
+    console.log(`📤 Archivos recibidos: ${archivosBase64?.length || 0}`);
+    console.log(`📤 archivosBase64[0] length: ${archivosBase64?.[0]?.length || 0}`);
+
+    // ✅ VERIFICAR QUE TENEMOS ARCHIVOS
+    if (!archivosBase64 || archivosBase64.length === 0) {
+      console.log('❌ No se recibieron archivos');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No se recibieron archivos PDF para adjuntar' 
+      });
+    }
+
+    // ✅ VALIDAR QUE LOS BASE64 NO ESTÉN VACÍOS
+    const base64Validos = archivosBase64.filter(b64 => b64 && b64.length > 100);
+    if (base64Validos.length === 0) {
+      console.log('❌ Los archivos Base64 están vacíos o son inválidos');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Los archivos no se cargaron correctamente. Intenta de nuevo.' 
+      });
+    }
 
     const solicitud = await SolicitudRecibo.findById(id);
     if (!solicitud) {
@@ -107,18 +127,35 @@ const aprobarSolicitud = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
-    // ✅ VERIFICAR QUE TENEMOS ARCHIVOS
-    if (!archivosBase64 || archivosBase64.length === 0) {
-      console.log('❌ No se recibieron archivos');
-      return res.status(400).json({ success: false, message: 'No se recibieron archivos' });
+    // ✅ LIMPIAR BASE64 - QUITAR PREFIJO SI EXISTE
+    const archivosBase64Limpios = archivosBase64.map(b64 => {
+      let clean = b64;
+      if (clean && clean.includes(',')) {
+        clean = clean.split(',')[1];
+        console.log('🧹 Base64 limpiado en backend. Length:', clean.length);
+      }
+      return clean;
+    });
+
+    // ✅ VERIFICAR QUE EL BASE64 SEA VÁLIDO (debe empezar con %PDF o JVBER)
+    const primerBase64 = archivosBase64Limpios[0] || '';
+    const esPDF = primerBase64.startsWith('JVBER') || 
+                  primerBase64.startsWith('%PDF') || 
+                  primerBase64.substring(0, 10).includes('PDF');
+
+    if (!esPDF) {
+      console.log('⚠️ El archivo no parece ser PDF válido. Inicio:', primerBase64.substring(0, 30));
+      // No bloqueamos, solo advertimos
     }
+
+    console.log(`✅ ${archivosBase64Limpios.length} archivos procesados`);
 
     // ✅ GUARDAR LOS ARCHIVOS
     solicitud.estado = 'APROBADO';
-    solicitud.archivos = archivosBase64.map((base64, index) => ({
-      nombre: archivosNombre[index] || `recibo_${index+1}.pdf`,
+    solicitud.archivos = archivosBase64Limpios.map((base64, index) => ({
+      nombre: archivosNombre[index] || `recibo_${index + 1}.pdf`,
       url: base64,
-      publicId: archivoPublicId || `recibo_${id}_${Date.now()}_${index}`
+      publicId: archivosPublicId[index] || `recibo_${id}_${Date.now()}_${index}`
     }));
     solicitud.aprobadoPor = {
       usuarioId: usuario._id,
@@ -129,42 +166,50 @@ const aprobarSolicitud = async (req, res) => {
 
     await solicitud.save();
 
-    console.log(`✅ Solicitud aprobada con ${archivosBase64.length} archivo(s)`);
+    console.log(`✅ Solicitud aprobada con ${archivosBase64Limpios.length} archivo(s)`);
 
     // ✅ ENVIAR CORREO CON LOS ARCHIVOS ADJUNTOS
-    const emailService = require('../services/emailService');
-    const fechaFormateada = new Date(solicitud.fechaSolicitud).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    try {
+      const emailService = require('../services/emailService');
+      const fechaFormateada = new Date(solicitud.fechaSolicitud).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
 
-    // Obtener email del solicitante
-    const solicitante = await User.findById(solicitud.solicitadoPor.usuarioId);
-    const emailDestino = solicitante?.email || usuario.email;
+      // Obtener email del solicitante
+      const solicitante = await User.findById(solicitud.solicitadoPor.usuarioId);
+      const emailDestino = solicitante?.email || usuario.email;
 
-    const resultadoCorreo = await emailService.enviarCorreoRecibo({
-      to: emailDestino,
-      clienteNombre: solicitud.cliente.nombre,
-      fechaSolicitud: fechaFormateada,
-      observaciones: solicitud.observaciones || '',
-      archivosBase64: archivosBase64,
-      archivosNombres: archivosNombre,
-      estado: 'APROBADO',
-      usuarioSolicitante: solicitante?.nombre || usuario.nombre
-    });
+      const resultadoCorreo = await emailService.enviarCorreoRecibo({
+        to: emailDestino,
+        clienteNombre: solicitud.cliente.nombre,
+        fechaSolicitud: fechaFormateada,
+        observaciones: solicitud.observaciones || '',
+        archivosBase64: archivosBase64Limpios,
+        archivosNombres: archivosNombre,
+        estado: 'APROBADO',
+        usuarioSolicitante: solicitante?.nombre || usuario.nombre
+      });
 
-    console.log(`📧 Resultado envío correo: ${resultadoCorreo.success ? '✅ OK' : '❌ Error'}`);
+      console.log(`📧 Resultado envío correo: ${resultadoCorreo.success ? '✅ OK' : '❌ Error'}`);
+    } catch (emailError) {
+      console.error('❌ Error enviando correo:', emailError.message);
+      // No bloqueamos la respuesta si el correo falla
+    }
 
     res.json({
       success: true,
-      message: `Solicitud aprobada. ${resultadoCorreo.success ? 'Correo enviado al solicitante.' : 'Correo no pudo ser enviado.'}`,
+      message: `Solicitud aprobada con ${archivosBase64Limpios.length} archivo(s)`,
       data: solicitud
     });
 
   } catch (error) {
     console.error('❌ Error en aprobarSolicitud:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error al procesar la solicitud' 
+    });
   }
 };
 
@@ -205,33 +250,37 @@ const denegarSolicitud = async (req, res) => {
     console.log('✅ Solicitud denegada');
 
     // ✅ ENVIAR CORREO DE DENEGACIÓN
-    const emailService = require('../services/emailService');
-    const fechaFormateada = new Date(solicitud.fechaSolicitud).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    try {
+      const emailService = require('../services/emailService');
+      const fechaFormateada = new Date(solicitud.fechaSolicitud).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
 
-    const solicitante = await User.findById(solicitud.solicitadoPor.usuarioId);
-    const emailDestino = solicitante?.email || usuario.email;
+      const solicitante = await User.findById(solicitud.solicitadoPor.usuarioId);
+      const emailDestino = solicitante?.email || usuario.email;
 
-    const resultadoCorreo = await emailService.enviarCorreoRecibo({
-      to: emailDestino,
-      clienteNombre: solicitud.cliente.nombre,
-      fechaSolicitud: fechaFormateada,
-      observaciones: solicitud.observaciones || '',
-      archivosBase64: [],
-      archivosNombres: [],
-      estado: 'DENEGADO',
-      motivoDenegacion: motivo || 'No especificado',
-      usuarioSolicitante: solicitante?.nombre || usuario.nombre
-    });
+      const resultadoCorreo = await emailService.enviarCorreoRecibo({
+        to: emailDestino,
+        clienteNombre: solicitud.cliente.nombre,
+        fechaSolicitud: fechaFormateada,
+        observaciones: solicitud.observaciones || '',
+        archivosBase64: [],
+        archivosNombres: [],
+        estado: 'DENEGADO',
+        motivoDenegacion: motivo || 'No especificado',
+        usuarioSolicitante: solicitante?.nombre || usuario.nombre
+      });
 
-    console.log(`📧 Resultado envío correo denegación: ${resultadoCorreo.success ? '✅ OK' : '❌ Error'}`);
+      console.log(`📧 Resultado envío correo denegación: ${resultadoCorreo.success ? '✅ OK' : '❌ Error'}`);
+    } catch (emailError) {
+      console.error('❌ Error enviando correo de denegación:', emailError.message);
+    }
 
     res.json({
       success: true,
-      message: `Solicitud denegada. ${resultadoCorreo.success ? 'Correo enviado al solicitante.' : 'Correo no pudo ser enviado.'}`,
+      message: 'Solicitud denegada correctamente',
       data: solicitud
     });
 
