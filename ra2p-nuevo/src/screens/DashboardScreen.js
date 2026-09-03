@@ -10,14 +10,11 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
-
-const { width } = Dimensions.get('window');
 
 const DashboardScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -27,66 +24,139 @@ const DashboardScreen = ({ navigation }) => {
   const [datePickerMode, setDatePickerMode] = useState('start');
   const [fechaInicio, setFechaInicio] = useState(new Date());
   const [fechaFin, setFechaFin] = useState(new Date());
+  
+  // ✅ Estadísticas de TODOS los módulos
   const [stats, setStats] = useState({
-    total: 0,
-    asignadas: 0,
-    noRetirado: 0,
-    retirado: 0,
-    anulado: 0,
-    reconectado: 0,
+    // Recuperación de Equipos
+    totalOrdenes: 0,
+    ordenesAsignadas: 0,
+    ordenesNoRetirado: 0,
+    ordenesRetirado: 0,
+    ordenesAnulado: 0,
+    ordenesReconectado: 0,
+    visitasRealizadas: 0,
     visitasHoy: 0,
     visitasMes: 0,
     clientesAtendidos: 0,
     promedioVisitas: 0,
+    
+    // Caja / Depósitos
+    totalDepositos: 0,
+    depositosPendientes: 0,
+    depositosAprobados: 0,
+    depositosRechazados: 0,
+    totalCaja: 0,
+    cajaAbierta: 0,
+    cajaCerrada: 0,
+    saldoTotalCaja: 0,
+    
+    // Transferencias
+    totalTransferencias: 0,
+    transferenciasPendientes: 0,
+    transferenciasAprobadas: 0,
+    transferenciasDenegadas: 0,
+    
+    // Servicios
+    totalServicios: 0,
+    serviciosActivos: 0,
+    serviciosFinalizados: 0,
+    serviciosPendientes: 0,
+    
+    // Desconexiones
+    totalDesconexiones: 0,
+    desconexionesPendientes: 0,
+    desconexionesEjecutadas: 0,
+    reconexionesRealizadas: 0,
+    
+    // Recibos
+    totalRecibos: 0,
+    recibosPendientes: 0,
+    recibosSubidos: 0,
+    
+    // Usuarios
+    totalUsuarios: 0,
+    totalCoordinadores: 0,
+    totalAdmins: 0,
+    totalTecnicos: 0,
+    totalClientes: 0,
+    
+    // Asistencia
+    totalAsistencias: 0,
+    asistenciasHoy: 0,
+    ausenciasRegistradas: 0,
+    
+    // Ubicaciones
+    totalUbicaciones: 0,
+    ubicacionesHoy: 0,
+    
+    // Bodegas
+    totalBodegas: 0,
+    totalMateriales: 0,
+    materialesAsignados: 0,
+    
+    // Reportes
+    totalReportes: 0,
+    reportesPendientes: 0,
+    reportesGenerados: 0,
   });
-  const [recentOrders, setRecentOrders] = useState([]);
-  const [topCoordinadores, setTopCoordinadores] = useState([]);
-  const [evolucionDiaria, setEvolucionDiaria] = useState([]);
+
+  const [recentActivity, setRecentActivity] = useState([]);
 
   const rolUsuario = user?.rol?.toLowerCase() || '';
   const isAdminOrJefe = ['admin', 'jefe'].includes(rolUsuario);
 
-  // ✅ Formatear fecha para mostrar
+  // ✅ Formatear fecha
   const formatDate = (date) => {
     const d = new Date(date);
     return d.toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  // ✅ Formatear fecha para API
   const formatDateAPI = (date) => {
     const d = new Date(date);
     return d.toISOString().split('T')[0];
   };
 
-  // ✅ Calcular estadísticas
+  // ✅ Cargar TODAS las estadísticas
   const cargarDashboard = useCallback(async () => {
     try {
       setLoading(true);
       
+      const hoy = new Date().toISOString().split('T')[0];
+      const mes = new Date().getMonth();
+
+      // ============================================
+      // 1. RECUPERACIÓN DE EQUIPOS
+      // ============================================
+      const [asignadas, noRetirado, retirado, anulado, reconectado] = await Promise.all([
+        api.get('/recuperacion/ordenes/estado/asignada'),
+        api.get('/recuperacion/ordenes/estado/no_retirado'),
+        api.get('/recuperacion/ordenes/estado/retirado'),
+        api.get('/recuperacion/ordenes/estado/anulado'),
+        api.get('/recuperacion/ordenes/estado/reconectado'),
+      ]);
+
+      const totalOrdenes = 
+        (asignadas.data.data?.length || 0) +
+        (noRetirado.data.data?.length || 0) +
+        (retirado.data.data?.length || 0) +
+        (anulado.data.data?.length || 0) +
+        (reconectado.data.data?.length || 0);
+
+      // Obtener todas las órdenes para calcular visitas
+      const response = await api.get('/recuperacion/ordenes');
+      const todasOrdenes = response.data.data || [];
+
+      // Filtrar por fecha
       const fechaInicioStr = formatDateAPI(fechaInicio);
       const fechaFinStr = formatDateAPI(fechaFin);
-
-      // Cargar todas las órdenes
-      const response = await api.get('/recuperacion/ordenes');
-      let todasOrdenes = response.data.data || [];
-
-      // ✅ Filtrar por rango de fechas
+      
       const ordenesFiltradas = todasOrdenes.filter(o => {
         const fechaCreacion = new Date(o.fechaSubida || o.createdAt);
         const fechaCreacionStr = formatDateAPI(fechaCreacion);
         return fechaCreacionStr >= fechaInicioStr && fechaCreacionStr <= fechaFinStr;
       });
 
-      // ✅ Estadísticas generales
-      const total = ordenesFiltradas.length;
-      const asignadas = ordenesFiltradas.filter(o => o.estado === 'asignada').length;
-      const noRetirado = ordenesFiltradas.filter(o => o.estado === 'no_retirado').length;
-      const retirado = ordenesFiltradas.filter(o => o.estado === 'retirado').length;
-      const anulado = ordenesFiltradas.filter(o => o.estado === 'anulado').length;
-      const reconectado = ordenesFiltradas.filter(o => o.estado === 'reconectado').length;
-
-      // ✅ Visitas de hoy
-      const hoy = new Date().toISOString().split('T')[0];
+      const visitasRealizadas = ordenesFiltradas.reduce((acc, o) => acc + (o.visitas?.length || 0), 0);
       const visitasHoy = ordenesFiltradas.filter(o => {
         const ultimaVisita = o.visitas?.[o.visitas.length - 1];
         if (!ultimaVisita) return false;
@@ -94,8 +164,6 @@ const DashboardScreen = ({ navigation }) => {
         return fechaVisita === hoy;
       }).length;
 
-      // ✅ Visitas del mes
-      const mes = new Date().getMonth();
       const visitasMes = ordenesFiltradas.filter(o => {
         const ultimaVisita = o.visitas?.[o.visitas.length - 1];
         if (!ultimaVisita) return false;
@@ -103,66 +171,267 @@ const DashboardScreen = ({ navigation }) => {
         return fechaVisita.getMonth() === mes;
       }).length;
 
-      // ✅ Clientes atendidos (con al menos una visita)
       const clientesAtendidos = ordenesFiltradas.filter(o => o.visitas?.length > 0).length;
-
-      // ✅ Promedio de visitas por orden
       const totalVisitas = ordenesFiltradas.reduce((acc, o) => acc + (o.visitas?.length || 0), 0);
-      const promedioVisitas = total > 0 ? Number((totalVisitas / total).toFixed(1)) : 0;
+      const promedioVisitas = totalOrdenes > 0 ? Number((totalVisitas / totalOrdenes).toFixed(1)) : 0;
 
+      // ============================================
+      // 2. CAJA / DEPÓSITOS
+      // ============================================
+      let totalDepositos = 0, depositosPendientes = 0, depositosAprobados = 0, depositosRechazados = 0;
+      let totalCaja = 0, cajaAbierta = 0, cajaCerrada = 0, saldoTotalCaja = 0;
+
+      try {
+        const depositosRes = await api.get('/depositos');
+        if (depositosRes.data.success) {
+          const depositos = depositosRes.data.data || [];
+          totalDepositos = depositos.length;
+          depositosPendientes = depositos.filter(d => d.estado === 'pendiente').length;
+          depositosAprobados = depositos.filter(d => d.estado === 'aprobado').length;
+          depositosRechazados = depositos.filter(d => d.estado === 'rechazado').length;
+        }
+      } catch (error) {}
+
+      try {
+        const cajaRes = await api.get('/caja/cuadres');
+        if (cajaRes.data.success) {
+          const cajaData = cajaRes.data.data || [];
+          totalCaja = cajaData.length;
+          cajaAbierta = cajaData.filter(c => !c.cerrado).length;
+          cajaCerrada = cajaData.filter(c => c.cerrado).length;
+          saldoTotalCaja = cajaData.reduce((acc, c) => acc + (c.saldoDisponible || 0), 0);
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 3. TRANSFERENCIAS
+      // ============================================
+      let totalTransferencias = 0, transferenciasPendientes = 0, transferenciasAprobadas = 0, transferenciasDenegadas = 0;
+
+      try {
+        const transferenciasRes = await api.get('/transferencias');
+        if (transferenciasRes.data.success) {
+          const transferencias = transferenciasRes.data.data || [];
+          totalTransferencias = transferencias.length;
+          transferenciasPendientes = transferencias.filter(t => t.estado === 'pendiente').length;
+          transferenciasAprobadas = transferencias.filter(t => t.estado === 'aprobado').length;
+          transferenciasDenegadas = transferencias.filter(t => t.estado === 'denegado').length;
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 4. SERVICIOS
+      // ============================================
+      let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
+
+      try {
+        const serviciosRes = await api.get('/servicios');
+        if (serviciosRes.data.success) {
+          const servicios = serviciosRes.data.data || [];
+          totalServicios = servicios.length;
+          serviciosActivos = servicios.filter(s => s.estado === 'activo').length;
+          serviciosFinalizados = servicios.filter(s => s.estado === 'finalizado').length;
+          serviciosPendientes = servicios.filter(s => s.estado === 'pendiente').length;
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 5. DESCONEXIONES
+      // ============================================
+      let totalDesconexiones = 0, desconexionesPendientes = 0, desconexionesEjecutadas = 0, reconexionesRealizadas = 0;
+
+      try {
+        const desconexionesRes = await api.get('/desconexiones');
+        if (desconexionesRes.data.success) {
+          const desconexiones = desconexionesRes.data.data || [];
+          totalDesconexiones = desconexiones.length;
+          desconexionesPendientes = desconexiones.filter(d => d.estado === 'pendiente').length;
+          desconexionesEjecutadas = desconexiones.filter(d => d.estado === 'ejecutada').length;
+          reconexionesRealizadas = desconexiones.filter(d => d.estado === 'reconectado').length;
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 6. RECIBOS
+      // ============================================
+      let totalRecibos = 0, recibosPendientes = 0, recibosSubidos = 0;
+
+      try {
+        const recibosRes = await api.get('/recibos');
+        if (recibosRes.data.success) {
+          const recibos = recibosRes.data.data || [];
+          totalRecibos = recibos.length;
+          recibosPendientes = recibos.filter(r => r.estado === 'pendiente').length;
+          recibosSubidos = recibos.filter(r => r.estado === 'subido').length;
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 7. USUARIOS
+      // ============================================
+      let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
+
+      try {
+        const usersRes = await api.get('/users');
+        if (usersRes.data.success) {
+          const users = usersRes.data.data || [];
+          totalUsuarios = users.length;
+          totalCoordinadores = users.filter(u => u.rol?.toLowerCase() === 'coordinador').length;
+          totalAdmins = users.filter(u => ['admin', 'jefe'].includes(u.rol?.toLowerCase())).length;
+          totalTecnicos = users.filter(u => u.rol?.toLowerCase() === 'tecnico').length;
+          totalClientes = users.filter(u => u.rol?.toLowerCase() === 'cliente').length;
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 8. ASISTENCIA
+      // ============================================
+      let totalAsistencias = 0, asistenciasHoy = 0, ausenciasRegistradas = 0;
+
+      try {
+        const asistenciaRes = await api.get('/asistencia');
+        if (asistenciaRes.data.success) {
+          const asistencias = asistenciaRes.data.data || [];
+          totalAsistencias = asistencias.length;
+          asistenciasHoy = asistencias.filter(a => {
+            const fecha = new Date(a.fecha).toISOString().split('T')[0];
+            return fecha === hoy;
+          }).length;
+          ausenciasRegistradas = asistencias.filter(a => a.estado === 'ausente').length;
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 9. UBICACIONES
+      // ============================================
+      let totalUbicaciones = 0, ubicacionesHoy = 0;
+
+      try {
+        const ubicacionesRes = await api.get('/ubicaciones');
+        if (ubicacionesRes.data.success) {
+          const ubicaciones = ubicacionesRes.data.data || [];
+          totalUbicaciones = ubicaciones.length;
+          ubicacionesHoy = ubicaciones.filter(u => {
+            const fecha = new Date(u.createdAt || u.fecha).toISOString().split('T')[0];
+            return fecha === hoy;
+          }).length;
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 10. BODEGAS
+      // ============================================
+      let totalBodegas = 0, totalMateriales = 0, materialesAsignados = 0;
+
+      try {
+        const bodegasRes = await api.get('/bodegas');
+        if (bodegasRes.data.success) {
+          const bodegas = bodegasRes.data.data || [];
+          totalBodegas = bodegas.length;
+          totalMateriales = bodegas.reduce((acc, b) => acc + (b.materiales?.length || 0), 0);
+          materialesAsignados = bodegas.reduce((acc, b) => acc + (b.materiales?.filter(m => m.asignado).length || 0), 0);
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 11. REPORTES
+      // ============================================
+      let totalReportes = 0, reportesPendientes = 0, reportesGenerados = 0;
+
+      try {
+        const reportesRes = await api.get('/reportes');
+        if (reportesRes.data.success) {
+          const reportes = reportesRes.data.data || [];
+          totalReportes = reportes.length;
+          reportesPendientes = reportes.filter(r => r.estado === 'pendiente').length;
+          reportesGenerados = reportes.filter(r => r.estado === 'generado').length;
+        }
+      } catch (error) {}
+
+      // ============================================
+      // 12. ACTIVIDAD RECIENTE
+      // ============================================
+      const sorted = [...ordenesFiltradas].sort((a, b) => 
+        new Date(b.fechaSubida || b.createdAt) - new Date(a.fechaSubida || a.createdAt)
+      );
+      setRecentActivity(sorted.slice(0, 5));
+
+      // ============================================
+      // 13. ACTUALIZAR ESTADÍSTICAS
+      // ============================================
       setStats({
-        total,
-        asignadas,
-        noRetirado,
-        retirado,
-        anulado,
-        reconectado,
+        // Recuperación
+        totalOrdenes,
+        ordenesAsignadas: asignadas.data.data?.length || 0,
+        ordenesNoRetirado: noRetirado.data.data?.length || 0,
+        ordenesRetirado: retirado.data.data?.length || 0,
+        ordenesAnulado: anulado.data.data?.length || 0,
+        ordenesReconectado: reconectado.data.data?.length || 0,
+        visitasRealizadas,
         visitasHoy,
         visitasMes,
         clientesAtendidos,
         promedioVisitas,
+        
+        // Caja / Depósitos
+        totalDepositos,
+        depositosPendientes,
+        depositosAprobados,
+        depositosRechazados,
+        totalCaja,
+        cajaAbierta,
+        cajaCerrada,
+        saldoTotalCaja,
+        
+        // Transferencias
+        totalTransferencias,
+        transferenciasPendientes,
+        transferenciasAprobadas,
+        transferenciasDenegadas,
+        
+        // Servicios
+        totalServicios,
+        serviciosActivos,
+        serviciosFinalizados,
+        serviciosPendientes,
+        
+        // Desconexiones
+        totalDesconexiones,
+        desconexionesPendientes,
+        desconexionesEjecutadas,
+        reconexionesRealizadas,
+        
+        // Recibos
+        totalRecibos,
+        recibosPendientes,
+        recibosSubidos,
+        
+        // Usuarios
+        totalUsuarios,
+        totalCoordinadores,
+        totalAdmins,
+        totalTecnicos,
+        totalClientes,
+        
+        // Asistencia
+        totalAsistencias,
+        asistenciasHoy,
+        ausenciasRegistradas,
+        
+        // Ubicaciones
+        totalUbicaciones,
+        ubicacionesHoy,
+        
+        // Bodegas
+        totalBodegas,
+        totalMateriales,
+        materialesAsignados,
+        
+        // Reportes
+        totalReportes,
+        reportesPendientes,
+        reportesGenerados,
       });
-
-      // ✅ Top coordinadores
-      const coordinadoresMap = {};
-      ordenesFiltradas.forEach(o => {
-        const coordId = o.coordinadorAsignado?._id || o.coordinadorAsignado;
-        const coordNombre = o.coordinadorAsignado?.nombre || 'Sin asignar';
-        if (coordId) {
-          if (!coordinadoresMap[coordId]) {
-            coordinadoresMap[coordId] = { nombre: coordNombre, count: 0 };
-          }
-          coordinadoresMap[coordId].count++;
-        }
-      });
-      const topCoords = Object.values(coordinadoresMap)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-      setTopCoordinadores(topCoords);
-
-      // ✅ Evolución diaria (últimos 7 días)
-      const evolucion = [];
-      for (let i = 6; i >= 0; i--) {
-        const fecha = new Date();
-        fecha.setDate(fecha.getDate() - i);
-        const fechaStr = formatDateAPI(fecha);
-        const count = ordenesFiltradas.filter(o => {
-          const fechaCreacion = new Date(o.fechaSubida || o.createdAt);
-          return formatDateAPI(fechaCreacion) === fechaStr;
-        }).length;
-        evolucion.push({
-          fecha: fechaStr,
-          dia: fecha.toLocaleDateString('es-EC', { weekday: 'short' }),
-          count,
-        });
-      }
-      setEvolucionDiaria(evolucion);
-
-      // ✅ Órdenes recientes (últimas 5)
-      const sorted = [...ordenesFiltradas].sort((a, b) => 
-        new Date(b.fechaSubida || b.createdAt) - new Date(a.fechaSubida || a.createdAt)
-      );
-      setRecentOrders(sorted.slice(0, 5));
 
     } catch (error) {
       console.error('Error cargando dashboard:', error);
@@ -177,13 +446,11 @@ const DashboardScreen = ({ navigation }) => {
     cargarDashboard();
   }, [cargarDashboard]);
 
-  // ✅ Manejar refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     cargarDashboard();
   }, [cargarDashboard]);
 
-  // ✅ Cambiar fecha
   const handleDateChange = (event, selectedDate) => {
     setShowDatePicker(false);
     if (selectedDate) {
@@ -195,73 +462,49 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ Aplicar filtro de fecha rápido
   const aplicarFiltroRapido = (dias) => {
     const hoy = new Date();
     const inicio = new Date();
     inicio.setDate(inicio.getDate() - dias);
     setFechaInicio(inicio);
     setFechaFin(hoy);
-    // Recargar datos después de cambiar fechas
     setTimeout(() => cargarDashboard(), 100);
   };
 
-  // ✅ Navegar a detalle de estado
-  const navigateTo = (screen, params = {}) => {
-    navigation.navigate(screen, params);
-  };
-
-  // ✅ Renderizar barra de evolución
-  const EvolutionBar = ({ data }) => {
-    const maxValue = Math.max(...data.map(d => d.count), 1);
-    
-    return (
-      <View style={styles.evolutionContainer}>
-        {data.map((item, index) => (
-          <View key={index} style={styles.evolutionItem}>
-            <View style={styles.evolutionBarContainer}>
-              <View 
-                style={[
-                  styles.evolutionBar, 
-                  { height: (item.count / maxValue) * 60 }
-                ]} 
-              />
-              <Text style={styles.evolutionValue}>{item.count}</Text>
-            </View>
-            <Text style={styles.evolutionDay}>{item.dia}</Text>
-          </View>
-        ))}
+  // ✅ Renderizar sección
+  const Section = ({ title, icon, children, color = '#6C5CE7' }) => (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <View style={[styles.sectionIcon, { backgroundColor: color + '20' }]}>
+          <Ionicons name={icon} size={20} color={color} />
+        </View>
+        <Text style={styles.sectionTitle}>{title}</Text>
       </View>
-    );
-  };
-
-  // ✅ Renderizar tarjeta de estadística
-  const StatCard = ({ title, count, icon, color, onPress }) => (
-    <TouchableOpacity 
-      style={[styles.statCard, { borderLeftColor: color }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.statIconContainer}>
-        <Ionicons name={icon} size={22} color={color} />
+      <View style={styles.sectionContent}>
+        {children}
       </View>
-      <View style={styles.statInfo}>
-        <Text style={[styles.statCount, { color }]}>{count}</Text>
-        <Text style={styles.statTitle}>{title}</Text>
-      </View>
-    </TouchableOpacity>
+    </View>
   );
 
-  // ✅ Renderizar MiniStatCard
-  const MiniStatCard = ({ title, count, icon, color }) => (
-    <View style={styles.miniStatCard}>
-      <View style={[styles.miniStatIcon, { backgroundColor: color + '20' }]}>
+  // ✅ Renderizar fila de estadística
+  const StatRow = ({ label, value, icon, color = '#2D3436' }) => (
+    <View style={styles.statRow}>
+      <View style={styles.statRowLeft}>
+        <Ionicons name={icon} size={16} color={color} />
+        <Text style={styles.statRowLabel}>{label}</Text>
+      </View>
+      <Text style={[styles.statRowValue, { color }]}>{value}</Text>
+    </View>
+  );
+
+  // ✅ Renderizar tarjeta de resumen
+  const SummaryCard = ({ title, value, icon, color }) => (
+    <View style={[styles.summaryCard, { borderColor: color }]}>
+      <View style={[styles.summaryIcon, { backgroundColor: color + '20' }]}>
         <Ionicons name={icon} size={20} color={color} />
       </View>
-      <View>
-        <Text style={styles.miniStatCount}>{count}</Text>
-        <Text style={styles.miniStatTitle}>{title}</Text>
-      </View>
+      <Text style={styles.summaryValue}>{value}</Text>
+      <Text style={styles.summaryTitle}>{title}</Text>
     </View>
   );
 
@@ -283,7 +526,7 @@ const DashboardScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header con bienvenida */}
+        {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.welcomeText}>📊 Dashboard</Text>
@@ -292,10 +535,7 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.roleText}>{user?.rol || 'Sin rol'}</Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={onRefresh}
-          >
+          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
             <Ionicons name="refresh-outline" size={28} color="#6C5CE7" />
           </TouchableOpacity>
         </View>
@@ -306,10 +546,7 @@ const DashboardScreen = ({ navigation }) => {
           <View style={styles.filterRow}>
             <TouchableOpacity 
               style={styles.filterButton}
-              onPress={() => {
-                setDatePickerMode('start');
-                setShowDatePicker(true);
-              }}
+              onPress={() => { setDatePickerMode('start'); setShowDatePicker(true); }}
             >
               <Ionicons name="calendar-outline" size={16} color="#6C5CE7" />
               <Text style={styles.filterButtonText}>{formatDate(fechaInicio)}</Text>
@@ -317,46 +554,24 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={styles.filterSeparator}>→</Text>
             <TouchableOpacity 
               style={styles.filterButton}
-              onPress={() => {
-                setDatePickerMode('end');
-                setShowDatePicker(true);
-              }}
+              onPress={() => { setDatePickerMode('end'); setShowDatePicker(true); }}
             >
               <Ionicons name="calendar-outline" size={16} color="#6C5CE7" />
               <Text style={styles.filterButtonText}>{formatDate(fechaFin)}</Text>
             </TouchableOpacity>
           </View>
-          
           <View style={styles.filterQuickActions}>
-            <TouchableOpacity 
-              style={styles.quickFilterButton}
-              onPress={() => aplicarFiltroRapido(0)}
-            >
+            <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(0)}>
               <Text style={styles.quickFilterText}>Hoy</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.quickFilterButton}
-              onPress={() => aplicarFiltroRapido(7)}
-            >
+            <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(7)}>
               <Text style={styles.quickFilterText}>7 días</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.quickFilterButton}
-              onPress={() => aplicarFiltroRapido(30)}
-            >
+            <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(30)}>
               <Text style={styles.quickFilterText}>30 días</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.quickFilterButton}
-              onPress={() => {
-                const inicio = new Date();
-                inicio.setMonth(inicio.getMonth() - 1);
-                setFechaInicio(inicio);
-                setFechaFin(new Date());
-                setTimeout(() => cargarDashboard(), 100);
-              }}
-            >
-              <Text style={styles.quickFilterText}>1 mes</Text>
+            <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(90)}>
+              <Text style={styles.quickFilterText}>3 meses</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -370,182 +585,149 @@ const DashboardScreen = ({ navigation }) => {
           />
         )}
 
-        {/* Resumen total */}
+        {/* Resumen General */}
         <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Total de Órdenes</Text>
-          <Text style={styles.totalNumber}>{stats.total}</Text>
-          <View style={styles.totalSubInfo}>
-            <View style={styles.totalSubItem}>
-              <Text style={styles.totalSubLabel}>📅 Visitas Hoy</Text>
-              <Text style={styles.totalSubValue}>{stats.visitasHoy}</Text>
+          <Text style={styles.totalLabel}>📊 Resumen General</Text>
+          <View style={styles.totalGrid}>
+            <View style={styles.totalItem}>
+              <Text style={styles.totalNumber}>{stats.totalOrdenes}</Text>
+              <Text style={styles.totalSubLabel}>Órdenes</Text>
             </View>
-            <View style={styles.totalSubItem}>
-              <Text style={styles.totalSubLabel}>📈 Visitas Mes</Text>
-              <Text style={styles.totalSubValue}>{stats.visitasMes}</Text>
+            <View style={styles.totalItem}>
+              <Text style={styles.totalNumber}>{stats.visitasHoy}</Text>
+              <Text style={styles.totalSubLabel}>Visitas Hoy</Text>
+            </View>
+            <View style={styles.totalItem}>
+              <Text style={styles.totalNumber}>{stats.totalUsuarios}</Text>
+              <Text style={styles.totalSubLabel}>Usuarios</Text>
+            </View>
+            <View style={styles.totalItem}>
+              <Text style={styles.totalNumber}>{stats.saldoTotalCaja.toFixed(2)}</Text>
+              <Text style={styles.totalSubLabel}>Saldo Caja</Text>
+            </View>
+            <View style={styles.totalItem}>
+              <Text style={styles.totalNumber}>{stats.totalServicios}</Text>
+              <Text style={styles.totalSubLabel}>Servicios</Text>
+            </View>
+            <View style={styles.totalItem}>
+              <Text style={styles.totalNumber}>{stats.totalTransferencias}</Text>
+              <Text style={styles.totalSubLabel}>Transferencias</Text>
             </View>
           </View>
         </View>
 
-        {/* Métricas adicionales */}
-        <View style={styles.miniStatsContainer}>
-          <MiniStatCard 
-            title="Clientes Atendidos" 
-            count={stats.clientesAtendidos} 
-            icon="people-outline" 
-            color="#6C5CE7" 
-          />
-          <MiniStatCard 
-            title="Promedio Visitas" 
-            count={stats.promedioVisitas} 
-            icon="stats-chart-outline" 
-            color="#F39C12" 
-          />
-        </View>
+        {/* 📦 Recuperación de Equipos */}
+        <Section title="Recuperación de Equipos" icon="hardware-chip-outline" color="#6C5CE7">
+          <StatRow label="Total Órdenes" value={stats.totalOrdenes} icon="document-text-outline" color="#6C5CE7" />
+          <StatRow label="Asignadas" value={stats.ordenesAsignadas} icon="time-outline" color="#F39C12" />
+          <StatRow label="No Retirado" value={stats.ordenesNoRetirado} icon="alert-circle-outline" color="#E74C3C" />
+          <StatRow label="Retirados" value={stats.ordenesRetirado} icon="checkmark-circle-outline" color="#2ECC71" />
+          <StatRow label="Anulados" value={stats.ordenesAnulado} icon="close-circle-outline" color="#E74C3C" />
+          <StatRow label="Reconectados" value={stats.ordenesReconectado} icon="wifi-outline" color="#3498DB" />
+          <StatRow label="Visitas Realizadas" value={stats.visitasRealizadas} icon="eye-outline" color="#6C5CE7" />
+          <StatRow label="Visitas del Mes" value={stats.visitasMes} icon="calendar-outline" color="#6C5CE7" />
+          <StatRow label="Clientes Atendidos" value={stats.clientesAtendidos} icon="people-outline" color="#2ECC71" />
+          <StatRow label="Promedio Visitas/Orden" value={stats.promedioVisitas} icon="stats-chart-outline" color="#F39C12" />
+        </Section>
 
-        {/* Estadísticas por estado */}
-        <View style={styles.statsGrid}>
-          <StatCard
-            title="Asignadas"
-            count={stats.asignadas}
-            icon="time-outline"
-            color="#F39C12"
-            onPress={() => navigateTo('RevisarOrdenes')}
-          />
-          <StatCard
-            title="No Retirado"
-            count={stats.noRetirado}
-            icon="alert-circle-outline"
-            color="#E74C3C"
-            onPress={() => navigateTo('PendientesRetirar')}
-          />
-          <StatCard
-            title="Retirados"
-            count={stats.retirado}
-            icon="checkmark-circle-outline"
-            color="#2ECC71"
-            onPress={() => navigateTo('Retirados')}
-          />
-          {isAdminOrJefe && (
-            <>
-              <StatCard
-                title="Anulados"
-                count={stats.anulado}
-                icon="close-circle-outline"
-                color="#E74C3C"
-                onPress={() => navigateTo('RevisarOrdenes')}
-              />
-              <StatCard
-                title="Reconectados"
-                count={stats.reconectado}
-                icon="wifi-outline"
-                color="#3498DB"
-                onPress={() => navigateTo('RevisarOrdenes')}
-              />
-            </>
-          )}
-        </View>
+        {/* 💰 Caja / Depósitos */}
+        <Section title="Caja / Depósitos" icon="cash-outline" color="#F39C12">
+          <StatRow label="Total Depósitos" value={stats.totalDepositos} icon="document-text-outline" color="#6C5CE7" />
+          <StatRow label="Depósitos Pendientes" value={stats.depositosPendientes} icon="time-outline" color="#F39C12" />
+          <StatRow label="Depósitos Aprobados" value={stats.depositosAprobados} icon="checkmark-circle-outline" color="#2ECC71" />
+          <StatRow label="Depósitos Rechazados" value={stats.depositosRechazados} icon="close-circle-outline" color="#E74C3C" />
+          <StatRow label="Total Cuadres" value={stats.totalCaja} icon="document-text-outline" color="#6C5CE7" />
+          <StatRow label="Caja Abierta" value={stats.cajaAbierta} icon="lock-open-outline" color="#F39C12" />
+          <StatRow label="Caja Cerrada" value={stats.cajaCerrada} icon="lock-closed-outline" color="#2ECC71" />
+          <StatRow label="Saldo Total" value={`$${stats.saldoTotalCaja.toFixed(2)}`} icon="cash-outline" color="#6C5CE7" />
+        </Section>
 
-        {/* Evolución diaria */}
-        <View style={styles.evolutionSection}>
-          <Text style={styles.sectionTitle}>📈 Evolución Diaria</Text>
-          <View style={styles.evolutionCard}>
-            <EvolutionBar data={evolucionDiaria} />
-          </View>
-        </View>
+        {/* 🔄 Transferencias */}
+        <Section title="Transferencias" icon="swap-horizontal-outline" color="#3498DB">
+          <StatRow label="Total Transferencias" value={stats.totalTransferencias} icon="document-text-outline" color="#6C5CE7" />
+          <StatRow label="Pendientes" value={stats.transferenciasPendientes} icon="time-outline" color="#F39C12" />
+          <StatRow label="Aprobadas" value={stats.transferenciasAprobadas} icon="checkmark-circle-outline" color="#2ECC71" />
+          <StatRow label="Denegadas" value={stats.transferenciasDenegadas} icon="close-circle-outline" color="#E74C3C" />
+        </Section>
 
-        {/* Top coordinadores */}
-        <View style={styles.topCoordinadoresSection}>
-          <Text style={styles.sectionTitle}>🏆 Top Coordinadores</Text>
-          {topCoordinadores.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No hay datos de coordinadores</Text>
+        {/* 🛠 Servicios */}
+        <Section title="Servicios" icon="construct-outline" color="#00B894">
+          <StatRow label="Total Servicios" value={stats.totalServicios} icon="document-text-outline" color="#6C5CE7" />
+          <StatRow label="Activos" value={stats.serviciosActivos} icon="checkmark-circle-outline" color="#2ECC71" />
+          <StatRow label="Finalizados" value={stats.serviciosFinalizados} icon="flag-outline" color="#6C5CE7" />
+          <StatRow label="Pendientes" value={stats.serviciosPendientes} icon="time-outline" color="#F39C12" />
+        </Section>
+
+        {/* 🔌 Desconexiones */}
+        <Section title="Desconexiones" icon="power-outline" color="#E74C3C">
+          <StatRow label="Total Desconexiones" value={stats.totalDesconexiones} icon="document-text-outline" color="#6C5CE7" />
+          <StatRow label="Pendientes" value={stats.desconexionesPendientes} icon="time-outline" color="#F39C12" />
+          <StatRow label="Ejecutadas" value={stats.desconexionesEjecutadas} icon="checkmark-circle-outline" color="#2ECC71" />
+          <StatRow label="Reconexiones" value={stats.reconexionesRealizadas} icon="wifi-outline" color="#3498DB" />
+        </Section>
+
+        {/* 📄 Recibos */}
+        <Section title="Recibos" icon="document-text-outline" color="#F39C12">
+          <StatRow label="Total Recibos" value={stats.totalRecibos} icon="document-text-outline" color="#6C5CE7" />
+          <StatRow label="Pendientes" value={stats.recibosPendientes} icon="time-outline" color="#F39C12" />
+          <StatRow label="Subidos" value={stats.recibosSubidos} icon="cloud-upload-outline" color="#2ECC71" />
+        </Section>
+
+        {/* 👥 Usuarios */}
+        <Section title="Usuarios" icon="people-outline" color="#6C5CE7">
+          <StatRow label="Total Usuarios" value={stats.totalUsuarios} icon="people-outline" color="#6C5CE7" />
+          <StatRow label="Coordinadores" value={stats.totalCoordinadores} icon="person-outline" color="#F39C12" />
+          <StatRow label="Administradores/Jefes" value={stats.totalAdmins} icon="shield-outline" color="#E74C3C" />
+          <StatRow label="Técnicos" value={stats.totalTecnicos} icon="construct-outline" color="#3498DB" />
+          <StatRow label="Clientes" value={stats.totalClientes} icon="person-outline" color="#2ECC71" />
+        </Section>
+
+        {/* 📍 Ubicaciones */}
+        <Section title="Ubicaciones" icon="location-outline" color="#3498DB">
+          <StatRow label="Total Ubicaciones" value={stats.totalUbicaciones} icon="location-outline" color="#6C5CE7" />
+          <StatRow label="Ubicaciones Hoy" value={stats.ubicacionesHoy} icon="calendar-outline" color="#2ECC71" />
+        </Section>
+
+        {/* 🏢 Bodegas */}
+        <Section title="Bodegas" icon="business-outline" color="#F39C12">
+          <StatRow label="Total Bodegas" value={stats.totalBodegas} icon="business-outline" color="#6C5CE7" />
+          <StatRow label="Total Materiales" value={stats.totalMateriales} icon="cube-outline" color="#6C5CE7" />
+          <StatRow label="Materiales Asignados" value={stats.materialesAsignados} icon="checkmark-circle-outline" color="#2ECC71" />
+        </Section>
+
+        {/* 📋 Reportes */}
+        <Section title="Reportes" icon="stats-chart-outline" color="#E74C3C">
+          <StatRow label="Total Reportes" value={stats.totalReportes} icon="document-text-outline" color="#6C5CE7" />
+          <StatRow label="Pendientes" value={stats.reportesPendientes} icon="time-outline" color="#F39C12" />
+          <StatRow label="Generados" value={stats.reportesGenerados} icon="checkmark-circle-outline" color="#2ECC71" />
+        </Section>
+
+        {/* 📋 Actividad Reciente */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionIcon, { backgroundColor: '#6C5CE720' }]}>
+              <Ionicons name="time-outline" size={20} color="#6C5CE7" />
             </View>
+            <Text style={styles.sectionTitle}>Actividad Reciente</Text>
+          </View>
+          {recentActivity.length === 0 ? (
+            <Text style={styles.emptyText}>No hay actividad reciente</Text>
           ) : (
-            topCoordinadores.map((coord, index) => (
-              <View key={index} style={styles.topCoordItem}>
-                <View style={styles.topCoordRank}>
-                  <Text style={styles.topCoordNumber}>#{index + 1}</Text>
-                </View>
-                <View style={styles.topCoordInfo}>
-                  <Text style={styles.topCoordName}>{coord.nombre}</Text>
-                  <Text style={styles.topCoordCount}>{coord.count} órdenes</Text>
-                </View>
-                <View style={styles.topCoordBar}>
-                  <View 
-                    style={[
-                      styles.topCoordBarFill, 
-                      { width: `${(coord.count / (topCoordinadores[0]?.count || 1)) * 100}%` }
-                    ]} 
-                  />
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* Acciones rápidas */}
-        <View style={styles.quickActions}>
-          <Text style={styles.sectionTitle}>⚡ Acciones Rápidas</Text>
-          <View style={styles.actionsGrid}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionPrimary]}
-              onPress={() => navigateTo('SubirOrden')}
-            >
-              <Ionicons name="cloud-upload-outline" size={24} color="#fff" />
-              <Text style={styles.actionText}>Subir Orden</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionSuccess]}
-              onPress={() => navigateTo('EjecutarOrden')}
-            >
-              <Ionicons name="play-circle-outline" size={24} color="#fff" />
-              <Text style={styles.actionText}>Ejecutar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionWarning]}
-              onPress={() => navigateTo('PendientesRetirar')}
-            >
-              <Ionicons name="time-outline" size={24} color="#fff" />
-              <Text style={styles.actionText}>Pendientes</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionInfo]}
-              onPress={() => navigateTo('RevisarOrdenes')}
-            >
-              <Ionicons name="list-outline" size={24} color="#fff" />
-              <Text style={styles.actionText}>Ver Todas</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Órdenes recientes */}
-        <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>📋 Últimas Órdenes</Text>
-          {recentOrders.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="document-text-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>No hay órdenes recientes</Text>
-            </View>
-          ) : (
-            recentOrders.map((orden) => (
-              <TouchableOpacity
-                key={orden._id}
-                style={styles.recentItem}
-                onPress={() => navigation.navigate('RevisarOrdenes')}
-              >
+            recentActivity.map((item, index) => (
+              <View key={index} style={styles.recentItem}>
                 <View style={styles.recentHeader}>
-                  <Text style={styles.recentCliente}>{orden.cliente?.nombre || 'Sin nombre'}</Text>
-                  <View style={[styles.recentStatus, { backgroundColor: getEstadoColor(orden.estado) + '20' }]}>
-                    <Text style={[styles.recentStatusText, { color: getEstadoColor(orden.estado) }]}>
-                      {getEstadoTexto(orden.estado)}
+                  <Text style={styles.recentCliente}>{item.cliente?.nombre || 'Sin nombre'}</Text>
+                  <View style={[styles.recentStatus, { backgroundColor: getEstadoColor(item.estado) + '20' }]}>
+                    <Text style={[styles.recentStatusText, { color: getEstadoColor(item.estado) }]}>
+                      {getEstadoTexto(item.estado)}
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.recentMac}>📶 {orden.mac || 'N/A'}</Text>
+                <Text style={styles.recentMac}>📶 {item.mac || 'N/A'}</Text>
                 <Text style={styles.recentDate}>
-                  {new Date(orden.fechaSubida || orden.createdAt).toLocaleDateString('es-EC')}
+                  {new Date(item.fechaSubida || item.createdAt).toLocaleDateString('es-EC')}
                 </Text>
-              </TouchableOpacity>
+              </View>
             ))
           )}
         </View>
@@ -553,7 +735,7 @@ const DashboardScreen = ({ navigation }) => {
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>RA²P v2.0</Text>
-          <Text style={styles.footerSubtext}>© 2026 - Dashboard en tiempo real</Text>
+          <Text style={styles.footerSubtext}>Dashboard en tiempo real - {new Date().toLocaleDateString('es-EC')}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -706,13 +888,12 @@ const styles = StyleSheet.create({
     color: '#636E72',
     fontWeight: '500',
   },
-  // Total
+  // Total Card
   totalCard: {
     backgroundColor: '#6C5CE7',
     marginHorizontal: 16,
-    padding: 20,
+    padding: 16,
     borderRadius: 16,
-    alignItems: 'center',
     shadowColor: '#6C5CE7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -723,331 +904,144 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF90',
     fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  totalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  totalItem: {
+    width: '31%',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 6,
   },
   totalNumber: {
-    fontSize: 42,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginTop: 4,
-  },
-  totalSubInfo: {
-    flexDirection: 'row',
-    gap: 30,
-    marginTop: 12,
-  },
-  totalSubItem: {
-    alignItems: 'center',
   },
   totalSubLabel: {
-    fontSize: 12,
+    fontSize: 9,
     color: '#FFFFFF90',
+    marginTop: 1,
   },
-  totalSubValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 2,
+  // Sections
+  section: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  // Mini Stats
-  miniStatsContainer: {
+  sectionHeader: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    alignItems: 'center',
     gap: 8,
-    marginTop: 12,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    paddingBottom: 6,
   },
-  miniStatCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 12,
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  miniStatIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  sectionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  miniStatCount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2D3436',
-  },
-  miniStatTitle: {
-    fontSize: 10,
-    color: '#636E72',
-  },
-  // Stats Grid
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 12,
-    gap: 6,
-    marginTop: 12,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: '45%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 12,
-    marginHorizontal: 2,
-    marginBottom: 6,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  statIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F5F7FA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  statInfo: {
-    flex: 1,
-  },
-  statCount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  statTitle: {
-    fontSize: 11,
-    color: '#636E72',
-  },
-  // Evolution
-  evolutionSection: {
-    paddingHorizontal: 16,
-    marginTop: 16,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#2D3436',
-    marginBottom: 8,
   },
-  evolutionCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+  sectionContent: {
+    gap: 1,
   },
-  evolutionContainer: {
+  // Stat Row
+  statRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: 100,
-  },
-  evolutionItem: {
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 3,
   },
-  evolutionBarContainer: {
-    alignItems: 'center',
-    height: 70,
-    justifyContent: 'flex-end',
-  },
-  evolutionBar: {
-    width: 20,
-    backgroundColor: '#6C5CE7',
-    borderRadius: 10,
-    minHeight: 4,
-  },
-  evolutionValue: {
-    fontSize: 10,
-    color: '#636E72',
-    marginTop: 2,
-  },
-  evolutionDay: {
-    fontSize: 10,
-    color: '#999',
-    marginTop: 4,
-  },
-  // Top Coordinadores
-  topCoordinadoresSection: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-  },
-  topCoordItem: {
+  statRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  topCoordRank: {
-    width: 28,
-    alignItems: 'center',
-  },
-  topCoordNumber: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#6C5CE7',
-  },
-  topCoordInfo: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  topCoordName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2D3436',
-  },
-  topCoordCount: {
-    fontSize: 11,
-    color: '#636E72',
-  },
-  topCoordBar: {
-    width: 60,
-    height: 6,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  topCoordBarFill: {
-    height: '100%',
-    backgroundColor: '#6C5CE7',
-    borderRadius: 3,
-  },
-  // Quick Actions
-  quickActions: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 6,
   },
-  actionButton: {
-    flex: 1,
-    minWidth: '45%',
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  actionPrimary: {
-    backgroundColor: '#6C5CE7',
-  },
-  actionSuccess: {
-    backgroundColor: '#00B894',
-  },
-  actionWarning: {
-    backgroundColor: '#F39C12',
-  },
-  actionInfo: {
-    backgroundColor: '#3498DB',
-  },
-  actionText: {
-    color: '#FFFFFF',
+  statRowLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    color: '#636E72',
   },
-  // Recent Orders
-  recentSection: {
-    paddingHorizontal: 16,
-    marginTop: 16,
+  statRowValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
+  // Recent Activity
   recentItem: {
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: '#F8F9FA',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 4,
   },
   recentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
   },
   recentCliente: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#2D3436',
-    flex: 1,
   },
   recentStatus: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+    paddingVertical: 1,
+    borderRadius: 10,
   },
   recentStatusText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
   },
   recentMac: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#636E72',
   },
   recentDate: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#999',
-    marginTop: 2,
-  },
-  // Empty
-  emptyCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 30,
-    borderRadius: 12,
-    alignItems: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#999',
-    marginTop: 8,
+    textAlign: 'center',
+    paddingVertical: 10,
   },
   // Footer
   footer: {
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 16,
     paddingBottom: 10,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#636E72',
   },
   footerSubtext: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#B2BEC3',
-    marginTop: 4,
+    marginTop: 2,
   },
 });
 
