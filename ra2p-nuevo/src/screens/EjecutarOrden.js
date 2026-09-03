@@ -356,114 +356,145 @@ const EjecutarOrden = ({ navigation }) => {
         />
       )}
 
-      {/* Modal de ejecución */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
+      {/* ✅ Modal de ejecución - CORREGIDO CON BOTÓN CERRAR */}
+      <Modal 
+        visible={modalVisible} 
+        animationType="slide" 
+        transparent={true}
+        onRequestClose={() => {
+          setModalVisible(false);
+          setSelectedOrden(null);
+        }}
+      >
         <View style={styles.modalOverlay}>
-          <ScrollView style={styles.modalContent}>
-            <Text style={styles.modalTitle}>📋 Ejecutar Orden</Text>
-            
-            {selectedOrden && (
-              <View style={styles.ordenResumen}>
-                <Text style={styles.ordenResumenText}>Cliente: {selectedOrden.cliente?.nombre || 'N/A'}</Text>
-                <Text style={styles.ordenResumenText}>Código: {selectedOrden.cliente?.codigo || 'N/A'}</Text>
-                <Text style={styles.ordenResumenText}>MAC: {selectedOrden.mac || 'N/A'}</Text>
-              </View>
-            )}
-
-            <Text style={styles.modalLabel}>📅 Fecha</Text>
-            <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.datePickerText}>{fecha.toLocaleDateString()}</Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={fecha}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false);
-                  if (selectedDate) setFecha(selectedDate);
-                }}
-              />
-            )}
-
-            <Text style={styles.modalLabel}>🕒 Hora</Text>
-            <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowTimePicker(true)}>
-              <Text style={styles.datePickerText}>
-                {`${hora.getHours().toString().padStart(2, '0')}:${hora.getMinutes().toString().padStart(2, '0')}`}
-              </Text>
-            </TouchableOpacity>
-            {showTimePicker && (
-              <DateTimePicker
-                value={hora}
-                mode="time"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowTimePicker(false);
-                  if (selectedDate) setHora(selectedDate);
-                }}
-              />
-            )}
-
-            <Text style={styles.modalLabel}>📶 MAC (opcional)</Text>
-            <TextInput style={styles.modalInput} placeholder="MAC del equipo" value={mac} onChangeText={setMac} />
-
-            <Text style={styles.modalLabel}>📡 RECEPTOR (opcional)</Text>
-            <TextInput style={styles.modalInput} placeholder="Receptor" value={receptor} onChangeText={setReceptor} />
-
-            <Text style={styles.modalLabel}>📝 Adicionales (opcional)</Text>
-            <TextInput style={styles.modalInput} placeholder="Información adicional" value={adicionales} onChangeText={setAdicionales} />
-
-            <Text style={styles.modalLabel}>📝 Observaciones (obligatorio)</Text>
-            <TextInput
-              style={[styles.modalInput, styles.textArea]}
-              placeholder="Observaciones de la visita"
-              value={observaciones}
-              onChangeText={setObservaciones}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-
-            <Text style={styles.modalLabel}>📸 Foto de visita (obligatorio)</Text>
-            <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
-              <Ionicons name={foto ? 'checkmark-circle' : 'camera'} size={24} color={foto ? '#00B894' : '#6C5CE7'} />
-              <Text style={styles.photoButtonText}>{foto ? '✅ Foto tomada' : 'Tomar foto'}</Text>
+          <View style={styles.modalContainer}>
+            {/* ✅ Botón de cierre X en la esquina superior */}
+            <TouchableOpacity 
+              style={styles.modalCloseButton}
+              onPress={() => {
+                setModalVisible(false);
+                setSelectedOrden(null);
+              }}
+            >
+              <Ionicons name="close" size={28} color="#666" />
             </TouchableOpacity>
 
-            {/* ✅ Botones principales */}
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalButton, styles.noRetiradoButton]} onPress={() => handleSubmit(false)} disabled={cargando}>
-                {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>🚫 No Retirado</Text>}
+            <ScrollView 
+              style={styles.modalContent}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalContentContainer}
+            >
+              <Text style={styles.modalTitle}>📋 Ejecutar Orden</Text>
+              
+              {selectedOrden && (
+                <View style={styles.ordenResumen}>
+                  <Text style={styles.ordenResumenText}>Cliente: {selectedOrden.cliente?.nombre || 'N/A'}</Text>
+                  <Text style={styles.ordenResumenText}>Código: {selectedOrden.cliente?.codigo || 'N/A'}</Text>
+                  <Text style={styles.ordenResumenText}>MAC: {selectedOrden.mac || 'N/A'}</Text>
+                </View>
+              )}
+
+              <Text style={styles.modalLabel}>📅 Fecha</Text>
+              <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
+                <Text style={styles.datePickerText}>{fecha.toLocaleDateString()}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.retiradoButton]} onPress={() => handleSubmit(true)} disabled={cargando}>
-                {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>✅ Retirado</Text>}
-              </TouchableOpacity>
-            </View>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={fecha}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) setFecha(selectedDate);
+                  }}
+                />
+              )}
 
-            {/* ✅ BOTONES ADMIN/JEFE - ANULAR Y RECONECTAR */}
-            {isAdminOrJefe && (
-              <View style={styles.modalButtonsAdmin}>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.anuladoButton]} 
-                  onPress={handleAnular} 
-                  disabled={cargando}
-                >
-                  {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>🚫 Anular</Text>}
+              <Text style={styles.modalLabel}>🕒 Hora</Text>
+              <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowTimePicker(true)}>
+                <Text style={styles.datePickerText}>
+                  {`${hora.getHours().toString().padStart(2, '0')}:${hora.getMinutes().toString().padStart(2, '0')}`}
+                </Text>
+              </TouchableOpacity>
+              {showTimePicker && (
+                <DateTimePicker
+                  value={hora}
+                  mode="time"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowTimePicker(false);
+                    if (selectedDate) setHora(selectedDate);
+                  }}
+                />
+              )}
+
+              <Text style={styles.modalLabel}>📶 MAC (opcional)</Text>
+              <TextInput style={styles.modalInput} placeholder="MAC del equipo" value={mac} onChangeText={setMac} />
+
+              <Text style={styles.modalLabel}>📡 RECEPTOR (opcional)</Text>
+              <TextInput style={styles.modalInput} placeholder="Receptor" value={receptor} onChangeText={setReceptor} />
+
+              <Text style={styles.modalLabel}>📝 Adicionales (opcional)</Text>
+              <TextInput style={styles.modalInput} placeholder="Información adicional" value={adicionales} onChangeText={setAdicionales} />
+
+              <Text style={styles.modalLabel}>📝 Observaciones (obligatorio)</Text>
+              <TextInput
+                style={[styles.modalInput, styles.textArea]}
+                placeholder="Observaciones de la visita"
+                value={observaciones}
+                onChangeText={setObservaciones}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+
+              <Text style={styles.modalLabel}>📸 Foto de visita (obligatorio)</Text>
+              <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
+                <Ionicons name={foto ? 'checkmark-circle' : 'camera'} size={24} color={foto ? '#00B894' : '#6C5CE7'} />
+                <Text style={styles.photoButtonText}>{foto ? '✅ Foto tomada' : 'Tomar foto'}</Text>
+              </TouchableOpacity>
+
+              {/* Botones principales */}
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={[styles.modalButton, styles.noRetiradoButton]} onPress={() => handleSubmit(false)} disabled={cargando}>
+                  {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>🚫 No Retirado</Text>}
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.reconectadoButton]} 
-                  onPress={handleReconectar} 
-                  disabled={cargando}
-                >
-                  {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>🔄 Reconectar</Text>}
+                <TouchableOpacity style={[styles.modalButton, styles.retiradoButton]} onPress={() => handleSubmit(true)} disabled={cargando}>
+                  {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>✅ Retirado</Text>}
                 </TouchableOpacity>
               </View>
-            )}
 
-            <TouchableOpacity style={styles.closeModalButton} onPress={() => setModalVisible(false)}>
-              <Text style={styles.closeModalText}>Cerrar</Text>
-            </TouchableOpacity>
-          </ScrollView>
+              {/* Botones Admin/Jefe */}
+              {isAdminOrJefe && (
+                <View style={styles.modalButtonsAdmin}>
+                  <TouchableOpacity 
+                    style={[styles.modalButton, styles.anuladoButton]} 
+                    onPress={handleAnular} 
+                    disabled={cargando}
+                  >
+                    {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>🚫 Anular</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.modalButton, styles.reconectadoButton]} 
+                    onPress={handleReconectar} 
+                    disabled={cargando}
+                  >
+                    {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>🔄 Reconectar</Text>}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <TouchableOpacity 
+                style={styles.closeModalButton}
+                onPress={() => {
+                  setModalVisible(false);
+                  setSelectedOrden(null);
+                }}
+              >
+                <Text style={styles.closeModalText}>✖ Cerrar</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -510,9 +541,55 @@ const styles = StyleSheet.create({
   cardCliente: { fontSize: 16, fontWeight: 'bold', color: '#2D3436' },
   cardCodigo: { fontSize: 13, color: '#636E72' },
   cardInfo: { fontSize: 14, color: '#555', marginVertical: 2 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 20, padding: 20, maxHeight: '90%' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 12 },
+  
+  // ✅ Nuevos estilos para el modal con botón de cierre
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 999,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 25,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+    maxHeight: '90%',
+    width: '95%',
+  },
+  modalContentContainer: {
+    paddingBottom: 30,
+  },
+  modalTitle: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    textAlign: 'center', 
+    marginBottom: 12 
+  },
   ordenResumen: { backgroundColor: '#F0F4FF', padding: 12, borderRadius: 10, marginBottom: 12 },
   ordenResumenText: { fontSize: 14, color: '#2D3436' },
   modalLabel: { fontSize: 14, fontWeight: '600', marginTop: 12, marginBottom: 4 },
