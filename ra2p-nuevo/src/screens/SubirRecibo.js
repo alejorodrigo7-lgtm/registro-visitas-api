@@ -11,12 +11,14 @@ import {
   TextInput,
   Modal,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { fileService } from '../services/fileService';
 
 const SubirRecibo = ({ navigation }) => {
   const { token } = useAuth();
@@ -72,7 +74,6 @@ const SubirRecibo = ({ navigation }) => {
 
   const openModal = (solicitud) => {
     setSelectedSolicitud(solicitud);
-    // ✅ Limpiar archivos al abrir modal
     setArchivos([]);
     setArchivosBase64([]);
     setArchivosNombre([]);
@@ -81,7 +82,7 @@ const SubirRecibo = ({ navigation }) => {
   };
 
   // ============================================
-  // 📎 FUNCIONES PARA PDF (SOLO PDF)
+  // 📎 FUNCIONES PARA PDF (MÓVIL Y WEB)
   // ============================================
 
   const handleSelectFile = async () => {
@@ -92,37 +93,55 @@ const SubirRecibo = ({ navigation }) => {
 
     try {
       console.log('📄 Abriendo selector de PDF...');
-      
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',  // ✅ SOLO PDF
-        copyToCacheDirectory: true,
-      });
+      console.log('📱 Plataforma:', Platform.OS);
 
-      console.log('📄 Resultado:', JSON.stringify(result, null, 2));
+      let result;
 
-      if (result.canceled === true) {
-        console.log('❌ Usuario canceló la selección');
-        return;
-      }
+      // ✅ USAR fileService para WEB y MÓVIL
+      if (Platform.OS === 'web') {
+        // En web, usamos el fileService
+        result = await fileService.pickFile({ type: 'pdf' });
+        
+        if (!result) {
+          console.log('❌ Usuario canceló la selección');
+          return;
+        }
 
-      if (result.assets && result.assets.length > 0) {
-        const file = result.assets[0];
-        console.log('✅ PDF seleccionado:', file.name);
-        console.log('📁 URI:', file.uri);
-        console.log('📊 Tamaño:', file.size, 'bytes');
-        
-        // Leer el archivo y convertir a Base64
-        const fileContent = await FileSystem.readAsStringAsync(file.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        
-        console.log('✅ Base64 generado. Tamaño:', fileContent.length);
-        console.log('✅ Base64 primeros 50 chars:', fileContent.substring(0, 50));
-        
-        agregarArchivo(file.uri, fileContent, file.name, 'application/pdf');
+        console.log('✅ PDF seleccionado (web):', result.name);
+        console.log('📁 Base64 length:', result.base64?.length || 0);
+
+        // Para web, el base64 ya viene en el resultado
+        agregarArchivo(result.uri, result.base64, result.name, result.mimeType || 'application/pdf');
+
       } else {
-        console.log('❌ No se encontraron archivos en el resultado');
+        // ✅ Móvil: usar DocumentPicker
+        const pickerResult = await DocumentPicker.getDocumentAsync({
+          type: 'application/pdf',
+          copyToCacheDirectory: true,
+        });
+
+        console.log('📄 Resultado DocumentPicker:', JSON.stringify(pickerResult, null, 2));
+
+        if (pickerResult.canceled === true) {
+          console.log('❌ Usuario canceló la selección');
+          return;
+        }
+
+        if (pickerResult.assets && pickerResult.assets.length > 0) {
+          const file = pickerResult.assets[0];
+          console.log('✅ PDF seleccionado (móvil):', file.name);
+          
+          // Leer el archivo y convertir a Base64
+          const fileContent = await FileSystem.readAsStringAsync(file.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          console.log('✅ Base64 generado. Tamaño:', fileContent.length);
+          
+          agregarArchivo(file.uri, fileContent, file.name, 'application/pdf');
+        }
       }
+
     } catch (error) {
       console.error('❌ Error seleccionando PDF:', error);
       Alert.alert('Error', 'No se pudo seleccionar el PDF: ' + error.message);
@@ -173,6 +192,7 @@ const SubirRecibo = ({ navigation }) => {
       console.log('📤 ===== INICIANDO ENVÍO =====');
       console.log('📤 Solicitud ID:', selectedSolicitud._id);
       console.log(`📤 Archivos PDF: ${archivos.length}`);
+      console.log('📱 Plataforma:', Platform.OS);
 
       // ✅ Enviar múltiples archivos
       const payload = {
@@ -185,6 +205,8 @@ const SubirRecibo = ({ navigation }) => {
 
       console.log('📤 Payload keys:', Object.keys(payload));
       console.log(`📤 archivosBase64: ${archivosBase64.length} archivos`);
+      console.log('📤 archivosBase64 length (primeros 50 chars):', 
+        archivosBase64[0]?.substring(0, 50) || 'vacío');
 
       const response = await api.put(
         `/solicitudes-recibo/${selectedSolicitud._id}/aprobar`,
@@ -266,13 +288,16 @@ const SubirRecibo = ({ navigation }) => {
   // ============================================
 
   const renderArchivoPreview = (archivo, index) => {
-    const esPDF = archivo.mimeType === 'application/pdf';
+    const esPDF = archivo.mimeType === 'application/pdf' || archivo.nombre?.toLowerCase().endsWith('.pdf');
 
     return (
       <View key={index} style={styles.archivoItem}>
         <View style={styles.pdfPreview}>
           <Ionicons name="document-text" size={40} color="#FF6B6B" />
           <Text style={styles.pdfNombre} numberOfLines={2}>{archivo.nombre}</Text>
+          <Text style={styles.pdfSize}>
+            {archivo.size ? fileService.getFileSize(archivo.size) : 'PDF'}
+          </Text>
         </View>
         
         <TouchableOpacity
@@ -388,7 +413,7 @@ const SubirRecibo = ({ navigation }) => {
         />
       )}
 
-      {/* MODAL CON SELECCIÓN DE PDF */}
+      {/* MODAL CON SELECCIÓN DE PDF (MÓVIL Y WEB) */}
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -429,6 +454,9 @@ const SubirRecibo = ({ navigation }) => {
                 <Text style={styles.selectFileButtonText}>
                   📄 Seleccionar PDF ({archivos.length}/3)
                 </Text>
+                {Platform.OS === 'web' && (
+                  <Text style={styles.webHintText}> (Navegador)</Text>
+                )}
               </TouchableOpacity>
             )}
 
@@ -473,6 +501,11 @@ const SubirRecibo = ({ navigation }) => {
                 )}
               </TouchableOpacity>
             </View>
+
+            {/* Indicador de plataforma */}
+            <Text style={styles.platformIndicator}>
+              {Platform.OS === 'web' ? '🌐 Modo Web' : '📱 Modo Móvil'}
+            </Text>
           </View>
         </View>
       </Modal>
@@ -551,7 +584,7 @@ const styles = StyleSheet.create({
   
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '90%', maxWidth: 400 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '90%', maxWidth: 400, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#2C3E50' },
   modalClienteInfo: { backgroundColor: '#F8F9FA', padding: 12, borderRadius: 8, marginBottom: 16 },
@@ -571,13 +604,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#4CAF50',
     borderStyle: 'dashed',
-    gap: 8
+    gap: 8,
+    flexWrap: 'wrap',
   },
   selectFileButtonText: { fontSize: 14, color: '#2C3E50' },
-  archivosScrollView: { maxHeight: 140, marginVertical: 10 },
+  webHintText: { fontSize: 12, color: '#999' },
+  archivosScrollView: { maxHeight: 160, marginVertical: 10 },
   archivoItem: {
     width: 100,
-    height: 100,
+    height: 110,
     marginRight: 10,
     borderRadius: 10,
     borderWidth: 1,
@@ -599,6 +634,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     maxWidth: 80,
+  },
+  pdfSize: {
+    fontSize: 8,
+    color: '#999',
+    marginTop: 2,
   },
   btnEliminarArchivo: {
     position: 'absolute',
@@ -624,7 +664,16 @@ const styles = StyleSheet.create({
   uploadModalButton: { backgroundColor: '#4CAF50' },
   disabledModalButton: { backgroundColor: '#BDBDBD' },
   denyModalButton: { backgroundColor: '#F44336' },
-  modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' }
+  modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  platformIndicator: { 
+    textAlign: 'center', 
+    fontSize: 11, 
+    color: '#999', 
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 8,
+  },
 });
 
 export default SubirRecibo;
