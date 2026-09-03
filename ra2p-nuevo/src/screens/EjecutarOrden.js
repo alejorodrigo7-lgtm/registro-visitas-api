@@ -31,19 +31,17 @@ const EjecutarOrden = ({ navigation }) => {
   const [coordinadorFiltro, setCoordinadorFiltro] = useState('');
   const [coordinadores, setCoordinadores] = useState([]);
 
-  // ✅ CORREGIDO: Obtener ID de la propiedad correcta
-  const userId = user?.id || user?._id; // Primero intenta con 'id', luego con '_id'
+  // ✅ Obtener ID correctamente
+  const userId = user?.id || user?._id;
   const rolUsuario = user?.rol?.toLowerCase() || '';
   const isCoordinador = rolUsuario === 'coordinador';
   const isAdminOrJefe = ['admin', 'jefe'].includes(rolUsuario);
 
   console.log('👤 ===== DATOS DEL USUARIO =====');
-  console.log('👤 Usuario completo:', JSON.stringify(user, null, 2));
   console.log('👤 user.id:', user?.id);
   console.log('👤 user._id:', user?._id);
   console.log('👤 userId (final):', userId);
   console.log('👤 Rol:', user?.rol);
-  console.log('👤 isCoordinador:', isCoordinador);
   console.log('👤 isAdminOrJefe:', isAdminOrJefe);
 
   // Cargar coordinadores para el filtro
@@ -51,7 +49,6 @@ const EjecutarOrden = ({ navigation }) => {
     const fetchCoordinadores = async () => {
       try {
         const res = await api.get('/recuperacion/coordinadores');
-        console.log('📡 Coordinadores cargados:', res.data.data?.length || 0);
         if (res.data.success) {
           setCoordinadores(res.data.data);
         }
@@ -69,46 +66,24 @@ const EjecutarOrden = ({ navigation }) => {
     setLoading(true);
     try {
       let url = '/recuperacion/ordenes/estado/asignada';
-      console.log('📡 URL:', url);
-      
       const res = await api.get(url);
-      console.log('📡 Respuesta status:', res.status);
-      console.log('📡 success:', res.data.success);
-      console.log('📡 Total órdenes:', res.data.data?.length || 0);
       
       if (res.data.success) {
         let data = res.data.data || [];
         console.log('📋 Órdenes recibidas:', data.length);
         
-        // ✅ Mostrar cada orden con su coordinador asignado
-        data.forEach((orden, index) => {
-          console.log(`📋 Orden ${index + 1}:`);
-          console.log(`  - ID: ${orden._id}`);
-          console.log(`  - Cliente: ${orden.cliente?.nombre || 'N/A'}`);
-          console.log(`  - Coordinador ID: ${orden.coordinadorAsignado?._id || 'N/A'}`);
-          console.log(`  - Coordinador Nombre: ${orden.coordinadorAsignado?.nombre || 'N/A'}`);
-        });
-        
-        // ✅ CORREGIDO: FILTRAR PARA COORDINADOR usando userId
+        // ✅ Filtrar para Coordinador
         if (isCoordinador) {
-          console.log(`🔍 Filtrando órdenes para Coordinador: ${userId}`);
           const userIdStr = String(userId);
-          console.log(`🔍 User ID (string): ${userIdStr}`);
-          
           data = data.filter(o => {
             const coordId = o.coordinadorAsignado?._id || o.coordinadorAsignado;
-            const coordIdStr = String(coordId);
-            const coincide = coordIdStr === userIdStr;
-            console.log(`  - Comparando: ${coordIdStr} === ${userIdStr} => ${coincide}`);
-            return coincide;
+            return String(coordId) === userIdStr;
           });
-          
           console.log(`📋 Órdenes filtradas para Coordinador: ${data.length}`);
         }
         
         // Filtro para Admin/Jefe
         if (isAdminOrJefe && coordinadorFiltro) {
-          console.log(`🔍 Filtrando por coordinador: ${coordinadorFiltro}`);
           data = data.filter(o => {
             const coordId = o.coordinadorAsignado?._id || o.coordinadorAsignado;
             return String(coordId) === String(coordinadorFiltro);
@@ -118,13 +93,9 @@ const EjecutarOrden = ({ navigation }) => {
         
         setOrdenes(data);
         setFilteredOrdenes(data);
-        console.log('✅ Órdenes finales:', data.length);
-      } else {
-        console.log('❌ Error en respuesta:', res.data.message);
       }
     } catch (error) {
       console.error('❌ Error cargando órdenes:', error);
-      console.error('❌ Detalle:', error.response?.data);
       Alert.alert('Error', 'No se pudieron cargar las órdenes');
     } finally {
       setLoading(false);
@@ -220,6 +191,86 @@ const EjecutarOrden = ({ navigation }) => {
     } finally {
       setCargando(false);
     }
+  };
+
+  // ✅ ANULAR ORDEN (solo Admin/Jefe)
+  const handleAnular = async () => {
+    if (!selectedOrden) return;
+    if (!observaciones.trim()) {
+      Alert.alert('Error', 'Las observaciones son obligatorias');
+      return;
+    }
+
+    Alert.alert(
+      '🚫 Anular Orden',
+      `¿Estás seguro de ANULAR la orden de ${selectedOrden.cliente?.nombre}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Anular',
+          style: 'destructive',
+          onPress: async () => {
+            setCargando(true);
+            try {
+              const payload = { observaciones: observaciones.trim() };
+              const res = await api.put(`/recuperacion/orden/${selectedOrden._id}/anular`, payload);
+              
+              if (res.data.success) {
+                Alert.alert('✅ Éxito', 'Orden ANULADA correctamente');
+                setModalVisible(false);
+                setSelectedOrden(null);
+                cargarOrdenes();
+                navigation.navigate('RevisarOrdenes');
+              }
+            } catch (error) {
+              Alert.alert('Error', error.response?.data?.message || 'Error al anular');
+            } finally {
+              setCargando(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // ✅ RECONECTAR EQUIPO (solo Admin/Jefe)
+  const handleReconectar = async () => {
+    if (!selectedOrden) return;
+    if (!observaciones.trim()) {
+      Alert.alert('Error', 'Las observaciones son obligatorias');
+      return;
+    }
+
+    Alert.alert(
+      '🔄 Reconectar Equipo',
+      `¿Estás seguro de RECONECTAR el equipo de ${selectedOrden.cliente?.nombre}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reconectar',
+          style: 'default',
+          onPress: async () => {
+            setCargando(true);
+            try {
+              const payload = { observaciones: observaciones.trim() };
+              const res = await api.put(`/recuperacion/orden/${selectedOrden._id}/reconectar`, payload);
+              
+              if (res.data.success) {
+                Alert.alert('✅ Éxito', 'Equipo RECONECTADO correctamente');
+                setModalVisible(false);
+                setSelectedOrden(null);
+                cargarOrdenes();
+                navigation.navigate('RevisarOrdenes');
+              }
+            } catch (error) {
+              Alert.alert('Error', error.response?.data?.message || 'Error al reconectar');
+            } finally {
+              setCargando(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderItem = ({ item }) => (
@@ -379,6 +430,7 @@ const EjecutarOrden = ({ navigation }) => {
               <Text style={styles.photoButtonText}>{foto ? '✅ Foto tomada' : 'Tomar foto'}</Text>
             </TouchableOpacity>
 
+            {/* ✅ Botones principales */}
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.modalButton, styles.noRetiradoButton]} onPress={() => handleSubmit(false)} disabled={cargando}>
                 {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>🚫 No Retirado</Text>}
@@ -387,6 +439,26 @@ const EjecutarOrden = ({ navigation }) => {
                 {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>✅ Retirado</Text>}
               </TouchableOpacity>
             </View>
+
+            {/* ✅ BOTONES ADMIN/JEFE - ANULAR Y RECONECTAR */}
+            {isAdminOrJefe && (
+              <View style={styles.modalButtonsAdmin}>
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.anuladoButton]} 
+                  onPress={handleAnular} 
+                  disabled={cargando}
+                >
+                  {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>🚫 Anular</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.reconectadoButton]} 
+                  onPress={handleReconectar} 
+                  disabled={cargando}
+                >
+                  {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>🔄 Reconectar</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
 
             <TouchableOpacity style={styles.closeModalButton} onPress={() => setModalVisible(false)}>
               <Text style={styles.closeModalText}>Cerrar</Text>
@@ -451,9 +523,12 @@ const styles = StyleSheet.create({
   photoButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4FF', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#6C5CE7', borderStyle: 'dashed' },
   photoButtonText: { fontSize: 16, color: '#6C5CE7', marginLeft: 8 },
   modalButtons: { flexDirection: 'row', marginTop: 16, gap: 10 },
+  modalButtonsAdmin: { flexDirection: 'row', marginTop: 8, gap: 10 },
   modalButton: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center' },
   retiradoButton: { backgroundColor: '#00B894' },
   noRetiradoButton: { backgroundColor: '#FDCB6E' },
+  anuladoButton: { backgroundColor: '#E74C3C' },
+  reconectadoButton: { backgroundColor: '#3498DB' },
   modalButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   closeModalButton: { marginTop: 12, alignItems: 'center' },
   closeModalText: { color: '#6C5CE7', fontSize: 16, fontWeight: '600' },
