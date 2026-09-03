@@ -8,7 +8,10 @@ const {
   getOrdenesPorEstado,
   ejecutarVisita,
   actualizarVisita,
-  getOrdenById
+  getOrdenById,
+  marcarRetirado,
+  anularOrden,
+  reconectarEquipo
 } = require('../controllers/recuperacionController');
 
 // Todas las rutas requieren autenticación
@@ -34,7 +37,7 @@ router.get('/ordenes', getOrdenes);
 // Obtener orden por ID
 router.get('/orden/:id', getOrdenById);
 
-// Ejecutar visita (Coordinador)
+// Ejecutar visita (Coordinador, Admin, Jefe)
 router.put('/orden/:id/visita', (req, res, next) => {
   if (!['Coordinador', 'Admin', 'Jefe'].includes(req.user.rol)) {
     return res.status(403).json({ success: false, message: 'No tienes permiso para ejecutar órdenes' });
@@ -42,12 +45,36 @@ router.put('/orden/:id/visita', (req, res, next) => {
   next();
 }, ejecutarVisita);
 
-// Actualizar visita (Coordinador)
+// Actualizar visita (Coordinador, Admin, Jefe)
 router.put('/orden/:id/visita/:visitaId', (req, res, next) => {
   if (!['Coordinador', 'Admin', 'Jefe'].includes(req.user.rol)) {
     return res.status(403).json({ success: false, message: 'No tienes permiso para modificar visitas' });
   }
   next();
 }, actualizarVisita);
+
+// Marcar como retirado (Coordinador, Admin, Jefe)
+router.put('/orden/:id/marcar-retirado', (req, res, next) => {
+  if (!['Coordinador', 'Admin', 'Jefe'].includes(req.user.rol)) {
+    return res.status(403).json({ success: false, message: 'No tienes permiso para marcar como retirado' });
+  }
+  next();
+}, marcarRetirado);
+
+// ✅ ANULAR ORDEN (solo Admin/Jefe)
+router.put('/orden/:id/anular', (req, res, next) => {
+  if (!['Admin', 'Jefe'].includes(req.user.rol)) {
+    return res.status(403).json({ success: false, message: 'Solo Administradores y Jefes pueden anular órdenes' });
+  }
+  next();
+}, anularOrden);
+
+// ✅ RECONECTAR EQUIPO (solo Admin/Jefe)
+router.put('/orden/:id/reconectar', (req, res, next) => {
+  if (!['Admin', 'Jefe'].includes(req.user.rol)) {
+    return res.status(403).json({ success: false, message: 'Solo Administradores y Jefes pueden reconectar equipos' });
+  }
+  next();
+}, reconectarEquipo);
 
 module.exports = router;

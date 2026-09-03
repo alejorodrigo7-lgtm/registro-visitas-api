@@ -1,47 +1,32 @@
 const RecuperacionEquipo = require('../models/RecuperacionEquipo');
 const User = require('../models/User');
 
-// Obtener coordinadores (usuarios con rol Coordinador)
+// Obtener coordinadores
 const getCoordinadores = async (req, res) => {
   try {
-    console.log('📋 Obteniendo coordinadores...');
     const coordinadores = await User.find({ rol: 'Coordinador' })
       .select('_id nombre email')
       .lean();
-    
-    console.log(`✅ ${coordinadores.length} coordinadores encontrados`);
     res.json({ success: true, data: coordinadores });
   } catch (error) {
-    console.error('❌ Error obteniendo coordinadores:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Crear orden (solo Admin/Jefe)
+// Crear orden
 const crearOrden = async (req, res) => {
   try {
     const { cliente, mac, coordinadorId, observacionesSubida } = req.body;
     const creadoPor = req.user._id;
 
-    console.log('📤 Creando orden de recuperación...');
-    console.log('📤 Cliente:', cliente);
-    console.log('📤 MAC:', mac);
-    console.log('📤 Coordinador:', coordinadorId);
-
-    if (!cliente || !cliente.nombre || !cliente.codigo || !cliente.telefono) {
+    if (!cliente?.nombre || !cliente?.codigo || !cliente?.telefono) {
       return res.status(400).json({ success: false, message: 'Datos del cliente incompletos' });
     }
-    if (!mac) {
-      return res.status(400).json({ success: false, message: 'MAC es obligatoria' });
-    }
-    if (!coordinadorId) {
-      return res.status(400).json({ success: false, message: 'Seleccione un coordinador' });
-    }
+    if (!mac) return res.status(400).json({ success: false, message: 'MAC es obligatoria' });
+    if (!coordinadorId) return res.status(400).json({ success: false, message: 'Seleccione un coordinador' });
 
     const coordinador = await User.findOne({ _id: coordinadorId, rol: 'Coordinador' });
-    if (!coordinador) {
-      return res.status(400).json({ success: false, message: 'Coordinador no válido' });
-    }
+    if (!coordinador) return res.status(400).json({ success: false, message: 'Coordinador no válido' });
 
     const nuevaOrden = new RecuperacionEquipo({
       cliente: {
@@ -58,16 +43,8 @@ const crearOrden = async (req, res) => {
     });
 
     await nuevaOrden.save();
-
-    console.log('✅ Orden creada:', nuevaOrden._id);
-
-    res.status(201).json({
-      success: true,
-      message: 'Orden creada exitosamente',
-      data: nuevaOrden
-    });
+    res.status(201).json({ success: true, message: 'Orden creada exitosamente', data: nuevaOrden });
   } catch (error) {
-    console.error('❌ Error creando orden:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -77,25 +54,16 @@ const getOrdenesPorEstado = async (req, res) => {
   try {
     const { estado } = req.params;
     const usuario = req.user;
-    
-    console.log(`📋 Obteniendo órdenes con estado: ${estado}`);
-    
     let filtro = { estado };
-    
-    if (usuario.rol === 'Coordinador') {
-      filtro.coordinadorAsignado = usuario._id;
-    }
+    if (usuario.rol === 'Coordinador') filtro.coordinadorAsignado = usuario._id;
 
     const ordenes = await RecuperacionEquipo.find(filtro)
       .populate('coordinadorAsignado', 'nombre email')
       .populate('creadoPor', 'nombre email')
       .sort({ fechaSubida: -1 });
 
-    console.log(`✅ ${ordenes.length} órdenes encontradas`);
-
     res.json({ success: true, data: ordenes });
   } catch (error) {
-    console.error('❌ Error obteniendo órdenes:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -105,16 +73,10 @@ const getOrdenes = async (req, res) => {
   try {
     const { estado, coordinadorId } = req.query;
     const usuario = req.user;
-    
-    console.log(`📋 Obteniendo órdenes con filtros: estado=${estado}, coordinador=${coordinadorId}`);
-    
     let filtro = {};
     if (estado) filtro.estado = estado;
     if (coordinadorId) filtro.coordinadorAsignado = coordinadorId;
-    
-    if (usuario.rol === 'Coordinador') {
-      filtro.coordinadorAsignado = usuario._id;
-    }
+    if (usuario.rol === 'Coordinador') filtro.coordinadorAsignado = usuario._id;
 
     const ordenes = await RecuperacionEquipo.find(filtro)
       .populate('coordinadorAsignado', 'nombre email')
@@ -123,30 +85,24 @@ const getOrdenes = async (req, res) => {
 
     res.json({ success: true, data: ordenes });
   } catch (error) {
-    console.error('❌ Error obteniendo órdenes:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// ✅ EJECUTAR VISITA - CORREGIDO
+// Ejecutar visita
 const ejecutarVisita = async (req, res) => {
   try {
     const { id } = req.params;
     const { fecha, hora, mac, receptor, adicionales, observaciones, foto, retirado } = req.body;
-
-    console.log(`📤 Ejecutando visita para orden: ${id}`);
-    console.log('📤 Retirado:', retirado);
 
     if (!fecha || !hora || !observaciones || !foto || retirado === undefined) {
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios' });
     }
 
     const orden = await RecuperacionEquipo.findById(id);
-    if (!orden) {
-      return res.status(404).json({ success: false, message: 'Orden no encontrada' });
-    }
+    if (!orden) return res.status(404).json({ success: false, message: 'Orden no encontrada' });
 
-    const nuevaVisita = {
+    orden.visitas.push({
       fecha: new Date(fecha),
       hora,
       mac: mac || '',
@@ -155,12 +111,9 @@ const ejecutarVisita = async (req, res) => {
       observaciones,
       foto,
       retirado
-    };
-
-    orden.visitas.push(nuevaVisita);
+    });
     orden.numeroVisitas += 1;
 
-    // ✅ CORREGIDO: Actualizar estado correctamente
     if (retirado === true) {
       orden.estado = 'retirado';
     } else {
@@ -173,11 +126,8 @@ const ejecutarVisita = async (req, res) => {
     await orden.populate('coordinadorAsignado', 'nombre email');
     await orden.populate('creadoPor', 'nombre email');
 
-    console.log(`✅ Visita ejecutada correctamente. Estado: ${orden.estado}`);
-
     res.json({ success: true, data: orden });
   } catch (error) {
-    console.error('❌ Error ejecutando visita:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -188,17 +138,11 @@ const actualizarVisita = async (req, res) => {
     const { id, visitaId } = req.params;
     const { fecha, hora, mac, receptor, adicionales, observaciones, foto, retirado } = req.body;
 
-    console.log(`📤 Actualizando visita ${visitaId} de orden ${id}`);
-
     const orden = await RecuperacionEquipo.findById(id);
-    if (!orden) {
-      return res.status(404).json({ success: false, message: 'Orden no encontrada' });
-    }
+    if (!orden) return res.status(404).json({ success: false, message: 'Orden no encontrada' });
 
     const visita = orden.visitas.id(visitaId);
-    if (!visita) {
-      return res.status(404).json({ success: false, message: 'Visita no encontrada' });
-    }
+    if (!visita) return res.status(404).json({ success: false, message: 'Visita no encontrada' });
 
     if (fecha) visita.fecha = new Date(fecha);
     if (hora) visita.hora = hora;
@@ -223,11 +167,8 @@ const actualizarVisita = async (req, res) => {
     await orden.populate('coordinadorAsignado', 'nombre email');
     await orden.populate('creadoPor', 'nombre email');
 
-    console.log(`✅ Visita actualizada correctamente. Estado: ${orden.estado}`);
-
     res.json({ success: true, data: orden });
   } catch (error) {
-    console.error('❌ Error actualizando visita:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -236,50 +177,39 @@ const actualizarVisita = async (req, res) => {
 const getOrdenById = async (req, res) => {
   try {
     const { id } = req.params;
-    
     const orden = await RecuperacionEquipo.findById(id)
       .populate('coordinadorAsignado', 'nombre email')
       .populate('creadoPor', 'nombre email');
 
-    if (!orden) {
-      return res.status(404).json({ success: false, message: 'Orden no encontrada' });
-    }
-
+    if (!orden) return res.status(404).json({ success: false, message: 'Orden no encontrada' });
     res.json({ success: true, data: orden });
   } catch (error) {
-    console.error('❌ Error obteniendo orden:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// ✅ NUEVA FUNCIÓN: MARCAR ORDEN COMO RETIRADA (desde PendientesRetirar)
+// Marcar como retirado (desde PendientesRetirar)
 const marcarRetirado = async (req, res) => {
   try {
     const { id } = req.params;
     const { observaciones } = req.body;
 
-    console.log(`📤 Marcando orden como RETIRADA: ${id}`);
-
     const orden = await RecuperacionEquipo.findById(id);
-    if (!orden) {
-      return res.status(404).json({ success: false, message: 'Orden no encontrada' });
-    }
+    if (!orden) return res.status(404).json({ success: false, message: 'Orden no encontrada' });
 
     // Verificar que la orden esté en estado 'no_retirado'
     if (orden.estado !== 'no_retirado') {
-      return res.status(400).json({ 
-        success: false, 
-        message: `La orden está en estado "${orden.estado}". Solo se pueden retirar órdenes en estado "no_retirado".` 
+      return res.status(400).json({
+        success: false,
+        message: `La orden está en estado "${orden.estado}". Solo se pueden retirar órdenes en estado "no_retirado".`
       });
     }
 
-    // Actualizar estado
     orden.estado = 'retirado';
     orden.observacionesRetiro = observaciones || 'Equipo retirado';
     orden.fechaRetiro = new Date();
     orden.actualizado = new Date();
 
-    // Agregar una visita de retiro
     orden.visitas.push({
       fecha: new Date(),
       hora: new Date().toLocaleTimeString(),
@@ -287,23 +217,108 @@ const marcarRetirado = async (req, res) => {
       retirado: true,
       fechaVisita: new Date()
     });
-
     orden.numeroVisitas += 1;
 
     await orden.save();
-
     await orden.populate('coordinadorAsignado', 'nombre email');
     await orden.populate('creadoPor', 'nombre email');
 
-    console.log(`✅ Orden marcada como RETIRADA: ${id}`);
+    res.json({ success: true, message: 'Equipo marcado como RETIRADO', data: orden });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ✅ ANULAR ORDEN (solo Admin/Jefe)
+const anularOrden = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { observaciones } = req.body;
+
+    // Verificar que el usuario sea Admin o Jefe
+    if (!['Admin', 'Jefe'].includes(req.user.rol)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo Administradores y Jefes pueden anular órdenes'
+      });
+    }
+
+    const orden = await RecuperacionEquipo.findById(id);
+    if (!orden) {
+      return res.status(404).json({ success: false, message: 'Orden no encontrada' });
+    }
+
+    // No permitir anular si ya está retirado, anulado o reconectado
+    if (['retirado', 'anulado', 'reconectado'].includes(orden.estado)) {
+      return res.status(400).json({
+        success: false,
+        message: `No se puede anular una orden en estado "${orden.estado}"`
+      });
+    }
+
+    orden.estado = 'anulado';
+    orden.observacionesAnulacion = observaciones || 'Orden anulada por Administrador';
+    orden.fechaAnulacion = new Date();
+    orden.actualizado = new Date();
+
+    await orden.save();
+    await orden.populate('coordinadorAsignado', 'nombre email');
+    await orden.populate('creadoPor', 'nombre email');
 
     res.json({
       success: true,
-      message: 'Equipo marcado como RETIRADO',
+      message: 'Orden anulada correctamente',
       data: orden
     });
   } catch (error) {
-    console.error('❌ Error marcando retirado:', error);
+    console.error('❌ Error anulando orden:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ✅ RECONECTAR EQUIPO (solo Admin/Jefe)
+const reconectarEquipo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { observaciones } = req.body;
+
+    // Verificar que el usuario sea Admin o Jefe
+    if (!['Admin', 'Jefe'].includes(req.user.rol)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo Administradores y Jefes pueden reconectar equipos'
+      });
+    }
+
+    const orden = await RecuperacionEquipo.findById(id);
+    if (!orden) {
+      return res.status(404).json({ success: false, message: 'Orden no encontrada' });
+    }
+
+    // No permitir reconectar si ya está retirado, anulado o reconectado
+    if (['retirado', 'anulado', 'reconectado'].includes(orden.estado)) {
+      return res.status(400).json({
+        success: false,
+        message: `No se puede reconectar un equipo en estado "${orden.estado}"`
+      });
+    }
+
+    orden.estado = 'reconectado';
+    orden.observacionesReconexion = observaciones || 'Equipo reconectado por Administrador';
+    orden.fechaReconexion = new Date();
+    orden.actualizado = new Date();
+
+    await orden.save();
+    await orden.populate('coordinadorAsignado', 'nombre email');
+    await orden.populate('creadoPor', 'nombre email');
+
+    res.json({
+      success: true,
+      message: 'Equipo reconectado correctamente',
+      data: orden
+    });
+  } catch (error) {
+    console.error('❌ Error reconectando equipo:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -316,5 +331,7 @@ module.exports = {
   ejecutarVisita,
   actualizarVisita,
   getOrdenById,
-  marcarRetirado  // ✅ NUEVA FUNCIÓN EXPORTADA
+  marcarRetirado,
+  anularOrden,
+  reconectarEquipo
 };

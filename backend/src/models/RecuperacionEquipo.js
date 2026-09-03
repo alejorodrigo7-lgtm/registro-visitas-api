@@ -24,7 +24,7 @@ const recuperacionEquipoSchema = new mongoose.Schema({
   observacionesSubida: { type: String, default: '' },
   estado: { 
     type: String, 
-    enum: ['asignada', 'no_retirado', 'retirado'], // ✅ CAMBIADO: 'no_retirado' en lugar de 'en_progreso' y 'revisar'
+    enum: ['asignada', 'no_retirado', 'retirado', 'anulado', 'reconectado'],
     default: 'asignada'
   },
   visitas: [visitaSchema],
