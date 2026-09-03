@@ -168,7 +168,7 @@ const aprobarSolicitud = async (req, res) => {
 
     console.log(`✅ Solicitud aprobada con ${archivosBase64Limpios.length} archivo(s)`);
 
-    // ✅ ENVIAR CORREO CON LOS ARCHIVOS ADJUNTOS
+    // ✅ ENVIAR CORREO SOLO AL SOLICITANTE
     try {
       const emailService = require('../services/emailService');
       const fechaFormateada = new Date(solicitud.fechaSolicitud).toLocaleDateString('es-ES', {
@@ -179,56 +179,22 @@ const aprobarSolicitud = async (req, res) => {
 
       // Obtener email del solicitante
       const solicitante = await User.findById(solicitud.solicitadoPor.usuarioId);
-      const emailSolicitante = solicitante?.email || usuario.email;
+      const emailDestino = solicitante?.email || usuario.email;
 
-      // ✅ DESTINATARIOS: Solicitante + alejorodrigo7@gmail.com
-      const destinatarios = [
-        emailSolicitante,
-        'alejorodrigo7@gmail.com'
-      ].filter(email => email && email.trim() !== '');
+      console.log(`📧 Enviando correo a: ${emailDestino}`);
 
-      console.log(`📧 Enviando correo a ${destinatarios.length} destinatario(s):`, destinatarios);
+      const resultadoCorreo = await emailService.enviarCorreoRecibo({
+        to: emailDestino,
+        clienteNombre: solicitud.cliente.nombre,
+        fechaSolicitud: fechaFormateada,
+        observaciones: solicitud.observaciones || '',
+        archivosBase64: archivosBase64Limpios,
+        archivosNombres: archivosNombre,
+        estado: 'APROBADO',
+        usuarioSolicitante: solicitante?.nombre || usuario.nombre
+      });
 
-      // ✅ Enviar a TODOS los destinatarios
-      const resultados = [];
-      for (const emailDestino of destinatarios) {
-        try {
-          const resultadoCorreo = await emailService.enviarCorreoRecibo({
-            to: emailDestino,
-            clienteNombre: solicitud.cliente.nombre,
-            fechaSolicitud: fechaFormateada,
-            observaciones: solicitud.observaciones || '',
-            archivosBase64: archivosBase64Limpios,
-            archivosNombres: archivosNombre,
-            estado: 'APROBADO',
-            usuarioSolicitante: solicitante?.nombre || usuario.nombre,
-            esCopia: emailDestino !== emailSolicitante
-          });
-
-          resultados.push({
-            email: emailDestino,
-            success: resultadoCorreo.success,
-            error: resultadoCorreo.error || null
-          });
-
-          console.log(`📧 Correo a ${emailDestino}: ${resultadoCorreo.success ? '✅ OK' : '❌ Error'}`);
-        } catch (emailError) {
-          console.error(`❌ Error enviando a ${emailDestino}:`, emailError.message);
-          resultados.push({
-            email: emailDestino,
-            success: false,
-            error: emailError.message
-          });
-        }
-      }
-
-      // ✅ Guardar registro de envío en la solicitud
-      solicitud.historialCorreos = resultados;
-      await solicitud.save();
-
-      const enviados = resultados.filter(r => r.success).length;
-      console.log(`✅ Correos enviados: ${enviados}/${resultados.length}`);
-
+      console.log(`📧 Resultado envío correo: ${resultadoCorreo.success ? '✅ OK' : '❌ Error'}`);
     } catch (emailError) {
       console.error('❌ Error enviando correo:', emailError.message);
       // No bloqueamos la respuesta si el correo falla
@@ -285,7 +251,7 @@ const denegarSolicitud = async (req, res) => {
 
     console.log('✅ Solicitud denegada');
 
-    // ✅ ENVIAR CORREO DE DENEGACIÓN
+    // ✅ ENVIAR CORREO DE DENEGACIÓN SOLO AL SOLICITANTE
     try {
       const emailService = require('../services/emailService');
       const fechaFormateada = new Date(solicitud.fechaSolicitud).toLocaleDateString('es-ES', {
@@ -295,35 +261,23 @@ const denegarSolicitud = async (req, res) => {
       });
 
       const solicitante = await User.findById(solicitud.solicitadoPor.usuarioId);
-      const emailSolicitante = solicitante?.email || usuario.email;
+      const emailDestino = solicitante?.email || usuario.email;
 
-      // ✅ DESTINATARIOS: Solicitante + alejorodrigo7@gmail.com
-      const destinatarios = [
-        emailSolicitante,
-        'alejorodrigo7@gmail.com'
-      ].filter(email => email && email.trim() !== '');
+      console.log(`📧 Enviando correo de denegación a: ${emailDestino}`);
 
-      console.log(`📧 Enviando correo de denegación a: ${destinatarios.join(', ')}`);
+      const resultadoCorreo = await emailService.enviarCorreoRecibo({
+        to: emailDestino,
+        clienteNombre: solicitud.cliente.nombre,
+        fechaSolicitud: fechaFormateada,
+        observaciones: solicitud.observaciones || '',
+        archivosBase64: [],
+        archivosNombres: [],
+        estado: 'DENEGADO',
+        motivoDenegacion: motivo || 'No especificado',
+        usuarioSolicitante: solicitante?.nombre || usuario.nombre
+      });
 
-      for (const emailDestino of destinatarios) {
-        try {
-          const resultadoCorreo = await emailService.enviarCorreoRecibo({
-            to: emailDestino,
-            clienteNombre: solicitud.cliente.nombre,
-            fechaSolicitud: fechaFormateada,
-            observaciones: solicitud.observaciones || '',
-            archivosBase64: [],
-            archivosNombres: [],
-            estado: 'DENEGADO',
-            motivoDenegacion: motivo || 'No especificado',
-            usuarioSolicitante: solicitante?.nombre || usuario.nombre,
-            esCopia: emailDestino !== emailSolicitante
-          });
-          console.log(`📧 Correo denegación a ${emailDestino}: ${resultadoCorreo.success ? '✅ OK' : '❌ Error'}`);
-        } catch (emailError) {
-          console.error(`❌ Error enviando denegación a ${emailDestino}:`, emailError.message);
-        }
-      }
+      console.log(`📧 Resultado envío correo denegación: ${resultadoCorreo.success ? '✅ OK' : '❌ Error'}`);
     } catch (emailError) {
       console.error('❌ Error enviando correo de denegación:', emailError.message);
     }
