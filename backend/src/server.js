@@ -67,6 +67,9 @@ const syncRoutes = require('./routes/syncRoutes');
 const solicitudReciboRoutes = require('./routes/solicitudReciboRoutes');
 const recuperacionRoutes = require('./routes/recuperacionRoutes');
 
+// ✅ NUEVO: IMPORTAR RUTAS DE TICKETS
+const ticketRoutes = require('./routes/ticketRoutes');
+
 // ============================================
 // NUEVO: IMPORTAR RUTAS DE UPLOAD (CLOUDINARY)
 // ============================================
@@ -200,6 +203,9 @@ app.use('/api/usuarios', userRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/solicitudes-recibo', solicitudReciboRoutes);
 app.use('/api/recuperacion', recuperacionRoutes);
+
+// ✅ NUEVO: RUTA DE TICKETS
+app.use('/api/tickets', ticketRoutes);
 
 // ============================================
 // NUEVO: RUTA DE UPLOAD (CLOUDINARY)
@@ -341,10 +347,7 @@ async function iniciarCierreAutomatico() {
   try {
     console.log('🔄 [SERVER] Iniciando cierre automático de cuadres...');
     
-    // Ejecutar al iniciar el servidor
     await cierreAutomaticoService.iniciarCierreAutomatico();
-    
-    // Programar ejecución diaria
     cierreAutomaticoService.programarCierreDiario();
     
     console.log('✅ [SERVER] Cierre automático configurado correctamente');
@@ -364,28 +367,32 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`Zona horaria: ${process.env.TZ || 'UTC'}`);
   logger.info(`Hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'America/Guayaquil' })}`);
   logger.info(`Escuchando en todas las interfaces (0.0.0.0)`);
-  logger.info(`/api/auth`);
-  logger.info(`/api/transferencias`);
-  logger.info(`/api/servicios`);
-  logger.info(`/api/cajas`);
-  logger.info(`/api/reportes`);
-  logger.info(`/api/visitas`);
-  logger.info(`/api/bodegas`);
-  logger.info(`/api/horarios`);
-  logger.info(`/api/mapas`);
-  logger.info(`/api/monserrath`);
-  logger.info(`/api/asistencia`);
-  logger.info(`/api/pedir-ausencia`);
-  logger.info(`/api/clientes`);
-  logger.info(`/api/notificaciones`);
-  logger.info(`/api/dashboard`);
-  logger.info(`/api/desconexiones`);
-  logger.info(`/api/usuarios`);
-  logger.info(`/api/sync`);
-  logger.info(`/api/recuperacion`);
-  logger.info(`/api/upload`);
   
-  // ✅ INICIAR CIERRE AUTOMÁTICO DESPUÉS DE QUE EL SERVIDOR ESTÉ LISTO
+  // 📋 Log de rutas disponibles
+  logger.info(`📋 RUTAS DISPONIBLES:`);
+  logger.info(`  /api/auth`);
+  logger.info(`  /api/transferencias`);
+  logger.info(`  /api/servicios`);
+  logger.info(`  /api/cajas`);
+  logger.info(`  /api/reportes`);
+  logger.info(`  /api/visitas`);
+  logger.info(`  /api/bodegas`);
+  logger.info(`  /api/horarios`);
+  logger.info(`  /api/mapas`);
+  logger.info(`  /api/monserrath`);
+  logger.info(`  /api/asistencia`);
+  logger.info(`  /api/pedir-ausencia`);
+  logger.info(`  /api/clientes`);
+  logger.info(`  /api/notificaciones`);
+  logger.info(`  /api/dashboard`);
+  logger.info(`  /api/desconexiones`);
+  logger.info(`  /api/usuarios`);
+  logger.info(`  /api/sync`);
+  logger.info(`  /api/solicitudes-recibo`);
+  logger.info(`  /api/recuperacion`);
+  logger.info(`  ✅ /api/tickets (NUEVO)`);
+  logger.info(`  /api/upload`);
+  
   iniciarCierreAutomatico();
 });
 
