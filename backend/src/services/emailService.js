@@ -392,6 +392,256 @@ class EmailService {
   }
 
   // ============================================
+  // ✅ NUEVA FUNCIÓN: GENERAR PLANTILLA PARA TICKETS
+  // ============================================
+  generarPlantillaTicket(ticket, estado, mensaje, tecnico = null) {
+    const estadoColors = {
+      'Nuevo': '#F39C12',
+      'Asignado': '#3498DB',
+      'TOMADO': '#8E44AD',
+      'En Progreso': '#9B59B6',
+      'Resuelto': '#2ECC71',
+      'Cerrado': '#95A5A6'
+    };
+
+    const color = estadoColors[estado] || '#e86000';
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actualización de Ticket RA2P</title>
+</head>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f5f0eb;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #e86000, #cc5500); padding: 25px; border-radius: 12px 12px 0 0; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">📡 RA2P</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Soporte Técnico</p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 25px;">
+            <h2 style="color: #1a237e; margin-top: 0;">🎫 Actualización de Ticket</h2>
+            
+            <div style="background: #faf8f5; padding: 15px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid ${color};">
+                <p style="margin: 0;"><strong>Ticket:</strong> <span style="color: #e86000;">${ticket.ticketId}</span></p>
+                <p style="margin: 5px 0;"><strong>Estado:</strong> <span style="color: ${color}; font-weight: bold;">${estado}</span></p>
+                <p style="margin: 5px 0;"><strong>Cliente:</strong> ${ticket.cliente?.nombre || 'No especificado'}</p>
+                ${tecnico ? `<p style="margin: 5px 0;"><strong>Técnico:</strong> ${tecnico}</p>` : ''}
+            </div>
+
+            <div style="background: #f0f8ff; padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                <p style="margin: 0;"><strong>📝 Mensaje:</strong></p>
+                <p style="margin: 5px 0 0 0; color: #333;">${mensaje}</p>
+            </div>
+
+            <div style="border-top: 1px solid #e0d8d0; padding-top: 15px; margin-top: 15px;">
+                <p style="margin: 0; font-size: 13px; color: #777;">
+                    <strong>📋 Detalles del servicio:</strong>
+                </p>
+                <p style="margin: 3px 0; font-size: 13px; color: #555;">
+                    <strong>Tipo:</strong> ${ticket.tipo || 'No especificado'}
+                </p>
+                <p style="margin: 3px 0; font-size: 13px; color: #555;">
+                    <strong>Zona:</strong> ${ticket.zona || 'No especificada'}
+                </p>
+                ${ticket.cliente?.direccion ? `
+                <p style="margin: 3px 0; font-size: 13px; color: #555;">
+                    <strong>Dirección:</strong> ${ticket.cliente.direccion}
+                </p>
+                ` : ''}
+                ${ticket.descripcion ? `
+                <p style="margin: 3px 0; font-size: 13px; color: #555;">
+                    <strong>Descripción:</strong> ${ticket.descripcion}
+                </p>
+                ` : ''}
+            </div>
+
+            ${ticket.imagenUrl ? `
+            <div style="margin-top: 15px; padding: 10px; background: #faf8f5; border-radius: 12px; text-align: center;">
+                <p style="margin: 0; font-size: 13px; color: #777;">📸 Adjunto: <a href="${ticket.imagenUrl}" target="_blank" style="color: #e86000;">Ver imagen</a></p>
+            </div>
+            ` : ''}
+
+            <div style="margin-top: 20px; padding: 15px; background: #faf8f5; border-radius: 12px; text-align: center;">
+                <a href="https://ra2preportecnico.site.je/pagina-estado" style="display: inline-block; background: #e86000; color: #ffffff; padding: 12px 30px; border-radius: 30px; text-decoration: none; font-weight: 600;">
+                    🔍 Consultar estado
+                </a>
+            </div>
+
+            <p style="margin-top: 20px; font-size: 12px; color: #999; text-align: center;">
+                Este es un mensaje automático de RA2P. Por favor no respondas a este correo.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f5ede5; padding: 15px; border-radius: 0 0 12px 12px; text-align: center;">
+            <p style="margin: 0; font-size: 12px; color: #777;">
+                © ${new Date().getFullYear()} RA2P - Todos los derechos reservados
+            </p>
+            <p style="margin: 3px 0 0 0; font-size: 11px; color: #999;">
+                Atención: Lun–Vie 8:00–17:00
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+    `;
+  }
+
+  // ============================================
+  // ✅ NUEVA FUNCIÓN: NOTIFICACIÓN DE TICKET CREADO
+  // ============================================
+  async enviarNotificacionTicketCreado(ticket) {
+    try {
+      const emailCliente = ticket.cliente?.email;
+      const nombreCliente = ticket.cliente?.nombre || 'Cliente';
+      const ticketId = ticket.ticketId;
+
+      // 1. Correo para el cliente
+      if (emailCliente) {
+        const htmlCliente = this.generarPlantillaTicket(
+          ticket,
+          'Nuevo',
+          `✅ Tu ticket ha sido creado exitosamente. Nuestro equipo técnico lo atenderá a la brevedad.\n\n📋 Número de ticket: ${ticketId}\n📌 Estado: Nuevo`
+        );
+
+        await this.enviarCorreo({
+          to: emailCliente,
+          subject: `🎫 RA2P - Ticket Creado: ${ticketId}`,
+          html: htmlCliente
+        });
+        console.log(`📧 Correo enviado al cliente: ${emailCliente}`);
+      }
+
+      // 2. Correo para el administrador
+      const htmlAdmin = this.generarPlantillaTicket(
+        ticket,
+        'Nuevo',
+        `🆕 Nuevo ticket creado por ${nombreCliente}\n\n📋 Ticket: ${ticketId}\n👤 Cliente: ${nombreCliente}\n📱 Teléfono: ${ticket.cliente?.telefono || 'No disponible'}\n📧 Email: ${emailCliente || 'No disponible'}\n📍 Dirección: ${ticket.cliente?.direccion || 'No disponible'}\n🔧 Tipo: ${ticket.tipo}\n📌 Zona: ${ticket.zona || 'No especificada'}`
+      );
+
+      await this.enviarCorreo({
+        to: process.env.ADMIN_EMAIL || 'alejorodrigo7@gmail.com',
+        subject: `🆕 Nuevo Ticket: ${ticketId} - ${nombreCliente}`,
+        html: htmlAdmin
+      });
+      console.log(`📧 Correo enviado al administrador`);
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error enviando notificación de ticket creado:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ============================================
+  // ✅ NUEVA FUNCIÓN: NOTIFICACIÓN DE TICKET TOMADO
+  // ============================================
+  async enviarNotificacionTicketTomado(ticket, tecnicoNombre) {
+    try {
+      const emailCliente = ticket.cliente?.email;
+      const nombreCliente = ticket.cliente?.nombre || 'Cliente';
+
+      // 1. Correo para el cliente
+      if (emailCliente) {
+        const htmlCliente = this.generarPlantillaTicket(
+          ticket,
+          'TOMADO',
+          `👨‍🔧 Tu ticket ${ticket.ticketId} ha sido tomado por el técnico ${tecnicoNombre}.\n\nEl técnico se pondrá en contacto contigo para coordinar la atención.\n\n📋 Estado: TOMADO\n👤 Técnico: ${tecnicoNombre}`
+        );
+
+        await this.enviarCorreo({
+          to: emailCliente,
+          subject: `👨‍🔧 RA2P - Ticket Tomado: ${ticket.ticketId}`,
+          html: htmlCliente
+        });
+        console.log(`📧 Correo enviado al cliente: ${emailCliente}`);
+      }
+
+      // 2. Correo para el administrador
+      const htmlAdmin = this.generarPlantillaTicket(
+        ticket,
+        'TOMADO',
+        `👨‍🔧 Ticket ${ticket.ticketId} ha sido tomado\n\n👤 Técnico asignado: ${tecnicoNombre}\n👤 Cliente: ${nombreCliente}\n📱 Teléfono: ${ticket.cliente?.telefono || 'No disponible'}`
+      );
+
+      await this.enviarCorreo({
+        to: process.env.ADMIN_EMAIL || 'alejorodrigo7@gmail.com',
+        subject: `👨‍🔧 Ticket Tomado: ${ticket.ticketId} - ${tecnicoNombre}`,
+        html: htmlAdmin
+      });
+      console.log(`📧 Correo enviado al administrador`);
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error enviando notificación de ticket tomado:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ============================================
+  // ✅ NUEVA FUNCIÓN: NOTIFICACIÓN DE CAMBIO DE ESTADO DE TICKET
+  // ============================================
+  async enviarNotificacionTicketEstado(ticket, estadoAnterior, estadoNuevo, observaciones, usuarioNombre) {
+    try {
+      const emailCliente = ticket.cliente?.email;
+      const nombreCliente = ticket.cliente?.nombre || 'Cliente';
+      const tecnicoNombre = ticket.tecnicoNombre || usuarioNombre || 'Sistema';
+
+      // Mensajes según el estado
+      const mensajes = {
+        'En Progreso': `🔄 El técnico ${tecnicoNombre} ha iniciado la atención de tu ticket ${ticket.ticketId}.\n\n📌 Estado: En Progreso\n👤 Técnico: ${tecnicoNombre}\n📝 Observación: ${observaciones || 'Sin observaciones'}`,
+        'Resuelto': `✅ Tu ticket ${ticket.ticketId} ha sido resuelto por ${tecnicoNombre}.\n\n📌 Estado: Resuelto\n🔧 Solución: ${ticket.solucion || 'Servicio completado'}\n📝 Observación: ${observaciones || 'Sin observaciones'}`,
+        'Cerrado': `🔒 Tu ticket ${ticket.ticketId} ha sido cerrado.\n\n📌 Estado: Cerrado\n📝 Observación: ${observaciones || 'Ticket cerrado'}`,
+        'TOMADO': `👨‍🔧 El técnico ${tecnicoNombre} ha tomado tu ticket ${ticket.ticketId}.\n\n📌 Estado: TOMADO\n👤 Técnico: ${tecnicoNombre}`
+      };
+
+      const mensaje = mensajes[estadoNuevo] || `📌 Estado cambiado a: ${estadoNuevo}\n📝 Observación: ${observaciones || 'Sin observaciones'}`;
+
+      // 1. Correo para el cliente (si tiene email)
+      if (emailCliente) {
+        const htmlCliente = this.generarPlantillaTicket(
+          ticket,
+          estadoNuevo,
+          mensaje
+        );
+
+        await this.enviarCorreo({
+          to: emailCliente,
+          subject: `📌 RA2P - Ticket ${ticket.ticketId} - ${estadoNuevo}`,
+          html: htmlCliente
+        });
+        console.log(`📧 Correo enviado al cliente: ${emailCliente}`);
+      }
+
+      // 2. Correo para el administrador (excepto para estado Nuevo)
+      if (estadoNuevo !== 'Nuevo') {
+        const htmlAdmin = this.generarPlantillaTicket(
+          ticket,
+          estadoNuevo,
+          `📌 Ticket ${ticket.ticketId} - Estado: ${estadoNuevo}\n\n👤 Cliente: ${nombreCliente}\n👤 Técnico: ${tecnicoNombre}\n📝 Observación: ${observaciones || 'Sin observaciones'}`
+        );
+
+        await this.enviarCorreo({
+          to: process.env.ADMIN_EMAIL || 'alejorodrigo7@gmail.com',
+          subject: `📌 Ticket ${ticket.ticketId} - ${estadoNuevo}`,
+          html: htmlAdmin
+        });
+        console.log(`📧 Correo enviado al administrador`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error enviando notificación de cambio de estado:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ============================================
   // FUNCIONES EXISTENTES: Desconexión/Reconexión Ejecutada
   // ============================================
   async enviarNotificacionDesconexionEjecutada(desconexion, usuarioEjecutor, usuarioSolicitante) {
