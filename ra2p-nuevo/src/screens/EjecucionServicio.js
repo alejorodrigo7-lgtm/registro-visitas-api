@@ -76,6 +76,21 @@ const EjecucionServicio = ({ navigation }) => {
   const isJefe = user?.rol === 'Jefe';
 
   // ============================================
+  // 🎨 COLORES POR ESTADO PARA TICKETS
+  // ============================================
+  const getEstadoColor = (estado) => {
+    const colors = {
+      'Nuevo': '#F39C12',
+      'Asignado': '#3498DB',
+      'TOMADO': '#8E44AD',
+      'En Progreso': '#9B59B6',
+      'Resuelto': '#2ECC71',
+      'Cerrado': '#95A5A6'
+    };
+    return colors[estado] || '#95A5A6';
+  };
+
+  // ============================================
   // 📱 ENVIAR NOTIFICACIONES PUSH
   // ============================================
   const enviarNotificaciones = async (tipo, servicio, usuarioActual) => {
@@ -722,7 +737,7 @@ const EjecucionServicio = ({ navigation }) => {
       </ScrollView>
 
       {/* ============================================
-          MODAL DE EJECUCIÓN DE SERVICIO
+          MODAL DE EJECUCIÓN DE SERVICIO (RECUPERACIÓN)
           ============================================ */}
       <Modal
         animationType="slide"
@@ -851,7 +866,7 @@ const EjecucionServicio = ({ navigation }) => {
       </Modal>
 
       {/* ============================================
-          MODAL DE TICKETS - ✅ NUEVO COMPLETO
+          MODAL DE TICKETS WEB - ✅ NUEVO COMPLETO
           ============================================ */}
       <Modal
         visible={modalTicketVisible}
@@ -870,7 +885,7 @@ const EjecucionServicio = ({ navigation }) => {
 
             {ticketSeleccionado && (
               <>
-                {/* ✅ NUEVO: INFORMACIÓN COMPLETA DEL TICKET */}
+                {/* ✅ INFORMACIÓN COMPLETA DEL TICKET */}
                 <View style={styles.ticketDetalle}>
                   <Text style={styles.ticketIdGrande}>{ticketSeleccionado._ticketId || ticketSeleccionado.ticketId}</Text>
                   
@@ -895,7 +910,7 @@ const EjecucionServicio = ({ navigation }) => {
                     <Text style={styles.ticketDescripcion}>{ticketSeleccionado._descripcionTicket || ticketSeleccionado.descripcion || 'Sin descripción'}</Text>
                   </View>
 
-                  {/* ✅ NUEVO: IMAGEN DEL TICKET */}
+                  {/* ✅ IMAGEN DEL TICKET */}
                   {ticketSeleccionado._imagenUrl && (
                     <View style={styles.ticketSection}>
                       <Text style={styles.ticketSectionTitle}>📸 Imagen del Servicio</Text>
@@ -919,47 +934,67 @@ const EjecucionServicio = ({ navigation }) => {
                     </View>
                   )}
 
-                  {/* ✅ NUEVO: BOTONES DE ACCIÓN SEGÚN ESTADO */}
-                  <View style={styles.ticketButtons}>
-                    {ticketSeleccionado.estado === 'Asignado' && (
-                      <TouchableOpacity 
-                        style={[styles.ticketBtn, styles.btnTomar]}
-                        onPress={() => actualizarTicketApp('TOMADO')}
-                      >
-                        <Ionicons name="hand" size={20} color="#FFFFFF" />
-                        <Text style={styles.ticketBtnText}>Tomar Servicio</Text>
-                      </TouchableOpacity>
-                    )}
+                  {/* ✅ BOTONES DE ACCIÓN PARA TICKETS - SIEMPRE VISIBLES */}
+                  <View style={styles.ticketButtonsContainer}>
+                    <Text style={styles.ticketButtonsTitle}>⚡ Acciones del Ticket</Text>
                     
-                    {(ticketSeleccionado.estado === 'TOMADO' || ticketSeleccionado.estado === 'Asignado') && (
-                      <TouchableOpacity 
-                        style={[styles.ticketBtn, styles.btnIniciar]}
-                        onPress={() => actualizarTicketApp('En Progreso')}
-                      >
-                        <Ionicons name="time" size={20} color="#FFFFFF" />
-                        <Text style={styles.ticketBtnText}>En Progreso</Text>
-                      </TouchableOpacity>
-                    )}
+                    {/* Mostrar estado actual */}
+                    <View style={styles.estadoActualContainer}>
+                      <Text style={styles.estadoActualLabel}>📌 Estado actual:</Text>
+                      <View style={[styles.estadoActualBadge, { backgroundColor: getEstadoColor(ticketSeleccionado.estado || ticketSeleccionado._estado) }]}>
+                        <Text style={styles.estadoActualBadgeText}>
+                          {ticketSeleccionado.estado || ticketSeleccionado._estado || 'Nuevo'}
+                        </Text>
+                      </View>
+                    </View>
 
-                    {(ticketSeleccionado.estado === 'En Progreso' || ticketSeleccionado.estado === 'TOMADO') && (
-                      <TouchableOpacity 
-                        style={[styles.ticketBtn, styles.btnResolver]}
-                        onPress={() => actualizarTicketApp('Resuelto')}
-                      >
-                        <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                        <Text style={styles.ticketBtnText}>Resolver</Text>
-                      </TouchableOpacity>
-                    )}
+                    {/* Botón 1: Tomar Servicio */}
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnTomar]}
+                      onPress={() => {
+                        console.log('🔘 Tomar Servicio - Estado:', ticketSeleccionado.estado);
+                        actualizarTicketApp('TOMADO');
+                      }}
+                    >
+                      <Ionicons name="hand" size={20} color="#FFFFFF" />
+                      <Text style={styles.ticketBtnText}>📌 Tomar Servicio</Text>
+                    </TouchableOpacity>
 
-                    {ticketSeleccionado.estado === 'Resuelto' && (
-                      <TouchableOpacity 
-                        style={[styles.ticketBtn, styles.btnCerrar]}
-                        onPress={() => actualizarTicketApp('Cerrado')}
-                      >
-                        <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
-                        <Text style={styles.ticketBtnText}>Cerrar</Text>
-                      </TouchableOpacity>
-                    )}
+                    {/* Botón 2: En Progreso */}
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnIniciar]}
+                      onPress={() => {
+                        console.log('🔘 En Progreso - Estado:', ticketSeleccionado.estado);
+                        actualizarTicketApp('En Progreso');
+                      }}
+                    >
+                      <Ionicons name="time" size={20} color="#FFFFFF" />
+                      <Text style={styles.ticketBtnText}>⏳ En Progreso</Text>
+                    </TouchableOpacity>
+
+                    {/* Botón 3: Resolver */}
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnResolver]}
+                      onPress={() => {
+                        console.log('🔘 Resolver - Estado:', ticketSeleccionado.estado);
+                        actualizarTicketApp('Resuelto');
+                      }}
+                    >
+                      <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                      <Text style={styles.ticketBtnText}>✅ Resolver</Text>
+                    </TouchableOpacity>
+
+                    {/* Botón 4: Cerrar */}
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnCerrar]}
+                      onPress={() => {
+                        console.log('🔘 Cerrar - Estado:', ticketSeleccionado.estado);
+                        actualizarTicketApp('Cerrado');
+                      }}
+                    >
+                      <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
+                      <Text style={styles.ticketBtnText}>🔒 Cerrar</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -985,7 +1020,7 @@ const EjecucionServicio = ({ navigation }) => {
                   </>
                 )}
 
-                {/* ✅ NUEVO: HISTORIAL DEL TICKET */}
+                {/* ✅ HISTORIAL DEL TICKET */}
                 {ticketSeleccionado._historial && ticketSeleccionado._historial.length > 0 && (
                   <View style={styles.historialContainer}>
                     <Text style={styles.historialTitle}>📋 Historial</Text>
@@ -1040,7 +1075,7 @@ const EjecucionServicio = ({ navigation }) => {
 };
 
 // ============================================
-// 🎨 ESTILOS - ✅ NUEVOS ESTILOS AGREGADOS
+// 🎨 ESTILOS
 // ============================================
 const styles = StyleSheet.create({
   container: {
@@ -1373,14 +1408,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
   },
   // ✅ NUEVO: Botones de acción para tickets
-  ticketButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  ticketButtonsContainer: {
     marginTop: 12,
-    gap: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E8E8E8',
+  },
+  ticketButtonsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 10,
+  },
+  estadoActualContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    padding: 10,
+    backgroundColor: '#F0ECFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#6C5CE7',
+  },
+  estadoActualLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2D3436',
+    marginRight: 8,
+  },
+  estadoActualBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  estadoActualBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   ticketBtn: {
-    flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
@@ -1388,7 +1455,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    minWidth: 120,
+    marginBottom: 8,
+    width: '100%',
   },
   btnTomar: { backgroundColor: '#8E44AD' },
   btnIniciar: { backgroundColor: '#F39C12' },
