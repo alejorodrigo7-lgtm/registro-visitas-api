@@ -235,6 +235,16 @@ const EjecucionServicio = ({ navigation }) => {
         imagen: null,
         observaciones: t.observaciones || t.descripcion || '',
         estado: t.estado || 'Asignado',
+        // ✅ NUEVO: Campos para mostrar en el modal de ticket
+        _clienteTelefono: t.cliente?.telefono || 'Sin teléfono',
+        _clienteEmail: t.cliente?.email || 'Sin email',
+        _clienteCedula: t.cliente?.cedula || 'Sin cédula',
+        _clienteDireccion: t.cliente?.direccion || t.zona || 'Sin dirección',
+        _tipoServicio: t.tipo || 'No especificado',
+        _zonaTicket: t.zona || 'No especificada',
+        _descripcionTicket: t.descripcion || 'Sin descripción',
+        _imagenUrl: t.imagenUrl || null,
+        _historial: t.historial || [],
       }));
 
       // ✅ 4. Combinar y ordenar por fecha (más reciente primero)
@@ -529,7 +539,7 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
-  // 🎫 ACTUALIZAR TICKET DESDE APP
+  // 🎫 ACTUALIZAR TICKET DESDE APP - ✅ NUEVO COMPLETO
   // ============================================
   const actualizarTicketApp = async (estado) => {
     if (!ticketSeleccionado) return;
@@ -579,7 +589,7 @@ const EjecucionServicio = ({ navigation }) => {
         style={[styles.servicioCard, esTicket && styles.ticketCardStyle]}
         onPress={() => {
           if (esTicket) {
-            // Abrir modal de ticket
+            // ✅ Abrir modal de ticket con todos los datos
             setTicketSeleccionado(item);
             setObservacionTicket('');
             setSolucionTicket('');
@@ -631,6 +641,14 @@ const EjecucionServicio = ({ navigation }) => {
             <Text style={styles.observacionesText} numberOfLines={2}>
               {item._observaciones || item.observaciones}
             </Text>
+          </View>
+        )}
+
+        {/* ✅ NUEVO: Indicador de imagen en tarjeta para tickets */}
+        {esTicket && item._imagenUrl && (
+          <View style={styles.cardImagePreview}>
+            <Ionicons name="image" size={16} color="#6C5CE7" />
+            <Text style={styles.cardImageText}>📸 Tiene imagen adjunta</Text>
           </View>
         )}
 
@@ -833,7 +851,7 @@ const EjecucionServicio = ({ navigation }) => {
       </Modal>
 
       {/* ============================================
-          MODAL DE TICKETS
+          MODAL DE TICKETS - ✅ NUEVO COMPLETO
           ============================================ */}
       <Modal
         visible={modalTicketVisible}
@@ -842,7 +860,7 @@ const EjecucionServicio = ({ navigation }) => {
         onRequestClose={() => setModalTicketVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <ScrollView style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>🎫 Gestión de Ticket</Text>
               <TouchableOpacity onPress={() => setModalTicketVisible(false)}>
@@ -852,15 +870,97 @@ const EjecucionServicio = ({ navigation }) => {
 
             {ticketSeleccionado && (
               <>
+                {/* ✅ NUEVO: INFORMACIÓN COMPLETA DEL TICKET */}
                 <View style={styles.ticketDetalle}>
                   <Text style={styles.ticketIdGrande}>{ticketSeleccionado._ticketId || ticketSeleccionado.ticketId}</Text>
-                  <Text style={styles.ticketClienteGrande}>{ticketSeleccionado._clienteNombre || ticketSeleccionado.cliente?.nombre}</Text>
-                  <Text style={styles.ticketInfoGrande}>📌 {ticketSeleccionado._nombreServicio || ticketSeleccionado.tipo}</Text>
-                  <Text style={styles.ticketInfoGrande}>📍 {ticketSeleccionado._direccion || ticketSeleccionado.cliente?.direccion || ticketSeleccionado.zona}</Text>
-                  <Text style={styles.ticketInfoGrande}>📱 {ticketSeleccionado.cliente?.telefono || 'Sin teléfono'}</Text>
-                  {ticketSeleccionado.descripcion && (
-                    <Text style={styles.ticketDescripcion}>📝 {ticketSeleccionado.descripcion}</Text>
+                  
+                  <View style={styles.ticketSection}>
+                    <Text style={styles.ticketSectionTitle}>👤 Datos del Cliente</Text>
+                    <Text style={styles.ticketInfoGrande}>Nombre: {ticketSeleccionado._clienteNombre || ticketSeleccionado.cliente?.nombre}</Text>
+                    <Text style={styles.ticketInfoGrande}>📱 {ticketSeleccionado._clienteTelefono || ticketSeleccionado.cliente?.telefono || 'Sin teléfono'}</Text>
+                    {ticketSeleccionado._clienteEmail && (
+                      <Text style={styles.ticketInfoGrande}>📧 {ticketSeleccionado._clienteEmail}</Text>
+                    )}
+                    {ticketSeleccionado._clienteCedula && ticketSeleccionado._clienteCedula !== 'Sin cédula' && (
+                      <Text style={styles.ticketInfoGrande}>🪪 Cédula: {ticketSeleccionado._clienteCedula}</Text>
+                    )}
+                    <Text style={styles.ticketInfoGrande}>📍 {ticketSeleccionado._clienteDireccion || ticketSeleccionado.cliente?.direccion || ticketSeleccionado.zona}</Text>
+                  </View>
+
+                  <View style={styles.ticketSection}>
+                    <Text style={styles.ticketSectionTitle}>📋 Datos del Servicio</Text>
+                    <Text style={styles.ticketInfoGrande}>🔧 Tipo: {ticketSeleccionado._tipoServicio || ticketSeleccionado.tipo}</Text>
+                    <Text style={styles.ticketInfoGrande}>📍 Zona: {ticketSeleccionado._zonaTicket || ticketSeleccionado.zona || 'No especificada'}</Text>
+                    <Text style={styles.ticketInfoGrande}>📝 Descripción:</Text>
+                    <Text style={styles.ticketDescripcion}>{ticketSeleccionado._descripcionTicket || ticketSeleccionado.descripcion || 'Sin descripción'}</Text>
+                  </View>
+
+                  {/* ✅ NUEVO: IMAGEN DEL TICKET */}
+                  {ticketSeleccionado._imagenUrl && (
+                    <View style={styles.ticketSection}>
+                      <Text style={styles.ticketSectionTitle}>📸 Imagen del Servicio</Text>
+                      <TouchableOpacity
+                        style={styles.ticketImagenContainer}
+                        activeOpacity={0.9}
+                        onPress={() => abrirImagenAmpliada(ticketSeleccionado._imagenUrl)}
+                      >
+                        <Image
+                          source={{ uri: ticketSeleccionado._imagenUrl }}
+                          style={styles.ticketImagen}
+                          resizeMode="contain"
+                          onError={(e) => console.log('Error cargando imagen:', e.nativeEvent?.error)}
+                          onLoad={() => console.log('✅ Imagen cargada correctamente')}
+                        />
+                        <View style={styles.imagenOverlay}>
+                          <Ionicons name="expand-outline" size={24} color="#FFFFFF" />
+                          <Text style={styles.imagenOverlayText}>Tocar para ampliar</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
                   )}
+
+                  {/* ✅ NUEVO: BOTONES DE ACCIÓN SEGÚN ESTADO */}
+                  <View style={styles.ticketButtons}>
+                    {ticketSeleccionado.estado === 'Asignado' && (
+                      <TouchableOpacity 
+                        style={[styles.ticketBtn, styles.btnTomar]}
+                        onPress={() => actualizarTicketApp('TOMADO')}
+                      >
+                        <Ionicons name="hand" size={20} color="#FFFFFF" />
+                        <Text style={styles.ticketBtnText}>Tomar Servicio</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    {(ticketSeleccionado.estado === 'TOMADO' || ticketSeleccionado.estado === 'Asignado') && (
+                      <TouchableOpacity 
+                        style={[styles.ticketBtn, styles.btnIniciar]}
+                        onPress={() => actualizarTicketApp('En Progreso')}
+                      >
+                        <Ionicons name="time" size={20} color="#FFFFFF" />
+                        <Text style={styles.ticketBtnText}>En Progreso</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {(ticketSeleccionado.estado === 'En Progreso' || ticketSeleccionado.estado === 'TOMADO') && (
+                      <TouchableOpacity 
+                        style={[styles.ticketBtn, styles.btnResolver]}
+                        onPress={() => actualizarTicketApp('Resuelto')}
+                      >
+                        <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                        <Text style={styles.ticketBtnText}>Resolver</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {ticketSeleccionado.estado === 'Resuelto' && (
+                      <TouchableOpacity 
+                        style={[styles.ticketBtn, styles.btnCerrar]}
+                        onPress={() => actualizarTicketApp('Cerrado')}
+                      >
+                        <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
+                        <Text style={styles.ticketBtnText}>Cerrar</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
 
                 <Text style={styles.modalLabel}>📝 Observaciones</Text>
@@ -885,43 +985,15 @@ const EjecucionServicio = ({ navigation }) => {
                   </>
                 )}
 
-                <View style={styles.ticketButtons}>
-                  {ticketSeleccionado.estado === 'Asignado' && (
-                    <TouchableOpacity 
-                      style={[styles.ticketBtn, styles.btnIniciar]}
-                      onPress={() => actualizarTicketApp('En Progreso')}
-                    >
-                      <Text style={styles.ticketBtnText}>🚀 Iniciar</Text>
-                    </TouchableOpacity>
-                  )}
-                  
-                  {ticketSeleccionado.estado === 'En Progreso' && (
-                    <TouchableOpacity 
-                      style={[styles.ticketBtn, styles.btnResolver]}
-                      onPress={() => actualizarTicketApp('Resuelto')}
-                    >
-                      <Text style={styles.ticketBtnText}>✅ Resolver</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {ticketSeleccionado.estado === 'Resuelto' && (
-                    <TouchableOpacity 
-                      style={[styles.ticketBtn, styles.btnCerrar]}
-                      onPress={() => actualizarTicketApp('Cerrado')}
-                    >
-                      <Text style={styles.ticketBtnText}>🔒 Cerrar</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {ticketSeleccionado.historial?.length > 0 && (
+                {/* ✅ NUEVO: HISTORIAL DEL TICKET */}
+                {ticketSeleccionado._historial && ticketSeleccionado._historial.length > 0 && (
                   <View style={styles.historialContainer}>
                     <Text style={styles.historialTitle}>📋 Historial</Text>
-                    {ticketSeleccionado.historial.slice(-5).reverse().map((h, i) => (
+                    {ticketSeleccionado._historial.slice(-5).reverse().map((h, i) => (
                       <View key={i} style={styles.historialItem}>
                         <Text style={styles.historialEstado}>{h.estado}</Text>
                         <Text style={styles.historialFecha}>
-                          {new Date(h.fecha).toLocaleDateString('es-EC')}
+                          {h.fecha ? new Date(h.fecha).toLocaleDateString('es-EC') : 'Fecha no disponible'}
                         </Text>
                         <Text style={styles.historialUsuario}>{h.usuario || 'Sistema'}</Text>
                       </View>
@@ -930,7 +1002,7 @@ const EjecucionServicio = ({ navigation }) => {
                 )}
               </>
             )}
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -968,7 +1040,7 @@ const EjecucionServicio = ({ navigation }) => {
 };
 
 // ============================================
-// 🎨 ESTILOS
+// 🎨 ESTILOS - ✅ NUEVOS ESTILOS AGREGADOS
 // ============================================
 const styles = StyleSheet.create({
   container: {
@@ -1118,6 +1190,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#2D3436',
   },
+  // ✅ NUEVO: Indicador de imagen en tarjeta para tickets
+  cardImagePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    backgroundColor: '#EDE7F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  cardImageText: {
+    fontSize: 12,
+    color: '#6C5CE7',
+    marginLeft: 4,
+  },
   // ✅ IMAGEN
   imagenContainer: {
     marginVertical: 8,
@@ -1225,7 +1313,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  // ✅ TICKET MODAL
+  // ✅ TICKET MODAL - NUEVOS ESTILOS
   ticketDetalle: {
     backgroundColor: '#F8F9FA',
     padding: 12,
@@ -1236,6 +1324,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#6C5CE7',
+    marginBottom: 8,
   },
   ticketClienteGrande: {
     fontSize: 16,
@@ -1248,31 +1337,69 @@ const styles = StyleSheet.create({
     color: '#636E72',
     marginTop: 2,
   },
+  ticketSection: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E8E8E8',
+  },
+  ticketSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 4,
+  },
   ticketDescripcion: {
     fontSize: 14,
     color: '#2D3436',
-    marginTop: 8,
+    marginTop: 4,
     fontStyle: 'italic',
+    paddingLeft: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#6C5CE7',
   },
+  // ✅ NUEVO: Imagen en ticket modal
+  ticketImagenContainer: {
+    marginTop: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F0F0F0',
+    position: 'relative',
+  },
+  ticketImagen: {
+    width: '100%',
+    height: 220,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+  },
+  // ✅ NUEVO: Botones de acción para tickets
   ticketButtons: {
     flexDirection: 'row',
-    marginTop: 16,
+    flexWrap: 'wrap',
+    marginTop: 12,
     gap: 8,
   },
   ticketBtn: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    minWidth: 120,
   },
-  btnIniciar: { backgroundColor: '#3498DB' },
+  btnTomar: { backgroundColor: '#8E44AD' },
+  btnIniciar: { backgroundColor: '#F39C12' },
   btnResolver: { backgroundColor: '#2ECC71' },
   btnCerrar: { backgroundColor: '#95A5A6' },
   ticketBtnText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },
+  // ✅ NUEVO: Historial
   historialContainer: {
     marginTop: 16,
     paddingTop: 12,

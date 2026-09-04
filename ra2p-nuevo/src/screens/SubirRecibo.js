@@ -108,10 +108,24 @@ const SubirRecibo = ({ navigation }) => {
         }
 
         console.log('✅ PDF seleccionado (web):', result.name);
-        console.log('📁 Base64 length:', result.base64?.length || 0);
+        console.log('📁 Tamaño:', result.size, 'bytes');
+        console.log('📁 Base64 length original:', result.base64?.length || 0);
+        console.log('📁 Base64 preview original:', result.base64?.substring(0, 50) || 'vacío');
 
-        // Para web, el base64 ya viene en el resultado
-        agregarArchivo(result.uri, result.base64, result.name, result.mimeType || 'application/pdf');
+        // ✅ Verificar que el Base64 sea válido
+        if (!result.base64 || result.base64.length < 100) {
+          Alert.alert('Error', 'El archivo no se pudo leer correctamente. Intenta de nuevo.');
+          return;
+        }
+
+        // ✅ Para web, el base64 ya viene en el resultado
+        agregarArchivo(
+          result.uri, 
+          result.base64, // Pasamos el base64 con prefijo, se limpiará en agregarArchivo
+          result.name, 
+          result.mimeType || 'application/pdf',
+          result.size
+        );
 
       } else {
         // ✅ Móvil: usar DocumentPicker
@@ -130,6 +144,7 @@ const SubirRecibo = ({ navigation }) => {
         if (pickerResult.assets && pickerResult.assets.length > 0) {
           const file = pickerResult.assets[0];
           console.log('✅ PDF seleccionado (móvil):', file.name);
+          console.log('📁 Tamaño:', file.size, 'bytes');
           
           // Leer el archivo y convertir a Base64
           const fileContent = await FileSystem.readAsStringAsync(file.uri, {
@@ -137,8 +152,15 @@ const SubirRecibo = ({ navigation }) => {
           });
           
           console.log('✅ Base64 generado. Tamaño:', fileContent.length);
+          console.log('✅ Base64 preview:', fileContent.substring(0, 30) || 'vacío');
           
-          agregarArchivo(file.uri, fileContent, file.name, 'application/pdf');
+          agregarArchivo(
+            file.uri, 
+            fileContent, // En móvil ya viene sin prefijo
+            file.name, 
+            'application/pdf',
+            file.size
+          );
         }
       }
 
@@ -148,17 +170,33 @@ const SubirRecibo = ({ navigation }) => {
     }
   };
 
-  const agregarArchivo = (uri, base64, nombre, mimeType) => {
+  // ✅ FUNCIÓN CORREGIDA - Limpia el Base64 si tiene prefijo
+  const agregarArchivo = (uri, base64, nombre, mimeType, size = 0) => {
     if (archivos.length >= 3) {
       Alert.alert('Límite alcanzado', 'Máximo 3 archivos por solicitud');
       return;
     }
 
-    setArchivos([...archivos, { uri, nombre, mimeType }]);
-    setArchivosBase64([...archivosBase64, base64]);
+    // ✅ LIMPIAR Base64 - QUITAR EL PREFIJO si existe (solo para web)
+    let cleanBase64 = base64;
+    if (cleanBase64 && cleanBase64.includes(',')) {
+      cleanBase64 = cleanBase64.split(',')[1];
+      console.log('🧹 Base64 limpiado al agregar. Length:', cleanBase64.length);
+    }
+
+    // ✅ Verificar que el Base64 no esté vacío
+    if (!cleanBase64 || cleanBase64.length < 50) {
+      Alert.alert('Error', 'El archivo no se pudo leer correctamente. Intenta de nuevo.');
+      return;
+    }
+
+    setArchivos([...archivos, { uri, nombre, mimeType, size }]);
+    setArchivosBase64([...archivosBase64, cleanBase64]); // ✅ Base64 limpio
     setArchivosNombre([...archivosNombre, nombre]);
     
     console.log(`📎 Archivo PDF agregado: ${nombre} (${archivos.length + 1}/3)`);
+    console.log(`📎 Base64 length limpio: ${cleanBase64.length}`);
+    console.log(`📎 Base64 preview: ${cleanBase64.substring(0, 30)}...`);
   };
 
   const eliminarArchivo = (index) => {
@@ -179,9 +217,17 @@ const SubirRecibo = ({ navigation }) => {
   // ENVIAR RECIBO CON MÚLTIPLES PDF
   // ============================================
 
+  // ✅ FUNCIÓN CORREGIDA - Limpieza final de Base64
   const handleEnviar = async () => {
     if (archivos.length === 0) {
       Alert.alert('Error', 'Selecciona al menos un archivo PDF');
+      return;
+    }
+
+    // ✅ Verificar que los Base64 no estén vacíos
+    const base64Validos = archivosBase64.filter(b64 => b64 && b64.length > 50);
+    if (base64Validos.length === 0) {
+      Alert.alert('Error', 'Los archivos no se cargaron correctamente. Intenta de nuevo.');
       return;
     }
 
@@ -194,26 +240,65 @@ const SubirRecibo = ({ navigation }) => {
       console.log(`📤 Archivos PDF: ${archivos.length}`);
       console.log('📱 Plataforma:', Platform.OS);
 
-      // ✅ Enviar múltiples archivos
+      // ✅ Los Base64 ya deberían estar limpios de agregarArchivo
+      // Pero por seguridad, hacemos una limpieza final
+      const archivosBase64Limpios = archivosBase64.map(b64 => {
+        if (b64 && b64.includes(',')) {
+          const clean = b64.split(',')[1];
+          console.log('🧹 Limpieza final. Length antes:', b64.length, 'Después:', clean.length);
+          return clean;
+        }
+        return b64;
+      });
+
+      // ✅ Mostrar información de cada archivo
+      archivos.forEach((archivo, index) => {
+        console.log(`📎 Archivo ${index + 1}:`, {
+          nombre: archivo.nombre,
+          mimeType: archivo.mimeType,
+          base64Length: archivosBase64Limpios[index]?.length || 0,
+          base64Preview: archivosBase64Limpios[index]?.substring(0, 30) || 'vacío'
+        });
+      });
+
+      // ✅ Enviar con Base64 LIMPIO
       const payload = {
-        archivosNombre: archivosNombre,
-        archivosBase64: archivosBase64,
+        archivosNombre: archivos.map(a => a.nombre),
+        archivosBase64: archivosBase64Limpios, // ✅ Base64 limpio
         archivosPublicId: archivos.map((_, index) => 
           `recibo_${selectedSolicitud._id}_${Date.now()}_${index}`
         ),
       };
 
       console.log('📤 Payload keys:', Object.keys(payload));
-      console.log(`📤 archivosBase64: ${archivosBase64.length} archivos`);
-      console.log('📤 archivosBase64 length (primeros 50 chars):', 
-        archivosBase64[0]?.substring(0, 50) || 'vacío');
+      console.log(`📤 archivosBase64: ${payload.archivosBase64.length} archivos`);
+      console.log('📤 Primer Base64 LIMPIO (primeros 30 chars):', 
+        payload.archivosBase64[0]?.substring(0, 30) || 'vacío');
+
+      // ✅ Verificar que el payload no sea demasiado grande
+      const payloadSize = JSON.stringify(payload).length;
+      console.log(`📤 Tamaño del payload: ${(payloadSize / 1024 / 1024).toFixed(2)} MB`);
+      
+      if (payloadSize > 10 * 1024 * 1024) { // 10MB
+        Alert.alert('Advertencia', 'El archivo es muy grande. Intenta con un PDF más pequeño.');
+        setUploading(false);
+        return;
+      }
 
       const response = await api.put(
         `/solicitudes-recibo/${selectedSolicitud._id}/aprobar`,
-        payload
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          timeout: 60000, // 60 segundos para archivos grandes
+        }
       );
 
       console.log('📡 Respuesta status:', response.status);
+      console.log('📡 Respuesta data:', response.data);
 
       if (response.data.success) {
         Alert.alert(
@@ -237,12 +322,17 @@ const SubirRecibo = ({ navigation }) => {
       }
     } catch (error) {
       console.error('❌ Error en la petición:', error);
+      console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
+      
       if (error.response) {
         console.error('📡 Error respuesta status:', error.response.status);
-        Alert.alert('Error', error.response.data?.message || 'Error al procesar la solicitud');
+        console.error('📡 Error respuesta data:', error.response.data);
+        Alert.alert('Error', error.response.data?.message || `Error ${error.response.status} al procesar la solicitud`);
       } else if (error.request) {
-        Alert.alert('Error', 'No se pudo conectar con el servidor');
+        console.error('📡 No hubo respuesta del servidor');
+        Alert.alert('Error', 'No se pudo conectar con el servidor. Verifica tu conexión.');
       } else {
+        console.error('📡 Error:', error.message);
         Alert.alert('Error', error.message || 'Error al procesar la solicitud');
       }
     } finally {
