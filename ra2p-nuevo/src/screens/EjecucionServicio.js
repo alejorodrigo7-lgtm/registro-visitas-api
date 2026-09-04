@@ -44,6 +44,15 @@ const EjecucionServicio = ({ navigation }) => {
   const [bodega, setBodega] = useState(null);
   const [cargandoBodega, setCargandoBodega] = useState(false);
 
+  // ============================================
+  // 📋 TICKETS - NUEVA FUNCIONALIDAD
+  // ============================================
+  const [ticketsAsignados, setTicketsAsignados] = useState([]);
+  const [ticketSeleccionado, setTicketSeleccionado] = useState(null);
+  const [modalTicketVisible, setModalTicketVisible] = useState(false);
+  const [observacionTicket, setObservacionTicket] = useState('');
+  const [solucionTicket, setSolucionTicket] = useState('');
+
   // ✅ LISTA DE 15 MATERIALES PREDEFINIDOS PARA EL PICKER
   const opcionesMateriales = [
     'FIBRA EN METROS',
@@ -148,7 +157,7 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
-  // 📋 CARGAR SERVICIOS - CORREGIDO ✅
+  // 📋 CARGAR SERVICIOS
   // ============================================
   const cargarServicios = async () => {
     setLoading(true);
@@ -160,7 +169,6 @@ const EjecucionServicio = ({ navigation }) => {
 
       let response;
       
-      // ✅ Si es Técnico: cargar SOLO sus servicios en estado TOMADO
       if (isTecnico) {
         const userId = user?._id || user?.id;
         if (!userId) {
@@ -177,7 +185,6 @@ const EjecucionServicio = ({ navigation }) => {
           }
         });
       } else {
-        // ✅ Admin o Jefe: cargar TODOS los servicios en TOMADO
         console.log('📱 Cargando todos los servicios en TOMADO (Admin/Jefe)');
         response = await api.get('/servicios/estado/TOMADO', {
           headers: {
@@ -276,9 +283,25 @@ const EjecucionServicio = ({ navigation }) => {
     }
   };
 
+  // ============================================
+  // 📋 CARGAR TICKETS ASIGNADOS
+  // ============================================
+  const cargarTicketsAsignados = async () => {
+    try {
+      const response = await api.get('/tickets/para-tecnico');
+      if (response.data.success) {
+        setTicketsAsignados(response.data.data || []);
+        console.log(`📋 ${response.data.data?.length || 0} tickets asignados`);
+      }
+    } catch (error) {
+      console.error('Error cargando tickets:', error);
+    }
+  };
+
   useEffect(() => {
     cargarServicios();
     cargarBodega();
+    cargarTicketsAsignados();
   }, []);
 
   // ============================================
@@ -486,6 +509,34 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
+  // 🎫 ACTUALIZAR TICKET DESDE APP
+  // ============================================
+  const actualizarTicketApp = async (estado) => {
+    if (!ticketSeleccionado) return;
+
+    try {
+      const payload = { 
+        estado,
+        observaciones: observacionTicket || `Ticket ${estado} desde app`
+      };
+      
+      if (estado === 'Resuelto') {
+        payload.solucion = solucionTicket || 'Servicio completado';
+      }
+
+      const response = await api.put(`/tickets/${ticketSeleccionado._id}/app`, payload);
+      
+      if (response.data.success) {
+        Alert.alert('✅ Éxito', `Ticket ${estado} correctamente`);
+        setModalTicketVisible(false);
+        cargarTicketsAsignados();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo actualizar el ticket');
+    }
+  };
+
+  // ============================================
   // 🖼️ ABRIR IMAGEN AMPLIADA
   // ============================================
   const abrirImagenAmpliada = (uri) => {
@@ -493,6 +544,42 @@ const EjecucionServicio = ({ navigation }) => {
       setImagenAmpliadaUri(uri);
       setImagenAmpliadaVisible(true);
     }
+  };
+
+  // ============================================
+  // 🎨 RENDER TICKETS
+  // ============================================
+  const renderTicketsAsignados = () => {
+    if (ticketsAsignados.length === 0) return null;
+
+    return (
+      <View style={styles.ticketsSection}>
+        <Text style={styles.sectionTitle}>🎫 Tickets Asignados</Text>
+        {ticketsAsignados.map(ticket => (
+          <TouchableOpacity 
+            key={ticket._id} 
+            style={styles.ticketCard}
+            onPress={() => {
+              setTicketSeleccionado(ticket);
+              setObservacionTicket('');
+              setSolucionTicket('');
+              setModalTicketVisible(true);
+            }}
+          >
+            <View style={styles.ticketHeader}>
+              <Text style={styles.ticketId}>{ticket.ticketId}</Text>
+              <View style={[styles.estadoBadge, styles[`estado_${ticket.estado}`]]}>
+                <Text style={styles.estadoText}>{ticket.estado}</Text>
+              </View>
+            </View>
+            <Text style={styles.ticketCliente}>{ticket.cliente?.nombre || 'Sin nombre'}</Text>
+            <Text style={styles.ticketInfo}>📌 {ticket.tipo || 'N/A'}</Text>
+            <Text style={styles.ticketInfo}>📍 {ticket.cliente?.direccion || ticket.zona || 'N/A'}</Text>
+            <Text style={styles.ticketInfo}>📱 {ticket.cliente?.telefono || 'Sin teléfono'}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
   };
 
   // ============================================
@@ -523,6 +610,10 @@ const EjecucionServicio = ({ navigation }) => {
           </View>
         ) : null}
 
+        {/* ✅ SECCIÓN DE TICKETS ASIGNADOS */}
+        {renderTicketsAsignados()}
+
+        {/* ✅ SERVICIOS */}
         {servicios.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="clipboard-outline" size={64} color="#B2BEC3" />
@@ -561,7 +652,6 @@ const EjecucionServicio = ({ navigation }) => {
                 </View>
               </View>
 
-              {/* ✅ IMAGEN CLICKEABLE */}
               {servicio.imagen && (
                 <TouchableOpacity 
                   style={styles.imagenContainer}
@@ -584,7 +674,6 @@ const EjecucionServicio = ({ navigation }) => {
               <Text style={styles.servicioInfo}>📍 {servicio.direccion}</Text>
               <Text style={styles.servicioInfo}>👤 Técnico: {servicio.tecnico?.nombre || 'N/A'}</Text>
               
-              {/* ✅ OBSERVACIONES VISIBLES */}
               {servicio.observaciones && (
                 <View style={styles.observacionesContainer}>
                   <Text style={styles.observacionesLabel}>📝 Observaciones:</Text>
@@ -597,7 +686,7 @@ const EjecucionServicio = ({ navigation }) => {
       </ScrollView>
 
       {/* ============================================
-          MODAL DE EJECUCIÓN
+          MODAL DE EJECUCIÓN DE SERVICIO
           ============================================ */}
       <Modal
         animationType="slide"
@@ -726,6 +815,108 @@ const EjecucionServicio = ({ navigation }) => {
       </Modal>
 
       {/* ============================================
+          MODAL DE TICKETS
+          ============================================ */}
+      <Modal
+        visible={modalTicketVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalTicketVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🎫 Gestión de Ticket</Text>
+              <TouchableOpacity onPress={() => setModalTicketVisible(false)}>
+                <Ionicons name="close" size={24} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            {ticketSeleccionado && (
+              <>
+                <View style={styles.ticketDetalle}>
+                  <Text style={styles.ticketIdGrande}>{ticketSeleccionado.ticketId}</Text>
+                  <Text style={styles.ticketClienteGrande}>{ticketSeleccionado.cliente?.nombre || 'Sin nombre'}</Text>
+                  <Text style={styles.ticketInfoGrande}>📌 {ticketSeleccionado.tipo || 'N/A'}</Text>
+                  <Text style={styles.ticketInfoGrande}>📍 {ticketSeleccionado.cliente?.direccion || ticketSeleccionado.zona || 'N/A'}</Text>
+                  <Text style={styles.ticketInfoGrande}>📱 {ticketSeleccionado.cliente?.telefono || 'Sin teléfono'}</Text>
+                  {ticketSeleccionado.descripcion && (
+                    <Text style={styles.ticketDescripcion}>📝 {ticketSeleccionado.descripcion}</Text>
+                  )}
+                </View>
+
+                <Text style={styles.modalLabel}>📝 Observaciones</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Agregar observación..."
+                  value={observacionTicket}
+                  onChangeText={setObservacionTicket}
+                  multiline
+                />
+
+                {ticketSeleccionado.estado === 'Resuelto' && (
+                  <>
+                    <Text style={styles.modalLabel}>✅ Solución</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="Describir la solución..."
+                      value={solucionTicket}
+                      onChangeText={setSolucionTicket}
+                      multiline
+                    />
+                  </>
+                )}
+
+                <View style={styles.ticketButtons}>
+                  {ticketSeleccionado.estado === 'Asignado' && (
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnIniciar]}
+                      onPress={() => actualizarTicketApp('En Progreso')}
+                    >
+                      <Text style={styles.ticketBtnText}>🚀 Iniciar</Text>
+                    </TouchableOpacity>
+                  )}
+                  
+                  {ticketSeleccionado.estado === 'En Progreso' && (
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnResolver]}
+                      onPress={() => actualizarTicketApp('Resuelto')}
+                    >
+                      <Text style={styles.ticketBtnText}>✅ Resolver</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {ticketSeleccionado.estado === 'Resuelto' && (
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnCerrar]}
+                      onPress={() => actualizarTicketApp('Cerrado')}
+                    >
+                      <Text style={styles.ticketBtnText}>🔒 Cerrar</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {ticketSeleccionado.historial?.length > 0 && (
+                  <View style={styles.historialContainer}>
+                    <Text style={styles.historialTitle}>📋 Historial</Text>
+                    {ticketSeleccionado.historial.slice(-5).reverse().map((h, i) => (
+                      <View key={i} style={styles.historialItem}>
+                        <Text style={styles.historialEstado}>{h.estado}</Text>
+                        <Text style={styles.historialFecha}>
+                          {new Date(h.fecha).toLocaleDateString('es-EC')}
+                        </Text>
+                        <Text style={styles.historialUsuario}>{h.usuario || 'Sistema'}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================
           MODAL DE IMAGEN AMPLIADA
           ============================================ */}
       <Modal
@@ -806,6 +997,66 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#636E72',
   },
+  // ✅ ESTILOS PARA TICKETS
+  ticketsSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 10,
+  },
+  ticketCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  ticketHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  ticketId: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#6C5CE7',
+  },
+  ticketCliente: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  ticketInfo: {
+    fontSize: 13,
+    color: '#636E72',
+    marginTop: 2,
+  },
+  estadoBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  estado_Nuevo: { backgroundColor: '#FFF3E0' },
+  estado_Asignado: { backgroundColor: '#E3F2FD' },
+  estado_En Progreso: { backgroundColor: '#F3E5F5' },
+  estado_Resuelto: { backgroundColor: '#E8F5E9' },
+  estado_Cerrado: { backgroundColor: '#F5F5F5' },
+  estadoText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#333',
+  },
+  // ✅ ESTILOS PARA SERVICIOS
   servicioCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -829,23 +1080,11 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     flex: 1,
   },
-  estadoBadge: {
-    backgroundColor: '#FDCB6E',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  estadoBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '500',
-  },
   servicioInfo: {
     fontSize: 14,
     color: '#636E72',
     marginVertical: 2,
   },
-  // ✅ ESTILOS PARA OBSERVACIONES
   observacionesContainer: {
     marginTop: 8,
     padding: 10,
@@ -864,7 +1103,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#2D3436',
   },
-  // ✅ ESTILOS PARA IMAGEN CLICKEABLE
+  // ✅ ESTILOS PARA IMAGEN
   imagenContainer: {
     marginVertical: 8,
     borderRadius: 8,
@@ -893,7 +1132,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 6,
   },
-  // ✅ ESTILOS PARA IMAGEN AMPLIADA
   imagenAmpliadaOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
@@ -911,6 +1149,7 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
   },
+  // ✅ ESTILOS DE VACÍO
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -944,6 +1183,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
   },
+  // ✅ ESTILOS DE MODAL
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -964,6 +1204,93 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 15,
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  // ✅ ESTILOS PARA TICKET MODAL
+  ticketDetalle: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  ticketIdGrande: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#6C5CE7',
+  },
+  ticketClienteGrande: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginTop: 4,
+  },
+  ticketInfoGrande: {
+    fontSize: 14,
+    color: '#636E72',
+    marginTop: 2,
+  },
+  ticketDescripcion: {
+    fontSize: 14,
+    color: '#2D3436',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  ticketButtons: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 8,
+  },
+  ticketBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  btnIniciar: { backgroundColor: '#3498DB' },
+  btnResolver: { backgroundColor: '#2ECC71' },
+  btnCerrar: { backgroundColor: '#95A5A6' },
+  ticketBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  historialContainer: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  historialTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  historialItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  historialEstado: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  historialFecha: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  historialUsuario: {
+    fontSize: 12,
+    color: '#999',
+  },
+  // ✅ ESTILOS DE MATERIALES
   bodegaInfoModal: {
     backgroundColor: '#F0F0F0',
     padding: 10,
