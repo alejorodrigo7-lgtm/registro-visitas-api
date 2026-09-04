@@ -287,22 +287,20 @@ const EjecucionServicio = ({ navigation }) => {
   // 📋 CARGAR TICKETS ASIGNADOS
   // ============================================
   const cargarTicketsAsignados = async () => {
-    try {
-      const response = await api.get('/tickets/para-tecnico');
-      if (response.data.success) {
-        setTicketsAsignados(response.data.data || []);
-        console.log(`📋 ${response.data.data?.length || 0} tickets asignados`);
-      }
-    } catch (error) {
-      console.error('Error cargando tickets:', error);
+  try {
+    const response = await api.get('/tickets/para-tecnico');
+    if (response.data.success) {
+      // ✅ SOLO TICKETS EN ESTADO ASIGNADO O EN PROGRESO
+      const ticketsFiltrados = (response.data.data || []).filter(
+        ticket => ticket.estado === 'Asignado' || ticket.estado === 'En Progreso'
+      );
+      setTicketsAsignados(ticketsFiltrados);
+      console.log(`📋 ${ticketsFiltrados.length} tickets asignados (filtrados)`);
     }
-  };
-
-  useEffect(() => {
-    cargarServicios();
-    cargarBodega();
-    cargarTicketsAsignados();
-  }, []);
+  } catch (error) {
+    console.error('Error cargando tickets:', error);
+  }
+};
 
   // ============================================
   // ➕ AGREGAR MATERIAL
