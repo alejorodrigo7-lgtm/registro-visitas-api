@@ -16,9 +16,10 @@ const TicketSchema = new mongoose.Schema({
   zona: { type: String, default: 'No especificada' },
   descripcion: { type: String, default: '' },
   
+  // ✅ ESTADO - INCLUYE TOMADO
   estado: {
     type: String,
-    enum: ['Nuevo', 'Asignado', 'En Progreso', 'Resuelto', 'Cerrado'],
+    enum: ['Nuevo', 'Asignado', 'TOMADO', 'En Progreso', 'Resuelto', 'Cerrado'],
     default: 'Nuevo'
   },
   
@@ -48,6 +49,7 @@ const TicketSchema = new mongoose.Schema({
   ultimaActualizacion: { type: Date, default: Date.now }
 }, { timestamps: true });
 
+// Índices
 TicketSchema.index({ ticketId: 1 });
 TicketSchema.index({ estado: 1 });
 TicketSchema.index({ 'cliente.email': 1 });
