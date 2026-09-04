@@ -18,16 +18,39 @@ const generarTicketId = () => {
 // 🌐 RUTAS PÚBLICAS
 // ============================================
 
-// ✅ 1. Crear ticket desde web (cliente)
+// ✅ 1. Crear ticket desde web (cliente) - CON SOPORTE PARA IMAGEN
 const crearTicketWeb = async (req, res) => {
   try {
-    const { cliente, tipo, zona, direccion, descripcion } = req.body;
+    let { cliente, tipo, zona, direccion, descripcion, imagen, data } = req.body;
+    let imagenUrl = null;
 
+    // Si viene data como string (desde FormData), parsearlo
+    if (data) {
+      try {
+        const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+        cliente = parsedData.cliente || cliente;
+        tipo = parsedData.tipo || tipo;
+        zona = parsedData.zona || zona;
+        direccion = parsedData.direccion || direccion;
+        descripcion = parsedData.descripcion || descripcion;
+        imagen = parsedData.imagen || imagen;
+      } catch (e) {
+        console.log('Error parseando data:', e.message);
+      }
+    }
+
+    // Validar campos requeridos
     if (!cliente?.nombre || !tipo) {
       return res.status(400).json({
         success: false,
         message: 'Nombre y tipo de falla son requeridos'
       });
+    }
+
+    // ✅ PROCESAR IMAGEN EN BASE64
+    if (imagen && typeof imagen === 'string' && imagen.startsWith('data:image')) {
+      imagenUrl = imagen;
+      console.log('📸 Imagen recibida en Base64');
     }
 
     const ticketId = generarTicketId();
@@ -38,13 +61,14 @@ const crearTicketWeb = async (req, res) => {
         nombre: cliente.nombre,
         telefono: cliente.telefono || '',
         email: cliente.email || '',
-        direccion: direccion || ''
+        direccion: direccion || cliente.direccion || ''
       },
       tipo,
       zona: zona || 'No especificada',
       descripcion: descripcion || '',
       estado: 'Nuevo',
-      origen: 'web'
+      origen: 'web',
+      imagenUrl: imagenUrl || '' // ✅ GUARDAR IMAGEN
     });
 
     // Registrar en historial
@@ -57,13 +81,15 @@ const crearTicketWeb = async (req, res) => {
     await nuevoTicket.save();
 
     console.log(`✅ Ticket creado: ${ticketId}`);
+    if (imagenUrl) console.log('📸 Con imagen adjunta');
 
     res.status(201).json({
       success: true,
       message: 'Ticket creado exitosamente',
       data: {
         ticketId: nuevoTicket.ticketId,
-        estado: nuevoTicket.estado
+        estado: nuevoTicket.estado,
+        imagenUrl: nuevoTicket.imagenUrl
       }
     });
 
@@ -73,7 +99,7 @@ const crearTicketWeb = async (req, res) => {
   }
 };
 
-// ✅ 2. Consultar ticket por ID (cliente)
+// ✅ 2. Consultar ticket por ID (cliente) - CON IMAGEN
 const consultarTicketPublico = async (req, res) => {
   try {
     const { ticketId } = req.params;
@@ -94,12 +120,14 @@ const consultarTicketPublico = async (req, res) => {
         ticketId: ticket.ticketId,
         estado: ticket.estado,
         tipo: ticket.tipo,
+        zona: ticket.zona,
         fechaCreacion: ticket.fechaCreacion,
         fechaAsignacion: ticket.fechaAsignacion,
         fechaResolucion: ticket.fechaResolucion,
         tecnicoNombre: ticket.tecnicoNombre || 'Sin asignar',
         observaciones: ticket.observaciones,
         solucion: ticket.solucion,
+        imagenUrl: ticket.imagenUrl || '', // ✅ MOSTRAR IMAGEN
         historial: ticket.historial.slice(-5)
       }
     });
@@ -133,7 +161,8 @@ const consultarTicketsCliente = async (req, res) => {
         estado: t.estado,
         tipo: t.tipo,
         fechaCreacion: t.fechaCreacion,
-        tecnicoNombre: t.tecnicoNombre || 'Sin asignar'
+        tecnicoNombre: t.tecnicoNombre || 'Sin asignar',
+        imagenUrl: t.imagenUrl || '' // ✅ MOSTRAR IMAGEN
       }))
     });
 
@@ -183,10 +212,15 @@ const getTickets = async (req, res) => {
   }
 };
 
-// ✅ 5. Obtener tickets para técnico (app móvil)
+// ✅ 5. Obtener tickets para técnico (app móvil) - MODIFICADO
 const getTicketsParaTecnico = async (req, res) => {
   try {
     const usuario = req.user;
+
+    console.log('========================================');
+    console.log('📋 getTicketsParaTecnico - INICIO');
+    console.log('👤 Usuario:', usuario?.email);
+    console.log('👤 Rol:', usuario?.rol);
 
     if (!usuario) {
       return res.status(401).json({ success: false, message: 'No autenticado' });
@@ -194,20 +228,25 @@ const getTicketsParaTecnico = async (req, res) => {
 
     let filtro = {};
 
+    // ✅ ACEPTA Asignado Y TOMADO
     if (usuario.rol === 'Tecnico') {
       filtro = {
         tecnicoAsignado: usuario._id,
-        estado: { $in: ['Asignado', 'En Progreso'] }
+        estado: { $in: ['Asignado', 'TOMADO', 'En Progreso'] }
       };
     } else if (['Admin', 'Jefe', 'Coordinador'].includes(usuario.rol)) {
       filtro = {
-        estado: { $in: ['Nuevo', 'Asignado', 'En Progreso'] }
+        estado: { $in: ['Nuevo', 'Asignado', 'TOMADO', 'En Progreso'] }
       };
     }
+
+    console.log('📋 Filtro:', JSON.stringify(filtro, null, 2));
 
     const tickets = await Ticket.find(filtro)
       .populate('tecnicoAsignado', 'nombre email')
       .sort({ fechaCreacion: -1 });
+
+    console.log(`✅ ${tickets.length} tickets encontrados`);
 
     res.json({
       success: true,
@@ -262,7 +301,7 @@ const getTicketById = async (req, res) => {
   }
 };
 
-// ✅ 8. Asignar técnico (panel admin)
+// ✅ 8. Asignar técnico (panel admin) - MODIFICADO
 const asignarTecnico = async (req, res) => {
   try {
     const { id } = req.params;
@@ -280,16 +319,18 @@ const asignarTecnico = async (req, res) => {
 
     ticket.tecnicoAsignado = tecnicoId;
     ticket.tecnicoNombre = tecnico.nombre;
-    ticket.estado = 'Asignado';
+    ticket.estado = 'TOMADO'; // ✅ CAMBIADO A TOMADO
     ticket.fechaAsignacion = new Date();
 
     ticket.historial.push({
-      estado: 'Asignado',
+      estado: 'TOMADO',
       observacion: `Asignado a ${tecnico.nombre}`,
       usuario: req.user?.nombre || 'Admin'
     });
 
     await ticket.save();
+
+    console.log(`✅ Ticket ${ticket.ticketId} asignado a ${tecnico.nombre} (estado: TOMADO)`);
 
     res.json({
       success: true,
@@ -332,7 +373,7 @@ const actualizarTicketApp = async (req, res) => {
     if (estado === 'En Progreso' && !ticket.fechaInicio) {
       ticket.fechaInicio = new Date();
     }
-    if (estado === 'Resuelto') {
+    if (estado === 'Resuelto' || estado === 'EJECUTADO') {
       ticket.fechaResolucion = new Date();
       ticket.solucion = solucion || ticket.solucion || 'Servicio completado';
     }
@@ -360,6 +401,7 @@ const getEstadisticas = async (req, res) => {
     const total = await Ticket.countDocuments();
     const nuevos = await Ticket.countDocuments({ estado: 'Nuevo' });
     const asignados = await Ticket.countDocuments({ estado: 'Asignado' });
+    const tomados = await Ticket.countDocuments({ estado: 'TOMADO' });
     const enProgreso = await Ticket.countDocuments({ estado: 'En Progreso' });
     const resueltos = await Ticket.countDocuments({ estado: 'Resuelto' });
     const cerrados = await Ticket.countDocuments({ estado: 'Cerrado' });
@@ -382,6 +424,7 @@ const getEstadisticas = async (req, res) => {
         total,
         nuevos,
         asignados,
+        tomados,
         enProgreso,
         resueltos,
         cerrados,

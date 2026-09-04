@@ -6,7 +6,8 @@ const TicketSchema = new mongoose.Schema({
     nombre: { type: String, required: true },
     telefono: { type: String, default: '' },
     email: { type: String, default: '' },
-    direccion: { type: String, default: '' }
+    direccion: { type: String, default: '' },
+    cedula: { type: String, default: '' } // ✅ AGREGADO CAMPO CÉDULA
   },
   tipo: {
     type: String,
@@ -28,6 +29,9 @@ const TicketSchema = new mongoose.Schema({
     ref: 'User'
   },
   tecnicoNombre: { type: String, default: '' },
+  
+  // ✅ NUEVO CAMPO PARA GUARDAR LA IMAGEN
+  imagenUrl: { type: String, default: '' },
   
   historial: [{
     estado: { type: String },
