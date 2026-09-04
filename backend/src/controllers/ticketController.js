@@ -18,7 +18,7 @@ const generarTicketId = () => {
 // 🌐 RUTAS PÚBLICAS
 // ============================================
 
-// ✅ 1. Crear ticket desde web (cliente) - CON SOPORTE PARA IMAGEN
+// ✅ 1. Crear ticket desde web (cliente) - CON SOPORTE PARA IMAGEN Y CORREOS
 const crearTicketWeb = async (req, res) => {
   try {
     let { cliente, tipo, zona, direccion, descripcion, imagen, data } = req.body;
@@ -62,14 +62,14 @@ const crearTicketWeb = async (req, res) => {
         telefono: cliente.telefono || '',
         email: cliente.email || '',
         direccion: direccion || cliente.direccion || '',
-        cedula: cliente.cedula || '' // ✅ AGREGAR CÉDULA
+        cedula: cliente.cedula || ''
       },
       tipo,
       zona: zona || 'No especificada',
       descripcion: descripcion || '',
       estado: 'Nuevo',
       origen: 'web',
-      imagenUrl: imagenUrl || '' // ✅ GUARDAR IMAGEN
+      imagenUrl: imagenUrl || ''
     });
 
     // Registrar en historial
@@ -83,6 +83,18 @@ const crearTicketWeb = async (req, res) => {
 
     console.log(`✅ Ticket creado: ${ticketId}`);
     if (imagenUrl) console.log('📸 Con imagen adjunta');
+
+    // ============================================
+    // 📧 ENVIAR CORREOS - TICKET CREADO
+    // ============================================
+    try {
+      const emailService = require('../services/emailService');
+      await emailService.enviarNotificacionTicketCreado(nuevoTicket);
+      console.log(`📧 Notificaciones de ticket enviadas`);
+    } catch (emailError) {
+      console.error('❌ Error enviando correos de ticket:', emailError);
+      // No detener el proceso si falla el email
+    }
 
     res.status(201).json({
       success: true,
@@ -320,7 +332,7 @@ const getTicketById = async (req, res) => {
   }
 };
 
-// ✅ 8. Asignar técnico (panel admin) - MODIFICADO
+// ✅ 8. Asignar técnico (panel admin) - CON ENVÍO DE CORREO
 const asignarTecnico = async (req, res) => {
   try {
     const { id } = req.params;
@@ -338,7 +350,7 @@ const asignarTecnico = async (req, res) => {
 
     ticket.tecnicoAsignado = tecnicoId;
     ticket.tecnicoNombre = tecnico.nombre;
-    ticket.estado = 'TOMADO'; // ✅ CAMBIADO A TOMADO
+    ticket.estado = 'TOMADO';
     ticket.fechaAsignacion = new Date();
 
     ticket.historial.push({
@@ -350,6 +362,17 @@ const asignarTecnico = async (req, res) => {
     await ticket.save();
 
     console.log(`✅ Ticket ${ticket.ticketId} asignado a ${tecnico.nombre} (estado: TOMADO)`);
+
+    // ============================================
+    // 📧 ENVIAR CORREOS - TICKET TOMADO
+    // ============================================
+    try {
+      const emailService = require('../services/emailService');
+      await emailService.enviarNotificacionTicketTomado(ticket, tecnico.nombre);
+      console.log(`📧 Notificaciones de ticket tomado enviadas`);
+    } catch (emailError) {
+      console.error('❌ Error enviando correos de ticket tomado:', emailError);
+    }
 
     res.json({
       success: true,
@@ -363,7 +386,7 @@ const asignarTecnico = async (req, res) => {
   }
 };
 
-// ✅ 9. Actualizar ticket desde app (con historial)
+// ✅ 9. Actualizar ticket desde app - CON ENVÍO DE CORREO
 const actualizarTicketApp = async (req, res) => {
   try {
     const { id } = req.params;
@@ -401,6 +424,25 @@ const actualizarTicketApp = async (req, res) => {
     }
 
     await ticket.save();
+
+    console.log(`✅ Ticket ${ticket.ticketId} actualizado a ${estado}`);
+
+    // ============================================
+    // 📧 ENVIAR CORREOS - CAMBIO DE ESTADO
+    // ============================================
+    try {
+      const emailService = require('../services/emailService');
+      await emailService.enviarNotificacionTicketEstado(
+        ticket,
+        estadoAnterior,
+        estado,
+        observaciones,
+        usuario?.nombre
+      );
+      console.log(`📧 Notificaciones de cambio de estado enviadas`);
+    } catch (emailError) {
+      console.error('❌ Error enviando correos de cambio de estado:', emailError);
+    }
 
     res.json({
       success: true,
