@@ -61,7 +61,8 @@ const crearTicketWeb = async (req, res) => {
         nombre: cliente.nombre,
         telefono: cliente.telefono || '',
         email: cliente.email || '',
-        direccion: direccion || cliente.direccion || ''
+        direccion: direccion || cliente.direccion || '',
+        cedula: cliente.cedula || '' // ✅ AGREGAR CÉDULA
       },
       tipo,
       zona: zona || 'No especificada',
@@ -99,7 +100,7 @@ const crearTicketWeb = async (req, res) => {
   }
 };
 
-// ✅ 2. Consultar ticket por ID (cliente) - CON IMAGEN
+// ✅ 2. Consultar ticket por ID (cliente) - CON TODOS LOS DATOS DEL CLIENTE
 const consultarTicketPublico = async (req, res) => {
   try {
     const { ticketId } = req.params;
@@ -114,6 +115,7 @@ const consultarTicketPublico = async (req, res) => {
       });
     }
 
+    // ✅ DEVOLVER TODOS LOS DATOS DEL TICKET Y CLIENTE
     res.json({
       success: true,
       data: {
@@ -121,19 +123,29 @@ const consultarTicketPublico = async (req, res) => {
         estado: ticket.estado,
         tipo: ticket.tipo,
         zona: ticket.zona,
+        descripcion: ticket.descripcion,
         fechaCreacion: ticket.fechaCreacion,
         fechaAsignacion: ticket.fechaAsignacion,
         fechaResolucion: ticket.fechaResolucion,
+        fechaCierre: ticket.fechaCierre,
         tecnicoNombre: ticket.tecnicoNombre || 'Sin asignar',
-        observaciones: ticket.observaciones,
-        solucion: ticket.solucion,
-        imagenUrl: ticket.imagenUrl || '', // ✅ MOSTRAR IMAGEN
-        historial: ticket.historial.slice(-5)
+        observaciones: ticket.observaciones || '',
+        solucion: ticket.solucion || '',
+        imagenUrl: ticket.imagenUrl || '',
+        // ✅ TODOS LOS DATOS DEL CLIENTE
+        cliente: {
+          nombre: ticket.cliente?.nombre || '',
+          telefono: ticket.cliente?.telefono || '',
+          email: ticket.cliente?.email || '',
+          direccion: ticket.cliente?.direccion || '',
+          cedula: ticket.cliente?.cedula || ''
+        },
+        historial: ticket.historial || []
       }
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error en consultarTicketPublico:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -162,12 +174,19 @@ const consultarTicketsCliente = async (req, res) => {
         tipo: t.tipo,
         fechaCreacion: t.fechaCreacion,
         tecnicoNombre: t.tecnicoNombre || 'Sin asignar',
-        imagenUrl: t.imagenUrl || '' // ✅ MOSTRAR IMAGEN
+        imagenUrl: t.imagenUrl || '',
+        cliente: {
+          nombre: t.cliente?.nombre || '',
+          telefono: t.cliente?.telefono || '',
+          email: t.cliente?.email || '',
+          direccion: t.cliente?.direccion || '',
+          cedula: t.cliente?.cedula || ''
+        }
       }))
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error en consultarTicketsCliente:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -207,7 +226,7 @@ const getTickets = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error en getTickets:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -254,7 +273,7 @@ const getTicketsParaTecnico = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error en getTicketsParaTecnico:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -275,7 +294,7 @@ const getTicketsByEstado = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error en getTicketsByEstado:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -296,7 +315,7 @@ const getTicketById = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error en getTicketById:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -339,7 +358,7 @@ const asignarTecnico = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error en asignarTecnico:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -390,7 +409,7 @@ const actualizarTicketApp = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error en actualizarTicketApp:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -434,7 +453,7 @@ const getEstadisticas = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error en getEstadisticas:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
