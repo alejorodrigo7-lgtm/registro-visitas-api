@@ -1048,7 +1048,7 @@ const styles = StyleSheet.create({
   },
   estado_Nuevo: { backgroundColor: '#FFF3E0' },
   estado_Asignado: { backgroundColor: '#E3F2FD' },
-  estado_En Progreso: { backgroundColor: '#F3E5F5' },
+  'estado_En Progreso': { backgroundColor: '#F3E5F5' }, // ✅ CORREGIDO
   estado_Resuelto: { backgroundColor: '#E8F5E9' },
   estado_Cerrado: { backgroundColor: '#F5F5F5' },
   estadoText: {
