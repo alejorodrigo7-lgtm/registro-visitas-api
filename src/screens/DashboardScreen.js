@@ -361,9 +361,9 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 12. ✅ NUEVO: VISITAS
+      // 12. ✅ CORREGIDO: VISITAS - Usando /visitas
       // ============================================
-      let totalVisitas = 0, visitasHoy = 0, visitasMes = 0, totalCobrado = 0;
+      let totalVisitas = 0, visitasHoyCount = 0, visitasMesCount = 0, totalCobrado = 0;
       let visitasPorTipo = { COBRO: 0, INSTALACION: 0, MANTENIMIENTO: 0, OTROS: 0 };
 
       try {
@@ -372,27 +372,32 @@ const DashboardScreen = ({ navigation }) => {
           const visitas = visitasRes.data.data || [];
           totalVisitas = visitas.length;
           
-          // Visitas de hoy
           const hoyStr = new Date().toISOString().split('T')[0];
-          visitasHoy = visitas.filter(v => {
-            const fecha = new Date(v.fecha).toISOString().split('T')[0];
-            return fecha === hoyStr;
-          }).length;
-          
-          // Visitas del mes
           const mesActual = new Date().getMonth();
-          visitasMes = visitas.filter(v => {
-            const fecha = new Date(v.fecha);
-            return fecha.getMonth() === mesActual;
-          }).length;
           
-          // Visitas por tipo y total cobrado
           visitas.forEach(v => {
-            const tipo = v.tipo || 'OTROS';
-            if (tipo === 'COBRO') {
-              totalCobrado += (v.valorCobrado || 0);
+            // Visitas de hoy
+            const fechaVisita = new Date(v.fecha).toISOString().split('T')[0];
+            if (fechaVisita === hoyStr) visitasHoyCount++;
+            
+            // Visitas del mes
+            const fecha = new Date(v.fecha);
+            if (fecha.getMonth() === mesActual) visitasMesCount++;
+            
+            // Clasificar por tipo
+            let tipo = v.tipo || 'OTROS';
+            let tipoMapeado = 'OTROS';
+            if (tipo === 'Cobro') tipoMapeado = 'COBRO';
+            else if (tipo === 'Instalación') tipoMapeado = 'INSTALACION';
+            else if (tipo === 'Mantenimiento') tipoMapeado = 'MANTENIMIENTO';
+            else if (tipo === 'Visita' || tipo === 'Revisión' || tipo === 'Servicio Técnico') tipoMapeado = 'OTROS';
+            
+            visitasPorTipo[tipoMapeado] = (visitasPorTipo[tipoMapeado] || 0) + 1;
+            
+            // Sumar montos de cobros
+            if (tipo === 'Cobro') {
+              totalCobrado += (v.monto || 0);
             }
-            visitasPorTipo[tipo] = (visitasPorTipo[tipo] || 0) + 1;
           });
         }
       } catch (error) {
@@ -485,8 +490,8 @@ const DashboardScreen = ({ navigation }) => {
         
         // ✅ NUEVO: Visitas
         totalVisitas,
-        visitasHoy,
-        visitasMes,
+        visitasHoy: visitasHoyCount,
+        visitasMes: visitasMesCount,
         totalCobrado,
         visitasPorTipo,
       });
@@ -749,12 +754,12 @@ const DashboardScreen = ({ navigation }) => {
           <StatRow label="Generados" value={stats.reportesGenerados} icon="checkmark-circle-outline" color="#2ECC71" />
         </Section>
 
-        {/* ✅ NUEVO: 📊 Visitas */}
+        {/* ✅ NUEVO: 📊 Visitas - Usando datos del endpoint /visitas */}
         <Section title="Visitas" icon="eye-outline" color="#00B894">
           <StatRow label="Total Visitas" value={stats.totalVisitas} icon="eye-outline" color="#6C5CE7" />
           <StatRow label="Visitas Hoy" value={stats.visitasHoy} icon="calendar-outline" color="#F39C12" />
           <StatRow label="Visitas del Mes" value={stats.visitasMes} icon="calendar-outline" color="#2ECC71" />
-          <StatRow label="Total Cobrado (COBRO)" value={`$${stats.totalCobrado.toFixed(2)}`} icon="cash-outline" color="#6C5CE7" />
+          <StatRow label="Total Cobrado" value={`$${stats.totalCobrado.toFixed(2)}`} icon="cash-outline" color="#00B894" />
           
           {/* Desglose por tipo */}
           <View style={styles.subSection}>
@@ -1051,7 +1056,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  // ✅ NUEVO: Sub sección
+  // ✅ Sub sección
   subSection: {
     marginTop: 6,
     paddingTop: 6,
