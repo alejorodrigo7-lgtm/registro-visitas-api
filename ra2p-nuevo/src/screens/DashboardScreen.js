@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  TextInput,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -25,7 +27,20 @@ const DashboardScreen = ({ navigation }) => {
   const [fechaInicio, setFechaInicio] = useState(new Date());
   const [fechaFin, setFechaFin] = useState(new Date());
   
-  // ✅ Estadísticas de TODOS los módulos
+  // ✅ Estado para el submenú
+  const [subMenuActual, setSubMenuActual] = useState('resumen');
+  
+  // ✅ Estado para el modal de envío de correos
+  const [modalCorreoVisible, setModalCorreoVisible] = useState(false);
+  const [usuarios, setUsuarios] = useState([]);
+  const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
+  const [busquedaUsuario, setBusquedaUsuario] = useState('');
+  const [usuariosSeleccionados, setUsuariosSeleccionados] = useState([]);
+  const [emailAdicional, setEmailAdicional] = useState('');
+  const [enviandoCorreo, setEnviandoCorreo] = useState(false);
+  const [tipoReporte, setTipoReporte] = useState('visitas');
+
+  // ✅ Estado para estadísticas
   const [stats, setStats] = useState({
     // Recuperación de Equipos
     totalOrdenes: 0,
@@ -61,6 +76,10 @@ const DashboardScreen = ({ navigation }) => {
     serviciosActivos: 0,
     serviciosFinalizados: 0,
     serviciosPendientes: 0,
+    serviciosHoy: 0,
+    serviciosSemana: 0,
+    serviciosMes: 0,
+    serviciosPorNombre: {},
     
     // Desconexiones
     totalDesconexiones: 0,
@@ -98,6 +117,22 @@ const DashboardScreen = ({ navigation }) => {
     totalReportes: 0,
     reportesPendientes: 0,
     reportesGenerados: 0,
+    
+    // Visitas completas
+    totalVisitas: 0,
+    totalCobrado: 0,
+    visitasMes: 0,
+    cobradoMes: 0,
+    visitasSemana: 0,
+    cobradoSemana: 0,
+    visitasHoy: 0,
+    cobradoHoy: 0,
+    visitasPorTipo: {
+      COBRO: 0,
+      INSTALACION: 0,
+      MANTENIMIENTO: 0,
+      OTROS: 0,
+    },
   });
 
   const [recentActivity, setRecentActivity] = useState([]);
@@ -114,6 +149,20 @@ const DashboardScreen = ({ navigation }) => {
   const formatDateAPI = (date) => {
     const d = new Date(date);
     return d.toISOString().split('T')[0];
+  };
+
+  // ✅ Cargar usuarios para el selector de correos
+  const cargarUsuarios = async () => {
+    try {
+      const response = await api.get('/users');
+      if (response.data.success) {
+        const users = response.data.data || [];
+        setUsuarios(users);
+        setUsuariosFiltrados(users);
+      }
+    } catch (error) {
+      console.error('Error al cargar usuarios:', error);
+    }
   };
 
   // ✅ Cargar TODAS las estadísticas
@@ -142,11 +191,9 @@ const DashboardScreen = ({ navigation }) => {
         (anulado.data.data?.length || 0) +
         (reconectado.data.data?.length || 0);
 
-      // Obtener todas las órdenes para calcular visitas
       const response = await api.get('/recuperacion/ordenes');
       const todasOrdenes = response.data.data || [];
 
-      // Filtrar por fecha
       const fechaInicioStr = formatDateAPI(fechaInicio);
       const fechaFinStr = formatDateAPI(fechaFin);
       
@@ -220,20 +267,101 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 4. SERVICIOS
+      // 4. SERVICIOS - CORREGIDO CON ESTADÍSTICAS DETALLADAS
       // ============================================
       let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
+      let serviciosHoy = 0, serviciosSemana = 0, serviciosMes = 0;
+      let serviciosPorNombre = {};
 
       try {
-        const serviciosRes = await api.get('/servicios');
-        if (serviciosRes.data.success) {
-          const servicios = serviciosRes.data.data || [];
-          totalServicios = servicios.length;
-          serviciosActivos = servicios.filter(s => s.estado === 'activo').length;
-          serviciosFinalizados = servicios.filter(s => s.estado === 'finalizado').length;
-          serviciosPendientes = servicios.filter(s => s.estado === 'pendiente').length;
-        }
-      } catch (error) {}
+        // ✅ Usar endpoints por estado (funcionan correctamente)
+        const [tomadosRes, ejecutadosRes, pendientesRes, retroalimentadosRes] = await Promise.all([
+          api.get('/servicios/estado/TOMADO'),
+          api.get('/servicios/estado/EJECUTADO'),
+          api.get('/servicios/estado/PENDIENTE'),
+          api.get('/servicios/estado/RETROALIMENTADO')
+        ]);
+
+        const tomados = tomadosRes.data?.data || [];
+        const ejecutados = ejecutadosRes.data?.data || [];
+        const pendientes = pendientesRes.data?.data || [];
+        const retroalimentados = retroalimentadosRes.data?.data || [];
+
+        // Total de servicios (suma de todos los estados)
+        totalServicios = tomados.length + ejecutados.length + pendientes.length + retroalimentados.length;
+
+        // TOMADO = Activos (servicios en proceso)
+        serviciosActivos = tomados.length;
+
+        // EJECUTADO = Finalizados
+        serviciosFinalizados = ejecutados.length;
+
+        // PENDIENTE = Pendientes
+        serviciosPendientes = pendientes.length;
+
+        // ✅ COMBINAR TODOS LOS SERVICIOS PARA ESTADÍSTICAS TEMPORALES
+        const todosLosServicios = [...tomados, ...ejecutados, ...pendientes, ...retroalimentados];
+
+        // ✅ Calcular servicios por período
+        const hoyStr = new Date().toISOString().split('T')[0];
+        const semanaAtras = new Date();
+        semanaAtras.setDate(semanaAtras.getDate() - 7);
+        const mesActual = new Date().getMonth();
+
+        // ✅ Contar servicios por período y por nombre
+        todosLosServicios.forEach(s => {
+          const fecha = new Date(s.createdAt || s.fechaCreacion || Date.now());
+          const fechaStr = fecha.toISOString().split('T')[0];
+          const nombreServicio = s.nombreServicio || 'Sin especificar';
+
+          // Inicializar contador por nombre
+          if (!serviciosPorNombre[nombreServicio]) {
+            serviciosPorNombre[nombreServicio] = {
+              total: 0,
+              hoy: 0,
+              semana: 0,
+              mes: 0,
+            };
+          }
+
+          // Total por nombre
+          serviciosPorNombre[nombreServicio].total++;
+
+          // Hoy
+          if (fechaStr === hoyStr) {
+            serviciosHoy++;
+            serviciosPorNombre[nombreServicio].hoy++;
+          }
+
+          // Semana
+          if (fecha >= semanaAtras) {
+            serviciosSemana++;
+            serviciosPorNombre[nombreServicio].semana++;
+          }
+
+          // Mes
+          if (fecha.getMonth() === mesActual) {
+            serviciosMes++;
+            serviciosPorNombre[nombreServicio].mes++;
+          }
+        });
+
+        console.log(`📊 Servicios: Total=${totalServicios}, Activos=${serviciosActivos}, Finalizados=${serviciosFinalizados}, Pendientes=${serviciosPendientes}`);
+        console.log(`📊 Servicios Hoy: ${serviciosHoy}, Semana: ${serviciosSemana}, Mes: ${serviciosMes}`);
+        console.log(`📊 Servicios por nombre:`, serviciosPorNombre);
+
+      } catch (error) {
+        console.error('❌ Error al cargar servicios:', error);
+        // Si falla, usar valores por defecto
+        totalServicios = 0;
+        serviciosActivos = 0;
+        serviciosFinalizados = 0;
+        serviciosPendientes = 0;
+        serviciosHoy = 0;
+        serviciosSemana = 0;
+        serviciosMes = 0;
+        serviciosPorNombre = {};
+      }
 
       // ============================================
       // 5. DESCONEXIONES
@@ -349,7 +477,63 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 12. ACTIVIDAD RECIENTE
+      // 12. VISITAS COMPLETAS
+      // ============================================
+      let totalVisitasData = 0, totalCobradoData = 0;
+      let visitasMesCount = 0, cobradoMesCount = 0;
+      let visitasSemanaCount = 0, cobradoSemanaCount = 0;
+      let visitasHoyCount = 0, cobradoHoyCount = 0;
+      let visitasPorTipo = { COBRO: 0, INSTALACION: 0, MANTENIMIENTO: 0, OTROS: 0 };
+
+      try {
+        const visitasRes = await api.get('/visitas');
+        if (visitasRes.data.success) {
+          const visitas = visitasRes.data.data || [];
+          totalVisitasData = visitas.length;
+          
+          const hoyStr = new Date().toISOString().split('T')[0];
+          const mesActual = new Date().getMonth();
+          const semanaAtras = new Date();
+          semanaAtras.setDate(semanaAtras.getDate() - 7);
+          
+          visitas.forEach(v => {
+            const fecha = new Date(v.fecha);
+            const fechaStr = fecha.toISOString().split('T')[0];
+            const esCobro = v.tipo === 'Cobro';
+            const monto = v.monto || 0;
+            
+            let tipo = v.tipo || 'OTROS';
+            let tipoMapeado = 'OTROS';
+            if (tipo === 'Cobro') tipoMapeado = 'COBRO';
+            else if (tipo === 'Instalación') tipoMapeado = 'INSTALACION';
+            else if (tipo === 'Mantenimiento') tipoMapeado = 'MANTENIMIENTO';
+            
+            visitasPorTipo[tipoMapeado] = (visitasPorTipo[tipoMapeado] || 0) + 1;
+            
+            if (esCobro) totalCobradoData += monto;
+            
+            if (fecha.getMonth() === mesActual) {
+              visitasMesCount++;
+              if (esCobro) cobradoMesCount += monto;
+            }
+            
+            if (fecha >= semanaAtras) {
+              visitasSemanaCount++;
+              if (esCobro) cobradoSemanaCount += monto;
+            }
+            
+            if (fechaStr === hoyStr) {
+              visitasHoyCount++;
+              if (esCobro) cobradoHoyCount += monto;
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error al cargar visitas:', error);
+      }
+
+      // ============================================
+      // 13. ACTIVIDAD RECIENTE
       // ============================================
       const sorted = [...ordenesFiltradas].sort((a, b) => 
         new Date(b.fechaSubida || b.createdAt) - new Date(a.fechaSubida || a.createdAt)
@@ -357,10 +541,9 @@ const DashboardScreen = ({ navigation }) => {
       setRecentActivity(sorted.slice(0, 5));
 
       // ============================================
-      // 13. ACTUALIZAR ESTADÍSTICAS
+      // 14. ACTUALIZAR ESTADÍSTICAS
       // ============================================
       setStats({
-        // Recuperación
         totalOrdenes,
         ordenesAsignadas: asignadas.data.data?.length || 0,
         ordenesNoRetirado: noRetirado.data.data?.length || 0,
@@ -372,8 +555,6 @@ const DashboardScreen = ({ navigation }) => {
         visitasMes,
         clientesAtendidos,
         promedioVisitas,
-        
-        // Caja / Depósitos
         totalDepositos,
         depositosPendientes,
         depositosAprobados,
@@ -382,55 +563,50 @@ const DashboardScreen = ({ navigation }) => {
         cajaAbierta,
         cajaCerrada,
         saldoTotalCaja,
-        
-        // Transferencias
         totalTransferencias,
         transferenciasPendientes,
         transferenciasAprobadas,
         transferenciasDenegadas,
-        
-        // Servicios
         totalServicios,
         serviciosActivos,
         serviciosFinalizados,
         serviciosPendientes,
-        
-        // Desconexiones
+        serviciosHoy,
+        serviciosSemana,
+        serviciosMes,
+        serviciosPorNombre,
         totalDesconexiones,
         desconexionesPendientes,
         desconexionesEjecutadas,
         reconexionesRealizadas,
-        
-        // Recibos
         totalRecibos,
         recibosPendientes,
         recibosSubidos,
-        
-        // Usuarios
         totalUsuarios,
         totalCoordinadores,
         totalAdmins,
         totalTecnicos,
         totalClientes,
-        
-        // Asistencia
         totalAsistencias,
         asistenciasHoy,
         ausenciasRegistradas,
-        
-        // Ubicaciones
         totalUbicaciones,
         ubicacionesHoy,
-        
-        // Bodegas
         totalBodegas,
         totalMateriales,
         materialesAsignados,
-        
-        // Reportes
         totalReportes,
         reportesPendientes,
         reportesGenerados,
+        totalVisitas: totalVisitasData,
+        totalCobrado: totalCobradoData,
+        visitasMes: visitasMesCount,
+        cobradoMes: cobradoMesCount,
+        visitasSemana: visitasSemanaCount,
+        cobradoSemana: cobradoSemanaCount,
+        visitasHoy: visitasHoyCount,
+        cobradoHoy: cobradoHoyCount,
+        visitasPorTipo,
       });
 
     } catch (error) {
@@ -444,7 +620,12 @@ const DashboardScreen = ({ navigation }) => {
 
   useEffect(() => {
     cargarDashboard();
-  }, [cargarDashboard]);
+    cargarUsuarios();
+  }, []);
+
+  useEffect(() => {
+    cargarDashboard();
+  }, [fechaInicio, fechaFin]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -471,20 +652,205 @@ const DashboardScreen = ({ navigation }) => {
     setTimeout(() => cargarDashboard(), 100);
   };
 
-  // ✅ Renderizar sección
-  const Section = ({ title, icon, children, color = '#6C5CE7' }) => (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <View style={[styles.sectionIcon, { backgroundColor: color + '20' }]}>
-          <Ionicons name={icon} size={20} color={color} />
-        </View>
-        <Text style={styles.sectionTitle}>{title}</Text>
-      </View>
-      <View style={styles.sectionContent}>
-        {children}
-      </View>
-    </View>
-  );
+  // ✅ Buscar usuarios por nombre o email
+  const buscarUsuarios = (texto) => {
+    setBusquedaUsuario(texto);
+    if (texto.trim() === '') {
+      setUsuariosFiltrados(usuarios);
+    } else {
+      const filtrados = usuarios.filter(u => 
+        u.nombre?.toLowerCase().includes(texto.toLowerCase()) ||
+        u.email?.toLowerCase().includes(texto.toLowerCase())
+      );
+      setUsuariosFiltrados(filtrados);
+    }
+  };
+
+  // ✅ Seleccionar/Deseleccionar usuario
+  const toggleUsuarioSeleccionado = (usuario) => {
+    const exists = usuariosSeleccionados.find(u => u._id === usuario._id);
+    if (exists) {
+      setUsuariosSeleccionados(usuariosSeleccionados.filter(u => u._id !== usuario._id));
+    } else {
+      setUsuariosSeleccionados([...usuariosSeleccionados, usuario]);
+    }
+  };
+
+  // ✅ Abrir modal de envío de correos
+  const abrirModalCorreo = (tipo) => {
+    setTipoReporte(tipo);
+    setUsuariosSeleccionados([]);
+    setEmailAdicional('');
+    setBusquedaUsuario('');
+    setUsuariosFiltrados(usuarios);
+    setModalCorreoVisible(true);
+  };
+
+  // ✅ Enviar estadísticas por correo
+  const enviarEstadisticasPorCorreo = async () => {
+    const emails = [
+      ...usuariosSeleccionados.map(u => u.email),
+      emailAdicional
+    ].filter(e => e && e.trim() !== '');
+
+    if (emails.length === 0) {
+      Alert.alert('Error', 'Selecciona al menos un usuario o ingresa un correo adicional');
+      return;
+    }
+
+    setEnviandoCorreo(true);
+
+    try {
+      // Generar reporte según el tipo
+      let reporte = generarReporte(tipoReporte);
+      
+      // Enviar al backend
+      const response = await api.post('/email/enviar-reporte', {
+        to: emails,
+        subject: `📊 Reporte de ${getTituloReporte(tipoReporte)} - ${new Date().toLocaleDateString('es-EC')}`,
+        body: reporte,
+      });
+
+      if (response.data.success) {
+        Alert.alert('✅ Éxito', `Reporte enviado a ${emails.length} destinatario(s)`);
+        setModalCorreoVisible(false);
+        setUsuariosSeleccionados([]);
+        setEmailAdicional('');
+      } else {
+        Alert.alert('Error', 'No se pudo enviar el reporte');
+      }
+    } catch (error) {
+      console.error('Error al enviar reporte:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Error al enviar el reporte');
+    } finally {
+      setEnviandoCorreo(false);
+    }
+  };
+
+  // ✅ Generar reporte según el tipo
+  const generarReporte = (tipo) => {
+    const fecha = new Date().toLocaleDateString('es-EC');
+    let reporte = `📊 REPORTE DE ${getTituloReporte(tipo).toUpperCase()} - RA²P\n`;
+    reporte += `====================================\n`;
+    reporte += `Fecha: ${fecha}\n\n`;
+
+    switch (tipo) {
+      case 'visitas':
+        reporte += `📌 TOTALES GENERALES\n`;
+        reporte += `- Total Visitas: ${stats.totalVisitas}\n`;
+        reporte += `- Total Cobrado: $${stats.totalCobrado.toFixed(2)}\n\n`;
+        reporte += `📆 ESTE MES\n`;
+        reporte += `- Visitas del Mes: ${stats.visitasMes}\n`;
+        reporte += `- Cobrado del Mes: $${stats.cobradoMes.toFixed(2)}\n\n`;
+        reporte += `📅 ÚLTIMA SEMANA\n`;
+        reporte += `- Visitas de la Semana: ${stats.visitasSemana}\n`;
+        reporte += `- Cobrado de la Semana: $${stats.cobradoSemana.toFixed(2)}\n\n`;
+        reporte += `📌 HOY\n`;
+        reporte += `- Visitas de Hoy: ${stats.visitasHoy}\n`;
+        reporte += `- Cobrado de Hoy: $${stats.cobradoHoy.toFixed(2)}\n\n`;
+        reporte += `📋 POR TIPO DE VISITA\n`;
+        reporte += `- COBRO: ${stats.visitasPorTipo?.COBRO || 0}\n`;
+        reporte += `- INSTALACIÓN: ${stats.visitasPorTipo?.INSTALACION || 0}\n`;
+        reporte += `- MANTENIMIENTO: ${stats.visitasPorTipo?.MANTENIMIENTO || 0}\n`;
+        reporte += `- OTROS: ${stats.visitasPorTipo?.OTROS || 0}\n`;
+        break;
+
+      case 'cajas':
+        reporte += `💰 CAJA / DEPÓSITOS\n`;
+        reporte += `- Total Depósitos: ${stats.totalDepositos}\n`;
+        reporte += `- Depósitos Pendientes: ${stats.depositosPendientes}\n`;
+        reporte += `- Depósitos Aprobados: ${stats.depositosAprobados}\n`;
+        reporte += `- Depósitos Rechazados: ${stats.depositosRechazados}\n\n`;
+        reporte += `📋 CUADRES DE CAJA\n`;
+        reporte += `- Total Cuadres: ${stats.totalCaja}\n`;
+        reporte += `- Caja Abierta: ${stats.cajaAbierta}\n`;
+        reporte += `- Caja Cerrada: ${stats.cajaCerrada}\n`;
+        reporte += `- Saldo Total: $${stats.saldoTotalCaja.toFixed(2)}\n`;
+        break;
+
+      case 'transferencias':
+        reporte += `🔄 TRANSFERENCIAS\n`;
+        reporte += `- Total Transferencias: ${stats.totalTransferencias}\n`;
+        reporte += `- Pendientes: ${stats.transferenciasPendientes}\n`;
+        reporte += `- Aprobadas: ${stats.transferenciasAprobadas}\n`;
+        reporte += `- Denegadas: ${stats.transferenciasDenegadas}\n`;
+        break;
+
+      case 'servicios':
+        reporte += `🛠 SERVICIOS\n`;
+        reporte += `====================================\n`;
+        reporte += `📌 POR PERÍODO\n`;
+        reporte += `- Total Servicios: ${stats.totalServicios}\n`;
+        reporte += `- Servicios de Hoy: ${stats.serviciosHoy}\n`;
+        reporte += `- Servicios de la Semana: ${stats.serviciosSemana}\n`;
+        reporte += `- Servicios del Mes: ${stats.serviciosMes}\n\n`;
+        reporte += `📋 POR ESTADO\n`;
+        reporte += `- Activos (TOMADO): ${stats.serviciosActivos}\n`;
+        reporte += `- Finalizados (EJECUTADO): ${stats.serviciosFinalizados}\n`;
+        reporte += `- Pendientes: ${stats.serviciosPendientes}\n`;
+        reporte += `- Retroalimentados: ${stats.totalServicios - stats.serviciosActivos - stats.serviciosFinalizados - stats.serviciosPendientes}\n\n`;
+        reporte += `📋 POR TIPO DE SERVICIO\n`;
+        const tipos = stats.serviciosPorNombre || {};
+        if (Object.keys(tipos).length === 0) {
+          reporte += `- No hay servicios registrados\n`;
+        } else {
+          Object.entries(tipos).forEach(([nombre, datos]) => {
+            reporte += `- ${nombre}: Total ${datos.total} | Hoy ${datos.hoy} | Semana ${datos.semana} | Mes ${datos.mes}\n`;
+          });
+        }
+        break;
+
+      case 'desconexiones':
+        reporte += `🔌 DESCONEXIONES / RECONEXIONES\n`;
+        reporte += `- Total Desconexiones: ${stats.totalDesconexiones}\n`;
+        reporte += `- Pendientes: ${stats.desconexionesPendientes}\n`;
+        reporte += `- Ejecutadas: ${stats.desconexionesEjecutadas}\n`;
+        reporte += `- Reconexiones: ${stats.reconexionesRealizadas}\n`;
+        break;
+
+      case 'recibos':
+        reporte += `📄 RECIBOS SOLICITADOS\n`;
+        reporte += `- Total Recibos: ${stats.totalRecibos}\n`;
+        reporte += `- Pendientes: ${stats.recibosPendientes}\n`;
+        reporte += `- Subidos: ${stats.recibosSubidos}\n`;
+        break;
+
+      case 'recuperacion':
+        reporte += `📦 RECUPERACIÓN DE EQUIPOS\n`;
+        reporte += `- Total Órdenes: ${stats.totalOrdenes}\n`;
+        reporte += `- Asignadas: ${stats.ordenesAsignadas}\n`;
+        reporte += `- No Retirado: ${stats.ordenesNoRetirado}\n`;
+        reporte += `- Retirados: ${stats.ordenesRetirado}\n`;
+        reporte += `- Anulados: ${stats.ordenesAnulado}\n`;
+        reporte += `- Reconectados: ${stats.ordenesReconectado}\n\n`;
+        reporte += `📋 VISITAS\n`;
+        reporte += `- Visitas Realizadas: ${stats.visitasRealizadas}\n`;
+        reporte += `- Visitas del Mes: ${stats.visitasMes}\n`;
+        reporte += `- Clientes Atendidos: ${stats.clientesAtendidos}\n`;
+        reporte += `- Promedio Visitas/Orden: ${stats.promedioVisitas}\n`;
+        break;
+
+      default:
+        reporte += `Sin datos disponibles\n`;
+    }
+
+    reporte += `\n====================================\n`;
+    reporte += `Reporte generado automáticamente desde RA²P\n`;
+    return reporte;
+  };
+
+  const getTituloReporte = (tipo) => {
+    const titulos = {
+      'visitas': 'Visitas',
+      'cajas': 'Caja / Depósitos',
+      'transferencias': 'Transferencias',
+      'servicios': 'Servicios',
+      'desconexiones': 'Desconexiones',
+      'recibos': 'Recibos',
+      'recuperacion': 'Recuperación de Equipos'
+    };
+    return titulos[tipo] || 'Estadísticas';
+  };
 
   // ✅ Renderizar fila de estadística
   const StatRow = ({ label, value, icon, color = '#2D3436' }) => (
@@ -497,14 +863,311 @@ const DashboardScreen = ({ navigation }) => {
     </View>
   );
 
-  // ✅ Renderizar tarjeta de resumen
-  const SummaryCard = ({ title, value, icon, color }) => (
-    <View style={[styles.summaryCard, { borderColor: color }]}>
-      <View style={[styles.summaryIcon, { backgroundColor: color + '20' }]}>
-        <Ionicons name={icon} size={20} color={color} />
-      </View>
-      <Text style={styles.summaryValue}>{value}</Text>
-      <Text style={styles.summaryTitle}>{title}</Text>
+  // ✅ Botón de Enviar Correo
+  const EmailButton = ({ tipo }) => (
+    <TouchableOpacity
+      style={styles.emailButton}
+      onPress={() => abrirModalCorreo(tipo)}
+    >
+      <Ionicons name="mail-outline" size={16} color="#FFFFFF" />
+      <Text style={styles.emailButtonText}>Enviar Estadísticas</Text>
+    </TouchableOpacity>
+  );
+
+  // ✅ Renderizar contenido según submenú
+  const renderContenido = () => {
+    switch (subMenuActual) {
+      case 'visitas':
+        return (
+          <View style={styles.vistaContainer}>
+            <View style={styles.vistaHeader}>
+              <Text style={styles.vistaTitle}>📊 Estadísticas de Visitas</Text>
+              <EmailButton tipo="visitas" />
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📌 Totales Generales</Text>
+              <StatRow label="Total Visitas" value={stats.totalVisitas} icon="eye-outline" color="#6C5CE7" />
+              <StatRow label="Total Cobrado" value={`$${stats.totalCobrado.toFixed(2)}`} icon="cash-outline" color="#00B894" />
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📆 Este Mes</Text>
+              <StatRow label="Visitas del Mes" value={stats.visitasMes} icon="calendar-outline" color="#6C5CE7" />
+              <StatRow label="Cobrado del Mes" value={`$${stats.cobradoMes.toFixed(2)}`} icon="cash-outline" color="#00B894" />
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📅 Última Semana</Text>
+              <StatRow label="Visitas de la Semana" value={stats.visitasSemana} icon="calendar-outline" color="#6C5CE7" />
+              <StatRow label="Cobrado de la Semana" value={`$${stats.cobradoSemana.toFixed(2)}`} icon="cash-outline" color="#00B894" />
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📌 Hoy</Text>
+              <StatRow label="Visitas de Hoy" value={stats.visitasHoy} icon="today-outline" color="#6C5CE7" />
+              <StatRow label="Cobrado de Hoy" value={`$${stats.cobradoHoy.toFixed(2)}`} icon="cash-outline" color="#00B894" />
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📋 Por Tipo de Visita</Text>
+              <StatRow label="💲 COBRO" value={stats.visitasPorTipo?.COBRO || 0} icon="cash-outline" color="#00B894" />
+              <StatRow label="🔧 INSTALACIÓN" value={stats.visitasPorTipo?.INSTALACION || 0} icon="construct-outline" color="#3498DB" />
+              <StatRow label="🛠 MANTENIMIENTO" value={stats.visitasPorTipo?.MANTENIMIENTO || 0} icon="settings-outline" color="#F39C12" />
+              <StatRow label="📌 OTROS" value={stats.visitasPorTipo?.OTROS || 0} icon="ellipsis-horizontal-outline" color="#95A5A6" />
+            </View>
+          </View>
+        );
+
+      case 'cajas':
+        return (
+          <View style={styles.vistaContainer}>
+            <View style={styles.vistaHeader}>
+              <Text style={styles.vistaTitle}>💰 Estadísticas de Caja / Depósitos</Text>
+              <EmailButton tipo="cajas" />
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📌 Depósitos</Text>
+              <StatRow label="Total Depósitos" value={stats.totalDepositos} icon="document-text-outline" color="#6C5CE7" />
+              <StatRow label="Pendientes" value={stats.depositosPendientes} icon="time-outline" color="#F39C12" />
+              <StatRow label="Aprobados" value={stats.depositosAprobados} icon="checkmark-circle-outline" color="#2ECC71" />
+              <StatRow label="Rechazados" value={stats.depositosRechazados} icon="close-circle-outline" color="#E74C3C" />
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📋 Cuadres de Caja</Text>
+              <StatRow label="Total Cuadres" value={stats.totalCaja} icon="document-text-outline" color="#6C5CE7" />
+              <StatRow label="Caja Abierta" value={stats.cajaAbierta} icon="lock-open-outline" color="#F39C12" />
+              <StatRow label="Caja Cerrada" value={stats.cajaCerrada} icon="lock-closed-outline" color="#2ECC71" />
+              <StatRow label="Saldo Total" value={`$${stats.saldoTotalCaja.toFixed(2)}`} icon="cash-outline" color="#6C5CE7" />
+            </View>
+          </View>
+        );
+
+      case 'transferencias':
+        return (
+          <View style={styles.vistaContainer}>
+            <View style={styles.vistaHeader}>
+              <Text style={styles.vistaTitle}>🔄 Estadísticas de Transferencias</Text>
+              <EmailButton tipo="transferencias" />
+            </View>
+            <StatRow label="Total Transferencias" value={stats.totalTransferencias} icon="swap-horizontal-outline" color="#6C5CE7" />
+            <StatRow label="Pendientes" value={stats.transferenciasPendientes} icon="time-outline" color="#F39C12" />
+            <StatRow label="Aprobadas" value={stats.transferenciasAprobadas} icon="checkmark-circle-outline" color="#2ECC71" />
+            <StatRow label="Denegadas" value={stats.transferenciasDenegadas} icon="close-circle-outline" color="#E74C3C" />
+          </View>
+        );
+
+      case 'servicios':
+        return (
+          <View style={styles.vistaContainer}>
+            <View style={styles.vistaHeader}>
+              <Text style={styles.vistaTitle}>🛠 Estadísticas de Servicios</Text>
+              <EmailButton tipo="servicios" />
+            </View>
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📌 Por Período</Text>
+              <StatRow label="Total Servicios" value={stats.totalServicios} icon="construct-outline" color="#6C5CE7" />
+              <StatRow label="Servicios de Hoy" value={stats.serviciosHoy} icon="today-outline" color="#F39C12" />
+              <StatRow label="Servicios de la Semana" value={stats.serviciosSemana} icon="calendar-outline" color="#3498DB" />
+              <StatRow label="Servicios del Mes" value={stats.serviciosMes} icon="calendar-outline" color="#2ECC71" />
+            </View>
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📋 Por Estado</Text>
+              <StatRow label="🟡 Activos (TOMADO)" value={stats.serviciosActivos} icon="play-circle-outline" color="#F39C12" />
+              <StatRow label="🟢 Finalizados (EJECUTADO)" value={stats.serviciosFinalizados} icon="checkmark-circle-outline" color="#2ECC71" />
+              <StatRow label="🔴 Pendientes" value={stats.serviciosPendientes} icon="time-outline" color="#E74C3C" />
+              <StatRow label="🔵 Retroalimentados" value={stats.totalServicios - stats.serviciosActivos - stats.serviciosFinalizados - stats.serviciosPendientes} icon="chatbubble-outline" color="#3498DB" />
+            </View>
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📋 Por Tipo de Servicio</Text>
+              {Object.keys(stats.serviciosPorNombre || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay servicios registrados</Text>
+              ) : (
+                Object.entries(stats.serviciosPorNombre || {}).map(([nombre, datos]) => (
+                  <View key={nombre} style={styles.servicioTipoItem}>
+                    <Text style={styles.servicioTipoNombre}>{nombre}</Text>
+                    <View style={styles.servicioTipoDetalles}>
+                      <Text style={styles.servicioTipoCantidad}>Total: {datos.total}</Text>
+                      <Text style={styles.servicioTipoCantidad}>Hoy: {datos.hoy}</Text>
+                      <Text style={styles.servicioTipoCantidad}>Semana: {datos.semana}</Text>
+                      <Text style={styles.servicioTipoCantidad}>Mes: {datos.mes}</Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
+        );
+
+      case 'desconexiones':
+        return (
+          <View style={styles.vistaContainer}>
+            <View style={styles.vistaHeader}>
+              <Text style={styles.vistaTitle}>🔌 Estadísticas de Desconexiones / Reconexiones</Text>
+              <EmailButton tipo="desconexiones" />
+            </View>
+            <StatRow label="Total Desconexiones" value={stats.totalDesconexiones} icon="power-outline" color="#6C5CE7" />
+            <StatRow label="Pendientes" value={stats.desconexionesPendientes} icon="time-outline" color="#F39C12" />
+            <StatRow label="Ejecutadas" value={stats.desconexionesEjecutadas} icon="checkmark-circle-outline" color="#2ECC71" />
+            <StatRow label="Reconexiones" value={stats.reconexionesRealizadas} icon="wifi-outline" color="#3498DB" />
+          </View>
+        );
+
+      case 'recibos':
+        return (
+          <View style={styles.vistaContainer}>
+            <View style={styles.vistaHeader}>
+              <Text style={styles.vistaTitle}>📄 Estadísticas de Recibos</Text>
+              <EmailButton tipo="recibos" />
+            </View>
+            <StatRow label="Total Recibos" value={stats.totalRecibos} icon="document-text-outline" color="#6C5CE7" />
+            <StatRow label="Pendientes" value={stats.recibosPendientes} icon="time-outline" color="#F39C12" />
+            <StatRow label="Subidos" value={stats.recibosSubidos} icon="cloud-upload-outline" color="#2ECC71" />
+          </View>
+        );
+
+      case 'recuperacion':
+        return (
+          <View style={styles.vistaContainer}>
+            <View style={styles.vistaHeader}>
+              <Text style={styles.vistaTitle}>📦 Estadísticas de Recuperación de Equipos</Text>
+              <EmailButton tipo="recuperacion" />
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📌 Órdenes</Text>
+              <StatRow label="Total Órdenes" value={stats.totalOrdenes} icon="document-text-outline" color="#6C5CE7" />
+              <StatRow label="Asignadas" value={stats.ordenesAsignadas} icon="time-outline" color="#F39C12" />
+              <StatRow label="No Retirado" value={stats.ordenesNoRetirado} icon="alert-circle-outline" color="#E74C3C" />
+              <StatRow label="Retirados" value={stats.ordenesRetirado} icon="checkmark-circle-outline" color="#2ECC71" />
+              <StatRow label="Anulados" value={stats.ordenesAnulado} icon="close-circle-outline" color="#E74C3C" />
+              <StatRow label="Reconectados" value={stats.ordenesReconectado} icon="wifi-outline" color="#3498DB" />
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📋 Visitas</Text>
+              <StatRow label="Visitas Realizadas" value={stats.visitasRealizadas} icon="eye-outline" color="#6C5CE7" />
+              <StatRow label="Visitas del Mes" value={stats.visitasMes} icon="calendar-outline" color="#6C5CE7" />
+              <StatRow label="Clientes Atendidos" value={stats.clientesAtendidos} icon="people-outline" color="#2ECC71" />
+              <StatRow label="Promedio Visitas/Orden" value={stats.promedioVisitas} icon="stats-chart-outline" color="#F39C12" />
+            </View>
+          </View>
+        );
+
+      default:
+        return (
+          <View style={styles.vistaContainer}>
+            <View style={styles.vistaHeader}>
+              <Text style={styles.vistaTitle}>📊 Resumen General</Text>
+            </View>
+            <View style={styles.totalCard}>
+              <View style={styles.totalGrid}>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalNumber}>{stats.totalOrdenes}</Text>
+                  <Text style={styles.totalSubLabel}>Órdenes</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalNumber}>{stats.visitasHoy}</Text>
+                  <Text style={styles.totalSubLabel}>Visitas Hoy</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalNumber}>{stats.totalUsuarios}</Text>
+                  <Text style={styles.totalSubLabel}>Usuarios</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalNumber}>{stats.saldoTotalCaja.toFixed(2)}</Text>
+                  <Text style={styles.totalSubLabel}>Saldo Caja</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalNumber}>{stats.totalServicios}</Text>
+                  <Text style={styles.totalSubLabel}>Servicios</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalNumber}>{stats.totalTransferencias}</Text>
+                  <Text style={styles.totalSubLabel}>Transferencias</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📌 Últimas Actividades</Text>
+              {recentActivity.slice(0, 3).map((item, index) => (
+                <View key={index} style={styles.recentItem}>
+                  <Text style={styles.recentCliente}>{item.cliente?.nombre || 'Sin nombre'}</Text>
+                  <Text style={styles.recentDate}>
+                    {new Date(item.fechaSubida || item.createdAt).toLocaleDateString('es-EC')}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        );
+    }
+  };
+
+  // ✅ SUBMENÚ
+  const SubMenu = () => (
+    <View style={styles.subMenuContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subMenuScroll}>
+        <TouchableOpacity
+          style={[styles.subMenuItem, subMenuActual === 'resumen' && styles.subMenuItemActive]}
+          onPress={() => setSubMenuActual('resumen')}
+        >
+          <Ionicons name="home-outline" size={16} color={subMenuActual === 'resumen' ? '#6C5CE7' : '#636E72'} />
+          <Text style={[styles.subMenuItemText, subMenuActual === 'resumen' && styles.subMenuItemTextActive]}>Resumen</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.subMenuItem, subMenuActual === 'visitas' && styles.subMenuItemActive]}
+          onPress={() => setSubMenuActual('visitas')}
+        >
+          <Ionicons name="eye-outline" size={16} color={subMenuActual === 'visitas' ? '#6C5CE7' : '#636E72'} />
+          <Text style={[styles.subMenuItemText, subMenuActual === 'visitas' && styles.subMenuItemTextActive]}>Visitas</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.subMenuItem, subMenuActual === 'cajas' && styles.subMenuItemActive]}
+          onPress={() => setSubMenuActual('cajas')}
+        >
+          <Ionicons name="cash-outline" size={16} color={subMenuActual === 'cajas' ? '#6C5CE7' : '#636E72'} />
+          <Text style={[styles.subMenuItemText, subMenuActual === 'cajas' && styles.subMenuItemTextActive]}>Cajas</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.subMenuItem, subMenuActual === 'transferencias' && styles.subMenuItemActive]}
+          onPress={() => setSubMenuActual('transferencias')}
+        >
+          <Ionicons name="swap-horizontal-outline" size={16} color={subMenuActual === 'transferencias' ? '#6C5CE7' : '#636E72'} />
+          <Text style={[styles.subMenuItemText, subMenuActual === 'transferencias' && styles.subMenuItemTextActive]}>Transferencias</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.subMenuItem, subMenuActual === 'servicios' && styles.subMenuItemActive]}
+          onPress={() => setSubMenuActual('servicios')}
+        >
+          <Ionicons name="construct-outline" size={16} color={subMenuActual === 'servicios' ? '#6C5CE7' : '#636E72'} />
+          <Text style={[styles.subMenuItemText, subMenuActual === 'servicios' && styles.subMenuItemTextActive]}>Servicios</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.subMenuItem, subMenuActual === 'desconexiones' && styles.subMenuItemActive]}
+          onPress={() => setSubMenuActual('desconexiones')}
+        >
+          <Ionicons name="power-outline" size={16} color={subMenuActual === 'desconexiones' ? '#6C5CE7' : '#636E72'} />
+          <Text style={[styles.subMenuItemText, subMenuActual === 'desconexiones' && styles.subMenuItemTextActive]}>Desconexiones</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.subMenuItem, subMenuActual === 'recibos' && styles.subMenuItemActive]}
+          onPress={() => setSubMenuActual('recibos')}
+        >
+          <Ionicons name="document-text-outline" size={16} color={subMenuActual === 'recibos' ? '#6C5CE7' : '#636E72'} />
+          <Text style={[styles.subMenuItemText, subMenuActual === 'recibos' && styles.subMenuItemTextActive]}>Recibos</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.subMenuItem, subMenuActual === 'recuperacion' && styles.subMenuItemActive]}
+          onPress={() => setSubMenuActual('recuperacion')}
+        >
+          <Ionicons name="hardware-chip-outline" size={16} color={subMenuActual === 'recuperacion' ? '#6C5CE7' : '#636E72'} />
+          <Text style={[styles.subMenuItemText, subMenuActual === 'recuperacion' && styles.subMenuItemTextActive]}>Recuperación</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 
@@ -519,6 +1182,69 @@ const DashboardScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.welcomeText}>📊 Dashboard</Text>
+          <Text style={styles.userName}>{user?.nombre || user?.email || 'Usuario'}</Text>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleText}>{user?.rol || 'Sin rol'}</Text>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+          <Ionicons name="refresh-outline" size={28} color="#6C5CE7" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Filtro de fecha */}
+      <View style={styles.filterContainer}>
+        <Text style={styles.filterLabel}>📅 Rango de fechas:</Text>
+        <View style={styles.filterRow}>
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => { setDatePickerMode('start'); setShowDatePicker(true); }}
+          >
+            <Ionicons name="calendar-outline" size={16} color="#6C5CE7" />
+            <Text style={styles.filterButtonText}>{formatDate(fechaInicio)}</Text>
+          </TouchableOpacity>
+          <Text style={styles.filterSeparator}>→</Text>
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => { setDatePickerMode('end'); setShowDatePicker(true); }}
+          >
+            <Ionicons name="calendar-outline" size={16} color="#6C5CE7" />
+            <Text style={styles.filterButtonText}>{formatDate(fechaFin)}</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.filterQuickActions}>
+          <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(0)}>
+            <Text style={styles.quickFilterText}>Hoy</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(7)}>
+            <Text style={styles.quickFilterText}>7 días</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(30)}>
+            <Text style={styles.quickFilterText}>30 días</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(90)}>
+            <Text style={styles.quickFilterText}>3 meses</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={datePickerMode === 'start' ? fechaInicio : fechaFin}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+        />
+      )}
+
+      {/* Submenú */}
+      <SubMenu />
+
+      {/* Contenido */}
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -526,211 +1252,7 @@ const DashboardScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeText}>📊 Dashboard</Text>
-            <Text style={styles.userName}>{user?.nombre || user?.email || 'Usuario'}</Text>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleText}>{user?.rol || 'Sin rol'}</Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-            <Ionicons name="refresh-outline" size={28} color="#6C5CE7" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Filtro de fecha */}
-        <View style={styles.filterContainer}>
-          <Text style={styles.filterLabel}>📅 Rango de fechas:</Text>
-          <View style={styles.filterRow}>
-            <TouchableOpacity 
-              style={styles.filterButton}
-              onPress={() => { setDatePickerMode('start'); setShowDatePicker(true); }}
-            >
-              <Ionicons name="calendar-outline" size={16} color="#6C5CE7" />
-              <Text style={styles.filterButtonText}>{formatDate(fechaInicio)}</Text>
-            </TouchableOpacity>
-            <Text style={styles.filterSeparator}>→</Text>
-            <TouchableOpacity 
-              style={styles.filterButton}
-              onPress={() => { setDatePickerMode('end'); setShowDatePicker(true); }}
-            >
-              <Ionicons name="calendar-outline" size={16} color="#6C5CE7" />
-              <Text style={styles.filterButtonText}>{formatDate(fechaFin)}</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.filterQuickActions}>
-            <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(0)}>
-              <Text style={styles.quickFilterText}>Hoy</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(7)}>
-              <Text style={styles.quickFilterText}>7 días</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(30)}>
-              <Text style={styles.quickFilterText}>30 días</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickFilterButton} onPress={() => aplicarFiltroRapido(90)}>
-              <Text style={styles.quickFilterText}>3 meses</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {showDatePicker && (
-          <DateTimePicker
-            value={datePickerMode === 'start' ? fechaInicio : fechaFin}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-          />
-        )}
-
-        {/* Resumen General */}
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>📊 Resumen General</Text>
-          <View style={styles.totalGrid}>
-            <View style={styles.totalItem}>
-              <Text style={styles.totalNumber}>{stats.totalOrdenes}</Text>
-              <Text style={styles.totalSubLabel}>Órdenes</Text>
-            </View>
-            <View style={styles.totalItem}>
-              <Text style={styles.totalNumber}>{stats.visitasHoy}</Text>
-              <Text style={styles.totalSubLabel}>Visitas Hoy</Text>
-            </View>
-            <View style={styles.totalItem}>
-              <Text style={styles.totalNumber}>{stats.totalUsuarios}</Text>
-              <Text style={styles.totalSubLabel}>Usuarios</Text>
-            </View>
-            <View style={styles.totalItem}>
-              <Text style={styles.totalNumber}>{stats.saldoTotalCaja.toFixed(2)}</Text>
-              <Text style={styles.totalSubLabel}>Saldo Caja</Text>
-            </View>
-            <View style={styles.totalItem}>
-              <Text style={styles.totalNumber}>{stats.totalServicios}</Text>
-              <Text style={styles.totalSubLabel}>Servicios</Text>
-            </View>
-            <View style={styles.totalItem}>
-              <Text style={styles.totalNumber}>{stats.totalTransferencias}</Text>
-              <Text style={styles.totalSubLabel}>Transferencias</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 📦 Recuperación de Equipos */}
-        <Section title="Recuperación de Equipos" icon="hardware-chip-outline" color="#6C5CE7">
-          <StatRow label="Total Órdenes" value={stats.totalOrdenes} icon="document-text-outline" color="#6C5CE7" />
-          <StatRow label="Asignadas" value={stats.ordenesAsignadas} icon="time-outline" color="#F39C12" />
-          <StatRow label="No Retirado" value={stats.ordenesNoRetirado} icon="alert-circle-outline" color="#E74C3C" />
-          <StatRow label="Retirados" value={stats.ordenesRetirado} icon="checkmark-circle-outline" color="#2ECC71" />
-          <StatRow label="Anulados" value={stats.ordenesAnulado} icon="close-circle-outline" color="#E74C3C" />
-          <StatRow label="Reconectados" value={stats.ordenesReconectado} icon="wifi-outline" color="#3498DB" />
-          <StatRow label="Visitas Realizadas" value={stats.visitasRealizadas} icon="eye-outline" color="#6C5CE7" />
-          <StatRow label="Visitas del Mes" value={stats.visitasMes} icon="calendar-outline" color="#6C5CE7" />
-          <StatRow label="Clientes Atendidos" value={stats.clientesAtendidos} icon="people-outline" color="#2ECC71" />
-          <StatRow label="Promedio Visitas/Orden" value={stats.promedioVisitas} icon="stats-chart-outline" color="#F39C12" />
-        </Section>
-
-        {/* 💰 Caja / Depósitos */}
-        <Section title="Caja / Depósitos" icon="cash-outline" color="#F39C12">
-          <StatRow label="Total Depósitos" value={stats.totalDepositos} icon="document-text-outline" color="#6C5CE7" />
-          <StatRow label="Depósitos Pendientes" value={stats.depositosPendientes} icon="time-outline" color="#F39C12" />
-          <StatRow label="Depósitos Aprobados" value={stats.depositosAprobados} icon="checkmark-circle-outline" color="#2ECC71" />
-          <StatRow label="Depósitos Rechazados" value={stats.depositosRechazados} icon="close-circle-outline" color="#E74C3C" />
-          <StatRow label="Total Cuadres" value={stats.totalCaja} icon="document-text-outline" color="#6C5CE7" />
-          <StatRow label="Caja Abierta" value={stats.cajaAbierta} icon="lock-open-outline" color="#F39C12" />
-          <StatRow label="Caja Cerrada" value={stats.cajaCerrada} icon="lock-closed-outline" color="#2ECC71" />
-          <StatRow label="Saldo Total" value={`$${stats.saldoTotalCaja.toFixed(2)}`} icon="cash-outline" color="#6C5CE7" />
-        </Section>
-
-        {/* 🔄 Transferencias */}
-        <Section title="Transferencias" icon="swap-horizontal-outline" color="#3498DB">
-          <StatRow label="Total Transferencias" value={stats.totalTransferencias} icon="document-text-outline" color="#6C5CE7" />
-          <StatRow label="Pendientes" value={stats.transferenciasPendientes} icon="time-outline" color="#F39C12" />
-          <StatRow label="Aprobadas" value={stats.transferenciasAprobadas} icon="checkmark-circle-outline" color="#2ECC71" />
-          <StatRow label="Denegadas" value={stats.transferenciasDenegadas} icon="close-circle-outline" color="#E74C3C" />
-        </Section>
-
-        {/* 🛠 Servicios */}
-        <Section title="Servicios" icon="construct-outline" color="#00B894">
-          <StatRow label="Total Servicios" value={stats.totalServicios} icon="document-text-outline" color="#6C5CE7" />
-          <StatRow label="Activos" value={stats.serviciosActivos} icon="checkmark-circle-outline" color="#2ECC71" />
-          <StatRow label="Finalizados" value={stats.serviciosFinalizados} icon="flag-outline" color="#6C5CE7" />
-          <StatRow label="Pendientes" value={stats.serviciosPendientes} icon="time-outline" color="#F39C12" />
-        </Section>
-
-        {/* 🔌 Desconexiones */}
-        <Section title="Desconexiones" icon="power-outline" color="#E74C3C">
-          <StatRow label="Total Desconexiones" value={stats.totalDesconexiones} icon="document-text-outline" color="#6C5CE7" />
-          <StatRow label="Pendientes" value={stats.desconexionesPendientes} icon="time-outline" color="#F39C12" />
-          <StatRow label="Ejecutadas" value={stats.desconexionesEjecutadas} icon="checkmark-circle-outline" color="#2ECC71" />
-          <StatRow label="Reconexiones" value={stats.reconexionesRealizadas} icon="wifi-outline" color="#3498DB" />
-        </Section>
-
-        {/* 📄 Recibos */}
-        <Section title="Recibos" icon="document-text-outline" color="#F39C12">
-          <StatRow label="Total Recibos" value={stats.totalRecibos} icon="document-text-outline" color="#6C5CE7" />
-          <StatRow label="Pendientes" value={stats.recibosPendientes} icon="time-outline" color="#F39C12" />
-          <StatRow label="Subidos" value={stats.recibosSubidos} icon="cloud-upload-outline" color="#2ECC71" />
-        </Section>
-
-        {/* 👥 Usuarios */}
-        <Section title="Usuarios" icon="people-outline" color="#6C5CE7">
-          <StatRow label="Total Usuarios" value={stats.totalUsuarios} icon="people-outline" color="#6C5CE7" />
-          <StatRow label="Coordinadores" value={stats.totalCoordinadores} icon="person-outline" color="#F39C12" />
-          <StatRow label="Administradores/Jefes" value={stats.totalAdmins} icon="shield-outline" color="#E74C3C" />
-          <StatRow label="Técnicos" value={stats.totalTecnicos} icon="construct-outline" color="#3498DB" />
-          <StatRow label="Clientes" value={stats.totalClientes} icon="person-outline" color="#2ECC71" />
-        </Section>
-
-        {/* 📍 Ubicaciones */}
-        <Section title="Ubicaciones" icon="location-outline" color="#3498DB">
-          <StatRow label="Total Ubicaciones" value={stats.totalUbicaciones} icon="location-outline" color="#6C5CE7" />
-          <StatRow label="Ubicaciones Hoy" value={stats.ubicacionesHoy} icon="calendar-outline" color="#2ECC71" />
-        </Section>
-
-        {/* 🏢 Bodegas */}
-        <Section title="Bodegas" icon="business-outline" color="#F39C12">
-          <StatRow label="Total Bodegas" value={stats.totalBodegas} icon="business-outline" color="#6C5CE7" />
-          <StatRow label="Total Materiales" value={stats.totalMateriales} icon="cube-outline" color="#6C5CE7" />
-          <StatRow label="Materiales Asignados" value={stats.materialesAsignados} icon="checkmark-circle-outline" color="#2ECC71" />
-        </Section>
-
-        {/* 📋 Reportes */}
-        <Section title="Reportes" icon="stats-chart-outline" color="#E74C3C">
-          <StatRow label="Total Reportes" value={stats.totalReportes} icon="document-text-outline" color="#6C5CE7" />
-          <StatRow label="Pendientes" value={stats.reportesPendientes} icon="time-outline" color="#F39C12" />
-          <StatRow label="Generados" value={stats.reportesGenerados} icon="checkmark-circle-outline" color="#2ECC71" />
-        </Section>
-
-        {/* 📋 Actividad Reciente */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIcon, { backgroundColor: '#6C5CE720' }]}>
-              <Ionicons name="time-outline" size={20} color="#6C5CE7" />
-            </View>
-            <Text style={styles.sectionTitle}>Actividad Reciente</Text>
-          </View>
-          {recentActivity.length === 0 ? (
-            <Text style={styles.emptyText}>No hay actividad reciente</Text>
-          ) : (
-            recentActivity.map((item, index) => (
-              <View key={index} style={styles.recentItem}>
-                <View style={styles.recentHeader}>
-                  <Text style={styles.recentCliente}>{item.cliente?.nombre || 'Sin nombre'}</Text>
-                  <View style={[styles.recentStatus, { backgroundColor: getEstadoColor(item.estado) + '20' }]}>
-                    <Text style={[styles.recentStatusText, { color: getEstadoColor(item.estado) }]}>
-                      {getEstadoTexto(item.estado)}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.recentMac}>📶 {item.mac || 'N/A'}</Text>
-                <Text style={styles.recentDate}>
-                  {new Date(item.fechaSubida || item.createdAt).toLocaleDateString('es-EC')}
-                </Text>
-              </View>
-            ))
-          )}
-        </View>
+        {renderContenido()}
 
         {/* Footer */}
         <View style={styles.footer}>
@@ -738,31 +1260,102 @@ const DashboardScreen = ({ navigation }) => {
           <Text style={styles.footerSubtext}>Dashboard en tiempo real - {new Date().toLocaleDateString('es-EC')}</Text>
         </View>
       </ScrollView>
+
+      {/* ✅ MODAL PARA ENVIAR CORREO */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalCorreoVisible}
+        onRequestClose={() => setModalCorreoVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>📧 Enviar Reporte por Correo</Text>
+            <Text style={styles.modalSubtitle}>
+              Reporte: {getTituloReporte(tipoReporte)}
+            </Text>
+
+            {/* Buscador de usuarios */}
+            <Text style={styles.modalLabel}>👥 Seleccionar usuarios:</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="🔍 Buscar por nombre o correo..."
+              value={busquedaUsuario}
+              onChangeText={buscarUsuarios}
+            />
+
+            <FlatList
+              data={usuariosFiltrados}
+              keyExtractor={(item) => item._id}
+              style={styles.usuariosList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.usuarioItem,
+                    usuariosSeleccionados.find(u => u._id === item._id) && styles.usuarioItemSelected
+                  ]}
+                  onPress={() => toggleUsuarioSeleccionado(item)}
+                >
+                  <View>
+                    <Text style={styles.usuarioNombre}>{item.nombre || item.email}</Text>
+                    <Text style={styles.usuarioEmail}>{item.email}</Text>
+                  </View>
+                  {usuariosSeleccionados.find(u => u._id === item._id) && (
+                    <Ionicons name="checkmark-circle" size={24} color="#00B894" />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>No se encontraron usuarios</Text>
+              }
+            />
+
+            {/* Correo adicional */}
+            <Text style={styles.modalLabel}>✉️ Correo adicional:</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="correo@ejemplo.com"
+              value={emailAdicional}
+              onChangeText={setEmailAdicional}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.modalInfo}>
+              {usuariosSeleccionados.length} usuario(s) seleccionado(s)
+              {emailAdicional ? ` + ${emailAdicional}` : ''}
+            </Text>
+
+            <View style={styles.modalBotones}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelar]}
+                onPress={() => {
+                  setModalCorreoVisible(false);
+                  setUsuariosSeleccionados([]);
+                  setEmailAdicional('');
+                }}
+                disabled={enviandoCorreo}
+              >
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalEnviar]}
+                onPress={enviarEstadisticasPorCorreo}
+                disabled={enviandoCorreo}
+              >
+                {enviandoCorreo ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalButtonText}>📧 Enviar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
-};
-
-// ✅ Funciones auxiliares
-const getEstadoColor = (estado) => {
-  const colores = {
-    'asignada': '#F39C12',
-    'no_retirado': '#E74C3C',
-    'retirado': '#2ECC71',
-    'anulado': '#E74C3C',
-    'reconectado': '#3498DB'
-  };
-  return colores[estado] || '#95A5A6';
-};
-
-const getEstadoTexto = (estado) => {
-  const textos = {
-    'asignada': 'Asignada',
-    'no_retirado': 'No Retirado',
-    'retirado': 'Retirado',
-    'anulado': 'Anulado',
-    'reconectado': 'Reconectado'
-  };
-  return textos[estado] || estado;
 };
 
 const styles = StyleSheet.create({
@@ -888,10 +1481,49 @@ const styles = StyleSheet.create({
     color: '#636E72',
     fontWeight: '500',
   },
+  // Submenú
+  subMenuContainer: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    paddingVertical: 8,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  subMenuScroll: {
+    paddingHorizontal: 12,
+    gap: 4,
+  },
+  subMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+    backgroundColor: '#F5F7FA',
+    marginRight: 6,
+  },
+  subMenuItemActive: {
+    backgroundColor: '#6C5CE720',
+  },
+  subMenuItemText: {
+    fontSize: 13,
+    color: '#636E72',
+    fontWeight: '500',
+  },
+  subMenuItemTextActive: {
+    color: '#6C5CE7',
+    fontWeight: '600',
+  },
   // Total Card
   totalCard: {
     backgroundColor: '#6C5CE7',
-    marginHorizontal: 16,
     padding: 16,
     borderRadius: 16,
     shadowColor: '#6C5CE7',
@@ -899,13 +1531,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
-  },
-  totalLabel: {
-    fontSize: 14,
-    color: '#FFFFFF90',
-    fontWeight: '500',
-    textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   totalGrid: {
     flexDirection: 'row',
@@ -930,49 +1556,44 @@ const styles = StyleSheet.create({
     color: '#FFFFFF90',
     marginTop: 1,
   },
-  // Sections
-  section: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 10,
-    padding: 14,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+  // Vista contenedor
+  vistaContainer: {
+    paddingHorizontal: 16,
   },
-  sectionHeader: {
+  vistaHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    paddingBottom: 6,
+    marginBottom: 12,
+    flexWrap: 'wrap',
   },
-  sectionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    fontSize: 15,
+  vistaTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#2D3436',
   },
-  sectionContent: {
-    gap: 1,
+  // Email Button
+  emailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#00B894',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  emailButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '500',
   },
   // Stat Row
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
   },
   statRowLeft: {
     flexDirection: 'row',
@@ -980,12 +1601,58 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statRowLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#636E72',
   },
   statRowValue: {
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  // Sub sección
+  subSection: {
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  subSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 6,
+  },
+  // Servicio por tipo
+  servicioTipoItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  servicioTipoNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 4,
+  },
+  servicioTipoDetalles: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  servicioTipoCantidad: {
+    fontSize: 12,
+    color: '#636E72',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
   },
   // Recent Activity
   recentItem: {
@@ -994,38 +1661,118 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 4,
   },
-  recentHeader: {
+  recentCliente: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2D3436',
+  },
+  recentDate: {
+    fontSize: 12,
+    color: '#999',
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxHeight: '85%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#636E72',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2D3436',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  modalInput: {
+    backgroundColor: '#F5F7FA',
+    padding: 12,
+    borderRadius: 10,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+  },
+  usuariosList: {
+    maxHeight: 200,
+    marginVertical: 8,
+  },
+  usuarioItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    marginBottom: 4,
   },
-  recentCliente: {
-    fontSize: 13,
-    fontWeight: '600',
+  usuarioItemSelected: {
+    backgroundColor: '#E8F8F5',
+    borderWidth: 1,
+    borderColor: '#00B894',
+  },
+  usuarioNombre: {
+    fontSize: 14,
+    fontWeight: '500',
     color: '#2D3436',
   },
-  recentStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 1,
-    borderRadius: 10,
-  },
-  recentStatusText: {
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  recentMac: {
-    fontSize: 11,
+  usuarioEmail: {
+    fontSize: 12,
     color: '#636E72',
   },
-  recentDate: {
-    fontSize: 10,
-    color: '#999',
+  modalInfo: {
+    fontSize: 13,
+    color: '#636E72',
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+  modalBotones: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalCancelar: {
+    backgroundColor: '#DFE6E9',
+  },
+  modalEnviar: {
+    backgroundColor: '#6C5CE7',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#999',
     textAlign: 'center',
-    paddingVertical: 10,
+    padding: 20,
   },
   // Footer
   footer: {

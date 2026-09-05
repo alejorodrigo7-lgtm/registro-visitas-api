@@ -201,6 +201,9 @@ const IngresoTransferencias = ({ navigation }) => {
           📄 Documento: {item.numeroDocumento || 'N/A'}
         </Text>
 
+        {/* ✅ NUEVA LÍNEA: BANCO Y CUENTA EN LA TARJETA */}
+        <Text style={styles.transferenciaBanco}>🏦 {item.bancoCuenta || 'N/A'}</Text>
+
         <View style={styles.transferenciaFooter}>
           <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
           <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
@@ -533,6 +536,13 @@ const styles = StyleSheet.create({
   transferenciaDocumento: {
     fontSize: 14,
     color: '#636E72',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  // ✅ NUEVO ESTILO PARA BANCO Y CUENTA
+  transferenciaBanco: {
+    fontSize: 14,
+    color: '#2D3436',
     marginBottom: 6,
     fontWeight: '500',
   },
@@ -549,7 +559,7 @@ const styles = StyleSheet.create({
   transferenciaNombre: {
     fontSize: 16,
     color: '#2D3436',
-    marginBottom: 8,
+    marginBottom: 4,
     fontWeight: '500',
   },
   transferenciaFooter: {
