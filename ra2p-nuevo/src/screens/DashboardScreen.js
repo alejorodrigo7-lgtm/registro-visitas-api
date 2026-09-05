@@ -27,10 +27,8 @@ const DashboardScreen = ({ navigation }) => {
   const [fechaInicio, setFechaInicio] = useState(new Date());
   const [fechaFin, setFechaFin] = useState(new Date());
   
-  // ✅ Estado para el submenú
   const [subMenuActual, setSubMenuActual] = useState('resumen');
   
-  // ✅ Estado para el modal de envío de correos
   const [modalCorreoVisible, setModalCorreoVisible] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
@@ -40,9 +38,7 @@ const DashboardScreen = ({ navigation }) => {
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
   const [tipoReporte, setTipoReporte] = useState('visitas');
 
-  // ✅ Estado para estadísticas
   const [stats, setStats] = useState({
-    // Recuperación de Equipos
     totalOrdenes: 0,
     ordenesAsignadas: 0,
     ordenesNoRetirado: 0,
@@ -54,8 +50,6 @@ const DashboardScreen = ({ navigation }) => {
     visitasMes: 0,
     clientesAtendidos: 0,
     promedioVisitas: 0,
-    
-    // Caja / Depósitos
     totalDepositos: 0,
     depositosPendientes: 0,
     depositosAprobados: 0,
@@ -64,14 +58,10 @@ const DashboardScreen = ({ navigation }) => {
     cajaAbierta: 0,
     cajaCerrada: 0,
     saldoTotalCaja: 0,
-    
-    // Transferencias
     totalTransferencias: 0,
     transferenciasPendientes: 0,
     transferenciasAprobadas: 0,
     transferenciasDenegadas: 0,
-    
-    // Servicios
     totalServicios: 0,
     serviciosActivos: 0,
     serviciosFinalizados: 0,
@@ -80,45 +70,29 @@ const DashboardScreen = ({ navigation }) => {
     serviciosSemana: 0,
     serviciosMes: 0,
     serviciosPorNombre: {},
-    
-    // Desconexiones
     totalDesconexiones: 0,
     desconexionesPendientes: 0,
     desconexionesEjecutadas: 0,
     reconexionesRealizadas: 0,
-    
-    // Recibos
     totalRecibos: 0,
     recibosPendientes: 0,
     recibosSubidos: 0,
-    
-    // Usuarios
     totalUsuarios: 0,
     totalCoordinadores: 0,
     totalAdmins: 0,
     totalTecnicos: 0,
     totalClientes: 0,
-    
-    // Asistencia
     totalAsistencias: 0,
     asistenciasHoy: 0,
     ausenciasRegistradas: 0,
-    
-    // Ubicaciones
     totalUbicaciones: 0,
     ubicacionesHoy: 0,
-    
-    // Bodegas
     totalBodegas: 0,
     totalMateriales: 0,
     materialesAsignados: 0,
-    
-    // Reportes
     totalReportes: 0,
     reportesPendientes: 0,
     reportesGenerados: 0,
-    
-    // Visitas completas
     totalVisitas: 0,
     totalCobrado: 0,
     visitasMes: 0,
@@ -137,10 +111,6 @@ const DashboardScreen = ({ navigation }) => {
 
   const [recentActivity, setRecentActivity] = useState([]);
 
-  const rolUsuario = user?.rol?.toLowerCase() || '';
-  const isAdminOrJefe = ['admin', 'jefe'].includes(rolUsuario);
-
-  // ✅ Formatear fecha
   const formatDate = (date) => {
     const d = new Date(date);
     return d.toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -151,7 +121,6 @@ const DashboardScreen = ({ navigation }) => {
     return d.toISOString().split('T')[0];
   };
 
-  // ✅ Cargar usuarios para el selector de correos
   const cargarUsuarios = async () => {
     try {
       const response = await api.get('/users');
@@ -165,7 +134,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ Cargar TODAS las estadísticas
   const cargarDashboard = useCallback(async () => {
     try {
       setLoading(true);
@@ -267,70 +235,78 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 4. SERVICIOS - CORREGIDO (USANDO /servicios)
+      // 4. SERVICIOS - CORREGIDO ✅
       // ============================================
       let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
       let serviciosHoy = 0, serviciosSemana = 0, serviciosMes = 0;
       let serviciosPorNombre = {};
 
       try {
-        console.log('🔍 Cargando servicios desde /servicios...');
+        console.log('🔍 Cargando servicios por estado...');
         
-        // ✅ Usar el endpoint principal /servicios (funciona correctamente)
-        const response = await api.get('/servicios');
-        
-        if (response.data && response.data.data) {
-          const servicios = response.data.data;
-          totalServicios = servicios.length;
-          console.log(`✅ ${totalServicios} servicios encontrados`);
-          
-          const hoyStr = new Date().toISOString().split('T')[0];
-          const semanaAtras = new Date();
-          semanaAtras.setDate(semanaAtras.getDate() - 7);
-          const mesActual = new Date().getMonth();
-          
-          servicios.forEach(s => {
-            const fecha = new Date(s.createdAt || s.fechaCreacion || Date.now());
-            const fechaStr = fecha.toISOString().split('T')[0];
-            const nombreServicio = s.nombreServicio || 'Sin especificar';
-            const estado = s.estado || 'Sin estado';
-            
-            // Inicializar contador por nombre de servicio
-            if (!serviciosPorNombre[nombreServicio]) {
-              serviciosPorNombre[nombreServicio] = { hoy: 0, semana: 0, mes: 0 };
-            }
-            
-            // Contar por período
-            if (fechaStr === hoyStr) {
-              serviciosHoy++;
-              serviciosPorNombre[nombreServicio].hoy++;
-            }
-            if (fecha >= semanaAtras) {
-              serviciosSemana++;
-              serviciosPorNombre[nombreServicio].semana++;
-            }
-            if (fecha.getMonth() === mesActual) {
-              serviciosMes++;
-              serviciosPorNombre[nombreServicio].mes++;
-            }
-            
-            // Contar por estado
-            if (estado === 'TOMADO') serviciosActivos++;
-            else if (estado === 'EJECUTADO') serviciosFinalizados++;
-            else if (estado === 'PENDIENTE') serviciosPendientes++;
-          });
-          
-          console.log('📊 Servicios procesados:', {
-            total: totalServicios,
-            activos: serviciosActivos,
-            finalizados: serviciosFinalizados,
-            pendientes: serviciosPendientes,
-            hoy: serviciosHoy,
-            semana: serviciosSemana,
-            mes: serviciosMes
-          });
-          console.log('📊 Por nombre:', serviciosPorNombre);
-        }
+        // ✅ Usar endpoints por estado (NO /servicios que mezcla datos)
+        const [tomadosRes, ejecutadosRes, pendientesRes, retroalimentadosRes] = await Promise.all([
+          api.get('/servicios/estado/TOMADO'),
+          api.get('/servicios/estado/EJECUTADO').catch(() => ({ data: { data: [] } })),
+          api.get('/servicios/estado/PENDIENTE'),
+          api.get('/servicios/estado/RETROALIMENTADO').catch(() => ({ data: { data: [] } })),
+        ]);
+
+        const tomados = tomadosRes.data?.data || [];
+        const ejecutados = ejecutadosRes.data?.data || [];
+        const pendientes = pendientesRes.data?.data || [];
+        const retroalimentados = retroalimentadosRes.data?.data || [];
+
+        console.log('📡 TOMADO:', tomados.length);
+        console.log('📡 EJECUTADO:', ejecutados.length);
+        console.log('📡 PENDIENTE:', pendientes.length);
+        console.log('📡 RETROALIMENTADO:', retroalimentados.length);
+
+        totalServicios = tomados.length + ejecutados.length + pendientes.length + retroalimentados.length;
+        serviciosActivos = tomados.length;
+        serviciosFinalizados = ejecutados.length;
+        serviciosPendientes = pendientes.length;
+
+        const todosLosServicios = [...tomados, ...ejecutados, ...pendientes, ...retroalimentados];
+
+        const hoyStr = new Date().toISOString().split('T')[0];
+        const semanaAtras = new Date();
+        semanaAtras.setDate(semanaAtras.getDate() - 7);
+        const mesActual = new Date().getMonth();
+
+        todosLosServicios.forEach(s => {
+          const fecha = new Date(s.createdAt || s.fechaCreacion || Date.now());
+          const fechaStr = fecha.toISOString().split('T')[0];
+          const nombreServicio = s.nombreServicio || 'Sin especificar';
+
+          if (!serviciosPorNombre[nombreServicio]) {
+            serviciosPorNombre[nombreServicio] = { hoy: 0, semana: 0, mes: 0 };
+          }
+
+          if (fechaStr === hoyStr) {
+            serviciosHoy++;
+            serviciosPorNombre[nombreServicio].hoy++;
+          }
+          if (fecha >= semanaAtras) {
+            serviciosSemana++;
+            serviciosPorNombre[nombreServicio].semana++;
+          }
+          if (fecha.getMonth() === mesActual) {
+            serviciosMes++;
+            serviciosPorNombre[nombreServicio].mes++;
+          }
+        });
+
+        console.log('📊 Servicios procesados:', {
+          total: totalServicios,
+          activos: serviciosActivos,
+          finalizados: serviciosFinalizados,
+          pendientes: serviciosPendientes,
+          hoy: serviciosHoy,
+          semana: serviciosSemana,
+          mes: serviciosMes
+        });
+
       } catch (error) {
         console.error('❌ Error al cargar servicios:', error);
       }
@@ -624,7 +600,6 @@ const DashboardScreen = ({ navigation }) => {
     setTimeout(() => cargarDashboard(), 100);
   };
 
-  // ✅ Buscar usuarios por nombre o email
   const buscarUsuarios = (texto) => {
     setBusquedaUsuario(texto);
     if (texto.trim() === '') {
@@ -638,7 +613,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ Seleccionar/Deseleccionar usuario
   const toggleUsuarioSeleccionado = (usuario) => {
     const exists = usuariosSeleccionados.find(u => u._id === usuario._id);
     if (exists) {
@@ -648,7 +622,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ Abrir modal de envío de correos
   const abrirModalCorreo = (tipo) => {
     setTipoReporte(tipo);
     setUsuariosSeleccionados([]);
@@ -658,7 +631,6 @@ const DashboardScreen = ({ navigation }) => {
     setModalCorreoVisible(true);
   };
 
-  // ✅ Enviar estadísticas por correo
   const enviarEstadisticasPorCorreo = async () => {
     const emails = [
       ...usuariosSeleccionados.map(u => u.email),
@@ -673,10 +645,8 @@ const DashboardScreen = ({ navigation }) => {
     setEnviandoCorreo(true);
 
     try {
-      // Generar reporte según el tipo
       let reporte = generarReporte(tipoReporte);
       
-      // Enviar al backend
       const response = await api.post('/email/enviar-reporte', {
         to: emails,
         subject: `📊 Reporte de ${getTituloReporte(tipoReporte)} - ${new Date().toLocaleDateString('es-EC')}`,
@@ -699,7 +669,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ Generar reporte según el tipo
   const generarReporte = (tipo) => {
     const fecha = new Date().toLocaleDateString('es-EC');
     let reporte = `📊 REPORTE DE ${getTituloReporte(tipo).toUpperCase()} - RA²P\n`;
@@ -823,7 +792,6 @@ const DashboardScreen = ({ navigation }) => {
     return titulos[tipo] || 'Estadísticas';
   };
 
-  // ✅ Renderizar fila de estadística
   const StatRow = ({ label, value, icon, color = '#2D3436' }) => (
     <View style={styles.statRow}>
       <View style={styles.statRowLeft}>
@@ -834,7 +802,6 @@ const DashboardScreen = ({ navigation }) => {
     </View>
   );
 
-  // ✅ Botón de Enviar Correo
   const EmailButton = ({ tipo }) => (
     <TouchableOpacity
       style={styles.emailButton}
@@ -845,7 +812,6 @@ const DashboardScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  // ✅ Renderizar contenido según submenú
   const renderContenido = () => {
     switch (subMenuActual) {
       case 'visitas':
@@ -1069,7 +1035,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ SUBMENÚ
   const SubMenu = () => (
     <View style={styles.subMenuContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subMenuScroll}>
@@ -1151,7 +1116,6 @@ const DashboardScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.welcomeText}>📊 Dashboard</Text>
@@ -1165,7 +1129,6 @@ const DashboardScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Filtro de fecha */}
       <View style={styles.filterContainer}>
         <Text style={styles.filterLabel}>📅 Rango de fechas:</Text>
         <View style={styles.filterRow}>
@@ -1210,10 +1173,8 @@ const DashboardScreen = ({ navigation }) => {
         />
       )}
 
-      {/* Submenú */}
       <SubMenu />
 
-      {/* Contenido */}
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -1223,14 +1184,12 @@ const DashboardScreen = ({ navigation }) => {
       >
         {renderContenido()}
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>RA²P v2.0</Text>
           <Text style={styles.footerSubtext}>Dashboard en tiempo real - {new Date().toLocaleDateString('es-EC')}</Text>
         </View>
       </ScrollView>
 
-      {/* ✅ MODAL PARA ENVIAR CORREO */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -1244,7 +1203,6 @@ const DashboardScreen = ({ navigation }) => {
               Reporte: {getTituloReporte(tipoReporte)}
             </Text>
 
-            {/* Buscador de usuarios */}
             <Text style={styles.modalLabel}>👥 Seleccionar usuarios:</Text>
             <TextInput
               style={styles.modalInput}
@@ -1279,7 +1237,6 @@ const DashboardScreen = ({ navigation }) => {
               }
             />
 
-            {/* Correo adicional */}
             <Text style={styles.modalLabel}>✉️ Correo adicional:</Text>
             <TextInput
               style={styles.modalInput}
@@ -1346,7 +1303,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 30,
   },
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1388,7 +1344,6 @@ const styles = StyleSheet.create({
   refreshButton: {
     padding: 5,
   },
-  // Filtro
   filterContainer: {
     backgroundColor: '#FFFFFF',
     margin: 16,
@@ -1450,7 +1405,6 @@ const styles = StyleSheet.create({
     color: '#636E72',
     fontWeight: '500',
   },
-  // Submenú
   subMenuContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
@@ -1490,7 +1444,6 @@ const styles = StyleSheet.create({
     color: '#6C5CE7',
     fontWeight: '600',
   },
-  // Total Card
   totalCard: {
     backgroundColor: '#6C5CE7',
     padding: 16,
@@ -1525,7 +1478,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF90',
     marginTop: 1,
   },
-  // Vista contenedor
   vistaContainer: {
     paddingHorizontal: 16,
   },
@@ -1541,7 +1493,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2D3436',
   },
-  // Email Button
   emailButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1556,7 +1507,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  // Stat Row
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1577,7 +1527,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  // Sub sección
   subSection: {
     backgroundColor: '#FFFFFF',
     padding: 14,
@@ -1595,7 +1544,6 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     marginBottom: 6,
   },
-  // Servicio por tipo
   servicioTipoItem: {
     backgroundColor: '#F8F9FA',
     padding: 10,
@@ -1623,7 +1571,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8ECF1',
   },
-  // Recent Activity
   recentItem: {
     backgroundColor: '#F8F9FA',
     padding: 10,
@@ -1639,7 +1586,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
   },
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1743,7 +1689,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 20,
   },
-  // Footer
   footer: {
     alignItems: 'center',
     paddingTop: 16,
