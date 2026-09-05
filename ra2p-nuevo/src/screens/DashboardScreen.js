@@ -267,100 +267,72 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 4. SERVICIOS - CORREGIDO CON ESTADÍSTICAS DETALLADAS
+      // 4. SERVICIOS - CORREGIDO (USANDO /servicios)
       // ============================================
       let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
       let serviciosHoy = 0, serviciosSemana = 0, serviciosMes = 0;
       let serviciosPorNombre = {};
 
       try {
-        // ✅ Usar endpoints por estado (funcionan correctamente)
-        const [tomadosRes, ejecutadosRes, pendientesRes, retroalimentadosRes] = await Promise.all([
-          api.get('/servicios/estado/TOMADO'),
-          api.get('/servicios/estado/EJECUTADO'),
-          api.get('/servicios/estado/PENDIENTE'),
-          api.get('/servicios/estado/RETROALIMENTADO')
-        ]);
-
-        const tomados = tomadosRes.data?.data || [];
-        const ejecutados = ejecutadosRes.data?.data || [];
-        const pendientes = pendientesRes.data?.data || [];
-        const retroalimentados = retroalimentadosRes.data?.data || [];
-
-        // Total de servicios (suma de todos los estados)
-        totalServicios = tomados.length + ejecutados.length + pendientes.length + retroalimentados.length;
-
-        // TOMADO = Activos (servicios en proceso)
-        serviciosActivos = tomados.length;
-
-        // EJECUTADO = Finalizados
-        serviciosFinalizados = ejecutados.length;
-
-        // PENDIENTE = Pendientes
-        serviciosPendientes = pendientes.length;
-
-        // ✅ COMBINAR TODOS LOS SERVICIOS PARA ESTADÍSTICAS TEMPORALES
-        const todosLosServicios = [...tomados, ...ejecutados, ...pendientes, ...retroalimentados];
-
-        // ✅ Calcular servicios por período
-        const hoyStr = new Date().toISOString().split('T')[0];
-        const semanaAtras = new Date();
-        semanaAtras.setDate(semanaAtras.getDate() - 7);
-        const mesActual = new Date().getMonth();
-
-        // ✅ Contar servicios por período y por nombre
-        todosLosServicios.forEach(s => {
-          const fecha = new Date(s.createdAt || s.fechaCreacion || Date.now());
-          const fechaStr = fecha.toISOString().split('T')[0];
-          const nombreServicio = s.nombreServicio || 'Sin especificar';
-
-          // Inicializar contador por nombre
-          if (!serviciosPorNombre[nombreServicio]) {
-            serviciosPorNombre[nombreServicio] = {
-              total: 0,
-              hoy: 0,
-              semana: 0,
-              mes: 0,
-            };
-          }
-
-          // Total por nombre
-          serviciosPorNombre[nombreServicio].total++;
-
-          // Hoy
-          if (fechaStr === hoyStr) {
-            serviciosHoy++;
-            serviciosPorNombre[nombreServicio].hoy++;
-          }
-
-          // Semana
-          if (fecha >= semanaAtras) {
-            serviciosSemana++;
-            serviciosPorNombre[nombreServicio].semana++;
-          }
-
-          // Mes
-          if (fecha.getMonth() === mesActual) {
-            serviciosMes++;
-            serviciosPorNombre[nombreServicio].mes++;
-          }
-        });
-
-        console.log(`📊 Servicios: Total=${totalServicios}, Activos=${serviciosActivos}, Finalizados=${serviciosFinalizados}, Pendientes=${serviciosPendientes}`);
-        console.log(`📊 Servicios Hoy: ${serviciosHoy}, Semana: ${serviciosSemana}, Mes: ${serviciosMes}`);
-        console.log(`📊 Servicios por nombre:`, serviciosPorNombre);
-
+        console.log('🔍 Cargando servicios desde /servicios...');
+        
+        // ✅ Usar el endpoint principal /servicios (funciona correctamente)
+        const response = await api.get('/servicios');
+        
+        if (response.data && response.data.data) {
+          const servicios = response.data.data;
+          totalServicios = servicios.length;
+          console.log(`✅ ${totalServicios} servicios encontrados`);
+          
+          const hoyStr = new Date().toISOString().split('T')[0];
+          const semanaAtras = new Date();
+          semanaAtras.setDate(semanaAtras.getDate() - 7);
+          const mesActual = new Date().getMonth();
+          
+          servicios.forEach(s => {
+            const fecha = new Date(s.createdAt || s.fechaCreacion || Date.now());
+            const fechaStr = fecha.toISOString().split('T')[0];
+            const nombreServicio = s.nombreServicio || 'Sin especificar';
+            const estado = s.estado || 'Sin estado';
+            
+            // Inicializar contador por nombre de servicio
+            if (!serviciosPorNombre[nombreServicio]) {
+              serviciosPorNombre[nombreServicio] = { hoy: 0, semana: 0, mes: 0 };
+            }
+            
+            // Contar por período
+            if (fechaStr === hoyStr) {
+              serviciosHoy++;
+              serviciosPorNombre[nombreServicio].hoy++;
+            }
+            if (fecha >= semanaAtras) {
+              serviciosSemana++;
+              serviciosPorNombre[nombreServicio].semana++;
+            }
+            if (fecha.getMonth() === mesActual) {
+              serviciosMes++;
+              serviciosPorNombre[nombreServicio].mes++;
+            }
+            
+            // Contar por estado
+            if (estado === 'TOMADO') serviciosActivos++;
+            else if (estado === 'EJECUTADO') serviciosFinalizados++;
+            else if (estado === 'PENDIENTE') serviciosPendientes++;
+          });
+          
+          console.log('📊 Servicios procesados:', {
+            total: totalServicios,
+            activos: serviciosActivos,
+            finalizados: serviciosFinalizados,
+            pendientes: serviciosPendientes,
+            hoy: serviciosHoy,
+            semana: serviciosSemana,
+            mes: serviciosMes
+          });
+          console.log('📊 Por nombre:', serviciosPorNombre);
+        }
       } catch (error) {
         console.error('❌ Error al cargar servicios:', error);
-        // Si falla, usar valores por defecto
-        totalServicios = 0;
-        serviciosActivos = 0;
-        serviciosFinalizados = 0;
-        serviciosPendientes = 0;
-        serviciosHoy = 0;
-        serviciosSemana = 0;
-        serviciosMes = 0;
-        serviciosPorNombre = {};
       }
 
       // ============================================
@@ -780,7 +752,6 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `🛠 SERVICIOS\n`;
         reporte += `====================================\n`;
         reporte += `📌 POR PERÍODO\n`;
-        reporte += `- Total Servicios: ${stats.totalServicios}\n`;
         reporte += `- Servicios de Hoy: ${stats.serviciosHoy}\n`;
         reporte += `- Servicios de la Semana: ${stats.serviciosSemana}\n`;
         reporte += `- Servicios del Mes: ${stats.serviciosMes}\n\n`;
@@ -795,7 +766,7 @@ const DashboardScreen = ({ navigation }) => {
           reporte += `- No hay servicios registrados\n`;
         } else {
           Object.entries(tipos).forEach(([nombre, datos]) => {
-            reporte += `- ${nombre}: Total ${datos.total} | Hoy ${datos.hoy} | Semana ${datos.semana} | Mes ${datos.mes}\n`;
+            reporte += `- ${nombre}: Hoy ${datos.hoy} | Semana ${datos.semana} | Mes ${datos.mes}\n`;
           });
         }
         break;
@@ -962,7 +933,6 @@ const DashboardScreen = ({ navigation }) => {
 
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📌 Por Período</Text>
-              <StatRow label="Total Servicios" value={stats.totalServicios} icon="construct-outline" color="#6C5CE7" />
               <StatRow label="Servicios de Hoy" value={stats.serviciosHoy} icon="today-outline" color="#F39C12" />
               <StatRow label="Servicios de la Semana" value={stats.serviciosSemana} icon="calendar-outline" color="#3498DB" />
               <StatRow label="Servicios del Mes" value={stats.serviciosMes} icon="calendar-outline" color="#2ECC71" />
@@ -985,7 +955,6 @@ const DashboardScreen = ({ navigation }) => {
                   <View key={nombre} style={styles.servicioTipoItem}>
                     <Text style={styles.servicioTipoNombre}>{nombre}</Text>
                     <View style={styles.servicioTipoDetalles}>
-                      <Text style={styles.servicioTipoCantidad}>Total: {datos.total}</Text>
                       <Text style={styles.servicioTipoCantidad}>Hoy: {datos.hoy}</Text>
                       <Text style={styles.servicioTipoCantidad}>Semana: {datos.semana}</Text>
                       <Text style={styles.servicioTipoCantidad}>Mes: {datos.mes}</Text>
