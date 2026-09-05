@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
-  ScrollView,  // ✅ AGREGADO
+  ScrollView,
   Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,15 +39,30 @@ const PendientesRetirar = ({ navigation }) => {
   const [foto, setFoto] = useState(null);
   const [cargando, setCargando] = useState(false);
 
+  // ✅ Obtener ID correctamente
+  const userId = user?.id || user?._id;
+  const isCoordinador = user?.rol?.toLowerCase() === 'coordinador';
+
   const cargarPendientes = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/recuperacion/ordenes/estado/en_progreso');
+      // ✅ CORREGIDO: Usar 'no_retirado' en lugar de 'en_progreso'
+      const res = await api.get('/recuperacion/ordenes/estado/no_retirado');
+      
       if (res.data.success) {
-        let data = res.data.data;
-        if (user?.rol === 'Coordinador') {
-          data = data.filter(o => o.coordinadorAsignado?._id === user._id);
+        let data = res.data.data || [];
+        console.log(`📋 Órdenes no retiradas: ${data.length}`);
+
+        // ✅ CORREGIDO: Filtrar por Coordinador usando userId
+        if (isCoordinador) {
+          const userIdStr = String(userId);
+          data = data.filter(o => {
+            const coordId = o.coordinadorAsignado?._id || o.coordinadorAsignado;
+            return String(coordId) === userIdStr;
+          });
+          console.log(`📋 Filtradas para Coordinador: ${data.length}`);
         }
+
         setOrdenes(data);
         setFilteredOrdenes(data);
       }
@@ -68,9 +83,11 @@ const PendientesRetirar = ({ navigation }) => {
     if (!searchTerm.trim()) {
       setFilteredOrdenes(ordenes);
     } else {
+      const term = searchTerm.toLowerCase();
       const filtered = ordenes.filter(o =>
-        o.cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.cliente.codigo.toLowerCase().includes(searchTerm.toLowerCase())
+        o.cliente?.nombre?.toLowerCase().includes(term) ||
+        o.cliente?.codigo?.toLowerCase().includes(term) ||
+        o.mac?.toLowerCase().includes(term)
       );
       setFilteredOrdenes(filtered);
     }
@@ -78,7 +95,7 @@ const PendientesRetirar = ({ navigation }) => {
 
   const openModal = (orden) => {
     setSelectedOrden(orden);
-    const ultimaVisita = orden.visitas[orden.visitas.length - 1];
+    const ultimaVisita = orden.visitas?.[orden.visitas.length - 1];
     if (ultimaVisita) {
       setEditandoVisita(ultimaVisita._id);
       setFecha(new Date(ultimaVisita.fecha));
@@ -141,13 +158,30 @@ const PendientesRetirar = ({ navigation }) => {
           foto: foto,
           retirado: retirado
         });
+      } else {
+        // Si no hay visita, crear una nueva
+        res = await api.put(`/recuperacion/orden/${selectedOrden._id}/visita`, {
+          fecha: fechaStr,
+          hora: horaStr,
+          mac: mac.trim(),
+          receptor: receptor.trim(),
+          adicionales: adicionales.trim(),
+          observaciones: observaciones.trim(),
+          foto: foto,
+          retirado: retirado
+        });
       }
 
       if (res.data.success) {
-        Alert.alert('✅ Éxito', `Orden ${retirado ? 'retirada' : 'actualizada'}`);
+        const mensaje = retirado ? 'retirada' : 'actualizada';
+        Alert.alert('✅ Éxito', `Orden ${mensaje} correctamente`);
         setModalVisible(false);
         setSelectedOrden(null);
         cargarPendientes();
+        // ✅ Si fue retirada, ir a RevisarOrdenes
+        if (retirado) {
+          navigation.navigate('RevisarOrdenes');
+        }
       } else {
         Alert.alert('Error', res.data.message || 'Error al actualizar');
       }
@@ -159,17 +193,32 @@ const PendientesRetirar = ({ navigation }) => {
     }
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.card} onPress={() => openModal(item)}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardCliente}>{item.cliente.nombre}</Text>
-        <Text style={styles.cardCodigo}>Código: {item.cliente.codigo}</Text>
-      </View>
-      <Text style={styles.cardInfo}>📶 MAC: {item.mac}</Text>
-      <Text style={styles.cardInfo}>🔄 Visitas: {item.numeroVisitas} / 3</Text>
-      <Text style={styles.cardInfo}>👤 Coordinador: {item.coordinadorAsignado?.nombre || 'N/A'}</Text>
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }) => {
+    const ultimaVisita = item.visitas?.[item.visitas.length - 1];
+    const fechaVisita = ultimaVisita ? new Date(ultimaVisita.fechaVisita).toLocaleDateString() : 'N/A';
+
+    return (
+      <TouchableOpacity style={styles.card} onPress={() => openModal(item)}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardCliente}>{item.cliente?.nombre || 'Sin nombre'}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: '#E74C3C20' }]}>
+            <Text style={[styles.statusText, { color: '#E74C3C' }]}>
+              ⏳ No Retirado
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.cardInfo}>📶 MAC: {item.mac || 'N/A'}</Text>
+        <Text style={styles.cardInfo}>🔄 Visitas: {item.numeroVisitas || 0}</Text>
+        <Text style={styles.cardInfo}>📅 Última visita: {fechaVisita}</Text>
+        <Text style={styles.cardInfo}>👤 Coordinador: {item.coordinadorAsignado?.nombre || 'N/A'}</Text>
+        {item.observacionesSubida && (
+          <Text style={styles.cardObservaciones} numberOfLines={2}>
+            📝 {item.observacionesSubida}
+          </Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -187,7 +236,7 @@ const PendientesRetirar = ({ navigation }) => {
         <Ionicons name="search" size={20} color="#999" />
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar por cliente..."
+          placeholder="Buscar por cliente, código o MAC..."
           placeholderTextColor="#999"
           value={searchTerm}
           onChangeText={setSearchTerm}
@@ -199,6 +248,12 @@ const PendientesRetirar = ({ navigation }) => {
         )}
       </View>
 
+      <View style={styles.infoContainer}>
+        <Text style={styles.infoText}>
+          📋 {filteredOrdenes.length} órdenes pendientes por retirar
+        </Text>
+      </View>
+
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#6C5CE7" />
@@ -208,6 +263,9 @@ const PendientesRetirar = ({ navigation }) => {
         <View style={styles.centerContainer}>
           <Ionicons name="time-outline" size={64} color="#ccc" />
           <Text style={styles.emptyText}>No hay órdenes pendientes por retirar</Text>
+          <Text style={styles.emptySubtext}>
+            Todas las órdenes han sido retiradas o aún no se han visitado
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -225,8 +283,9 @@ const PendientesRetirar = ({ navigation }) => {
             <Text style={styles.modalTitle}>📝 Editar Visita</Text>
             {selectedOrden && (
               <View style={styles.ordenResumen}>
-                <Text style={styles.ordenResumenText}>Cliente: {selectedOrden.cliente.nombre}</Text>
-                <Text style={styles.ordenResumenText}>Visita #{selectedOrden.numeroVisitas}</Text>
+                <Text style={styles.ordenResumenText}>Cliente: {selectedOrden.cliente?.nombre || 'N/A'}</Text>
+                <Text style={styles.ordenResumenText}>Visitas: {selectedOrden.numeroVisitas || 0}</Text>
+                <Text style={styles.ordenResumenText}>Estado: ⏳ No Retirado</Text>
               </View>
             )}
 
@@ -334,9 +393,23 @@ const styles = StyleSheet.create({
     height: 40,
   },
   searchInput: { flex: 1, marginLeft: 8, fontSize: 14, color: '#2D3436' },
+  infoContainer: {
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#E65100',
+    fontWeight: '500',
+  },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   loadingText: { marginTop: 10, color: '#636E72' },
   emptyText: { fontSize: 16, color: '#999', marginTop: 12, textAlign: 'center' },
+  emptySubtext: { fontSize: 14, color: '#B2BEC3', marginTop: 4, textAlign: 'center' },
   listContainer: { padding: 16 },
   card: {
     backgroundColor: '#fff',
@@ -349,10 +422,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  cardCliente: { fontSize: 16, fontWeight: 'bold', color: '#2D3436' },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  cardCliente: { fontSize: 16, fontWeight: 'bold', color: '#2D3436', flex: 1 },
   cardCodigo: { fontSize: 13, color: '#636E72' },
   cardInfo: { fontSize: 14, color: '#555', marginVertical: 2 },
+  cardObservaciones: { fontSize: 13, color: '#666', marginTop: 6, fontStyle: 'italic' },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statusText: { fontSize: 11, fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 20, padding: 20, maxHeight: '90%' },
   modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 12 },

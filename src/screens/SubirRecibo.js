@@ -9,13 +9,16 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
-  Modal
+  Modal,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { fileService } from '../services/fileService';
 
 const SubirRecibo = ({ navigation }) => {
   const { token } = useAuth();
@@ -27,10 +30,12 @@ const SubirRecibo = ({ navigation }) => {
   
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedSolicitud, setSelectedSolicitud] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [archivoSeleccionado, setArchivoSeleccionado] = useState(false);
-  const [archivoNombre, setArchivoNombre] = useState('');
-  const [base64Content, setBase64Content] = useState('');
+  
+  // ✅ Estados para múltiples archivos PDF (máximo 3)
+  const [archivos, setArchivos] = useState([]);
+  const [archivosBase64, setArchivosBase64] = useState([]);
+  const [archivosNombre, setArchivosNombre] = useState([]);
+
   const [mensajeError, setMensajeError] = useState('');
 
   const fetchSolicitudes = useCallback(async () => {
@@ -69,72 +74,160 @@ const SubirRecibo = ({ navigation }) => {
 
   const openModal = (solicitud) => {
     setSelectedSolicitud(solicitud);
-    setSelectedFile(null);
-    setArchivoSeleccionado(false);
-    setArchivoNombre('');
-    setBase64Content('');
+    setArchivos([]);
+    setArchivosBase64([]);
+    setArchivosNombre([]);
     setMensajeError('');
     setModalVisible(true);
   };
 
+  // ============================================
+  // 📎 FUNCIONES PARA PDF (MÓVIL Y WEB)
+  // ============================================
+
   const handleSelectFile = async () => {
+    if (archivos.length >= 3) {
+      Alert.alert('Límite alcanzado', 'Máximo 3 archivos PDF por solicitud');
+      return;
+    }
+
     try {
-      setMensajeError('');
-      console.log('📄 Abriendo selector de archivos...');
-      
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: true
-      });
+      console.log('📄 Abriendo selector de PDF...');
+      console.log('📱 Plataforma:', Platform.OS);
 
-      console.log('📄 Resultado:', JSON.stringify(result, null, 2));
+      let result;
 
-      if (result.canceled === true) {
-        console.log('❌ Usuario canceló la selección');
-        setMensajeError('Selección cancelada');
-        return;
-      }
+      // ✅ USAR fileService para WEB y MÓVIL
+      if (Platform.OS === 'web') {
+        // En web, usamos el fileService
+        result = await fileService.pickFile({ type: 'pdf' });
+        
+        if (!result) {
+          console.log('❌ Usuario canceló la selección');
+          return;
+        }
 
-      if (result.assets && result.assets.length > 0) {
-        const file = result.assets[0];
-        console.log('✅ Archivo seleccionado:', file.name);
-        console.log('📁 URI:', file.uri);
-        console.log('📊 Tamaño:', file.size, 'bytes');
-        
-        console.log('🔄 Leyendo archivo y convirtiendo a Base64...');
-        const fileContent = await FileSystem.readAsStringAsync(file.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        
-        console.log('✅ Base64 generado. Tamaño:', fileContent.length);
-        console.log('✅ Base64 primeros 50 chars:', fileContent.substring(0, 50));
-        
-        setSelectedFile({
-          name: file.name,
-          uri: file.uri,
-          size: file.size,
-          base64: fileContent
-        });
-        setBase64Content(fileContent);
-        setArchivoSeleccionado(true);
-        setArchivoNombre(file.name);
-        
-        Alert.alert('✅ Éxito', `Archivo "${file.name}" seleccionado (${(file.size / 1024).toFixed(1)} KB)`);
+        console.log('✅ PDF seleccionado (web):', result.name);
+        console.log('📁 Tamaño:', result.size, 'bytes');
+        console.log('📁 Base64 length original:', result.base64?.length || 0);
+        console.log('📁 Base64 preview original:', result.base64?.substring(0, 50) || 'vacío');
+
+        // ✅ Verificar que el Base64 sea válido
+        if (!result.base64 || result.base64.length < 100) {
+          Alert.alert('Error', 'El archivo no se pudo leer correctamente. Intenta de nuevo.');
+          return;
+        }
+
+        // ✅ Para web, el base64 ya viene en el resultado
+        agregarArchivo(
+          result.uri, 
+          result.base64, // Pasamos el base64 con prefijo, se limpiará en agregarArchivo
+          result.name, 
+          result.mimeType || 'application/pdf',
+          result.size
+        );
+
       } else {
-        console.log('❌ No se encontraron archivos en el resultado');
-        setMensajeError('No se seleccionó ningún archivo');
+        // ✅ Móvil: usar DocumentPicker
+        const pickerResult = await DocumentPicker.getDocumentAsync({
+          type: 'application/pdf',
+          copyToCacheDirectory: true,
+        });
+
+        console.log('📄 Resultado DocumentPicker:', JSON.stringify(pickerResult, null, 2));
+
+        if (pickerResult.canceled === true) {
+          console.log('❌ Usuario canceló la selección');
+          return;
+        }
+
+        if (pickerResult.assets && pickerResult.assets.length > 0) {
+          const file = pickerResult.assets[0];
+          console.log('✅ PDF seleccionado (móvil):', file.name);
+          console.log('📁 Tamaño:', file.size, 'bytes');
+          
+          // Leer el archivo y convertir a Base64
+          const fileContent = await FileSystem.readAsStringAsync(file.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          console.log('✅ Base64 generado. Tamaño:', fileContent.length);
+          console.log('✅ Base64 preview:', fileContent.substring(0, 30) || 'vacío');
+          
+          agregarArchivo(
+            file.uri, 
+            fileContent, // En móvil ya viene sin prefijo
+            file.name, 
+            'application/pdf',
+            file.size
+          );
+        }
       }
+
     } catch (error) {
-      console.error('❌ Error seleccionando archivo:', error);
-      setMensajeError('Error: ' + error.message);
-      Alert.alert('Error', 'No se pudo seleccionar el archivo: ' + error.message);
+      console.error('❌ Error seleccionando PDF:', error);
+      Alert.alert('Error', 'No se pudo seleccionar el PDF: ' + error.message);
     }
   };
 
-  // ✅ ENVIAR RECIBO CON BASE64 - CORREGIDO CON LOGS
+  // ✅ FUNCIÓN CORREGIDA - Limpia el Base64 si tiene prefijo
+  const agregarArchivo = (uri, base64, nombre, mimeType, size = 0) => {
+    if (archivos.length >= 3) {
+      Alert.alert('Límite alcanzado', 'Máximo 3 archivos por solicitud');
+      return;
+    }
+
+    // ✅ LIMPIAR Base64 - QUITAR EL PREFIJO si existe (solo para web)
+    let cleanBase64 = base64;
+    if (cleanBase64 && cleanBase64.includes(',')) {
+      cleanBase64 = cleanBase64.split(',')[1];
+      console.log('🧹 Base64 limpiado al agregar. Length:', cleanBase64.length);
+    }
+
+    // ✅ Verificar que el Base64 no esté vacío
+    if (!cleanBase64 || cleanBase64.length < 50) {
+      Alert.alert('Error', 'El archivo no se pudo leer correctamente. Intenta de nuevo.');
+      return;
+    }
+
+    setArchivos([...archivos, { uri, nombre, mimeType, size }]);
+    setArchivosBase64([...archivosBase64, cleanBase64]); // ✅ Base64 limpio
+    setArchivosNombre([...archivosNombre, nombre]);
+    
+    console.log(`📎 Archivo PDF agregado: ${nombre} (${archivos.length + 1}/3)`);
+    console.log(`📎 Base64 length limpio: ${cleanBase64.length}`);
+    console.log(`📎 Base64 preview: ${cleanBase64.substring(0, 30)}...`);
+  };
+
+  const eliminarArchivo = (index) => {
+    const nuevosArchivos = [...archivos];
+    nuevosArchivos.splice(index, 1);
+    setArchivos(nuevosArchivos);
+
+    const nuevosBase64 = [...archivosBase64];
+    nuevosBase64.splice(index, 1);
+    setArchivosBase64(nuevosBase64);
+
+    const nuevosNombres = [...archivosNombre];
+    nuevosNombres.splice(index, 1);
+    setArchivosNombre(nuevosNombres);
+  };
+
+  // ============================================
+  // ENVIAR RECIBO CON MÚLTIPLES PDF
+  // ============================================
+
+  // ✅ FUNCIÓN CORREGIDA - Limpieza final de Base64
   const handleEnviar = async () => {
-    if (!selectedFile || !base64Content) {
-      Alert.alert('Error', 'Selecciona un archivo PDF');
+    if (archivos.length === 0) {
+      Alert.alert('Error', 'Selecciona al menos un archivo PDF');
+      return;
+    }
+
+    // ✅ Verificar que los Base64 no estén vacíos
+    const base64Validos = archivosBase64.filter(b64 => b64 && b64.length > 50);
+    if (base64Validos.length === 0) {
+      Alert.alert('Error', 'Los archivos no se cargaron correctamente. Intenta de nuevo.');
       return;
     }
 
@@ -144,40 +237,81 @@ const SubirRecibo = ({ navigation }) => {
     try {
       console.log('📤 ===== INICIANDO ENVÍO =====');
       console.log('📤 Solicitud ID:', selectedSolicitud._id);
-      console.log('📤 Archivo:', selectedFile.name);
-      console.log('📤 base64Content length:', base64Content.length);
-      console.log('📤 base64Content primeros 50 chars:', base64Content.substring(0, 50));
+      console.log(`📤 Archivos PDF: ${archivos.length}`);
+      console.log('📱 Plataforma:', Platform.OS);
 
-      // ✅ ENVIAR archivoBase64
+      // ✅ Los Base64 ya deberían estar limpios de agregarArchivo
+      // Pero por seguridad, hacemos una limpieza final
+      const archivosBase64Limpios = archivosBase64.map(b64 => {
+        if (b64 && b64.includes(',')) {
+          const clean = b64.split(',')[1];
+          console.log('🧹 Limpieza final. Length antes:', b64.length, 'Después:', clean.length);
+          return clean;
+        }
+        return b64;
+      });
+
+      // ✅ Mostrar información de cada archivo
+      archivos.forEach((archivo, index) => {
+        console.log(`📎 Archivo ${index + 1}:`, {
+          nombre: archivo.nombre,
+          mimeType: archivo.mimeType,
+          base64Length: archivosBase64Limpios[index]?.length || 0,
+          base64Preview: archivosBase64Limpios[index]?.substring(0, 30) || 'vacío'
+        });
+      });
+
+      // ✅ Enviar con Base64 LIMPIO
       const payload = {
-        archivoNombre: selectedFile.name,
-        archivoBase64: base64Content,
-        archivoPublicId: `recibo_${selectedSolicitud._id}_${Date.now()}`
+        archivosNombre: archivos.map(a => a.nombre),
+        archivosBase64: archivosBase64Limpios, // ✅ Base64 limpio
+        archivosPublicId: archivos.map((_, index) => 
+          `recibo_${selectedSolicitud._id}_${Date.now()}_${index}`
+        ),
       };
 
       console.log('📤 Payload keys:', Object.keys(payload));
-      console.log('📤 archivoBase64 length en payload:', payload.archivoBase64.length);
+      console.log(`📤 archivosBase64: ${payload.archivosBase64.length} archivos`);
+      console.log('📤 Primer Base64 LIMPIO (primeros 30 chars):', 
+        payload.archivosBase64[0]?.substring(0, 30) || 'vacío');
+
+      // ✅ Verificar que el payload no sea demasiado grande
+      const payloadSize = JSON.stringify(payload).length;
+      console.log(`📤 Tamaño del payload: ${(payloadSize / 1024 / 1024).toFixed(2)} MB`);
+      
+      if (payloadSize > 10 * 1024 * 1024) { // 10MB
+        Alert.alert('Advertencia', 'El archivo es muy grande. Intenta con un PDF más pequeño.');
+        setUploading(false);
+        return;
+      }
 
       const response = await api.put(
         `/solicitudes-recibo/${selectedSolicitud._id}/aprobar`,
-        payload
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          timeout: 60000, // 60 segundos para archivos grandes
+        }
       );
 
       console.log('📡 Respuesta status:', response.status);
-      console.log('📡 Respuesta data:', JSON.stringify(response.data, null, 2));
+      console.log('📡 Respuesta data:', response.data);
 
       if (response.data.success) {
         Alert.alert(
           '✅ Recibo Enviado',
-          'El recibo se ha enviado exitosamente',
+          `El recibo se ha enviado exitosamente con ${archivos.length} PDF(s)`,
           [
             {
               text: 'OK',
               onPress: () => {
                 setModalVisible(false);
-                setSelectedFile(null);
-                setArchivoSeleccionado(false);
-                setBase64Content('');
+                setArchivos([]);
+                setArchivosBase64([]);
+                setArchivosNombre([]);
                 fetchSolicitudes();
               }
             }
@@ -188,13 +322,15 @@ const SubirRecibo = ({ navigation }) => {
       }
     } catch (error) {
       console.error('❌ Error en la petición:', error);
+      console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
+      
       if (error.response) {
         console.error('📡 Error respuesta status:', error.response.status);
-        console.error('📡 Error datos:', error.response.data);
-        Alert.alert('Error', error.response.data?.message || 'Error al procesar la solicitud');
+        console.error('📡 Error respuesta data:', error.response.data);
+        Alert.alert('Error', error.response.data?.message || `Error ${error.response.status} al procesar la solicitud`);
       } else if (error.request) {
         console.error('📡 No hubo respuesta del servidor');
-        Alert.alert('Error', 'No se pudo conectar con el servidor');
+        Alert.alert('Error', 'No se pudo conectar con el servidor. Verifica tu conexión.');
       } else {
         console.error('📡 Error:', error.message);
         Alert.alert('Error', error.message || 'Error al procesar la solicitud');
@@ -234,6 +370,35 @@ const SubirRecibo = ({ navigation }) => {
           }
         }
       ]
+    );
+  };
+
+  // ============================================
+  // RENDER
+  // ============================================
+
+  const renderArchivoPreview = (archivo, index) => {
+    const esPDF = archivo.mimeType === 'application/pdf' || archivo.nombre?.toLowerCase().endsWith('.pdf');
+
+    return (
+      <View key={index} style={styles.archivoItem}>
+        <View style={styles.pdfPreview}>
+          <Ionicons name="document-text" size={40} color="#FF6B6B" />
+          <Text style={styles.pdfNombre} numberOfLines={2}>{archivo.nombre}</Text>
+          <Text style={styles.pdfSize}>
+            {archivo.size ? fileService.getFileSize(archivo.size) : 'PDF'}
+          </Text>
+        </View>
+        
+        <TouchableOpacity
+          style={styles.btnEliminarArchivo}
+          onPress={() => eliminarArchivo(index)}
+        >
+          <Ionicons name="close-circle" size={24} color="#FF6B6B" />
+        </TouchableOpacity>
+        
+        <Text style={styles.archivoIndex}>#{index + 1}</Text>
+      </View>
     );
   };
 
@@ -338,6 +503,7 @@ const SubirRecibo = ({ navigation }) => {
         />
       )}
 
+      {/* MODAL CON SELECCIÓN DE PDF (MÓVIL Y WEB) */}
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -360,32 +526,39 @@ const SubirRecibo = ({ navigation }) => {
               </View>
             )}
 
-            <TouchableOpacity
-              style={[
-                styles.selectFileButton,
-                archivoSeleccionado && styles.selectFileButtonSuccess
-              ]}
-              onPress={handleSelectFile}
-            >
-              <Ionicons 
-                name={archivoSeleccionado ? "checkmark-circle" : "document-attach-outline"} 
-                size={24} 
-                color={archivoSeleccionado ? "#2E7D32" : "#4CAF50"} 
-              />
-              <Text style={[
-                styles.selectFileButtonText,
-                archivoSeleccionado && styles.selectFileButtonTextSuccess
-              ]}>
-                {archivoSeleccionado ? `✅ ${archivoNombre}` : '📎 Seleccionar PDF'}
-              </Text>
-            </TouchableOpacity>
+            {/* 📎 Sección de archivos PDF */}
+            <Text style={styles.archivosLabel}>
+              📄 Archivos PDF ({archivos.length}/3)
+            </Text>
+            <Text style={styles.helperText}>
+              Puedes subir hasta 3 archivos PDF
+            </Text>
 
-            {archivoSeleccionado && (
-              <View style={styles.fileInfoContainer}>
-                <Text style={styles.fileInfoText}>
-                  📄 {(selectedFile?.size / 1024).toFixed(1)} KB - ✅ Listo
+            {archivos.length < 3 && (
+              <TouchableOpacity
+                style={styles.selectFileButton}
+                onPress={handleSelectFile}
+                disabled={uploading}
+              >
+                <Ionicons name="document-attach" size={24} color="#4CAF50" />
+                <Text style={styles.selectFileButtonText}>
+                  📄 Seleccionar PDF ({archivos.length}/3)
                 </Text>
-              </View>
+                {Platform.OS === 'web' && (
+                  <Text style={styles.webHintText}> (Navegador)</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* Vista previa de archivos PDF */}
+            {archivos.length > 0 && (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.archivosScrollView}
+              >
+                {archivos.map((archivo, index) => renderArchivoPreview(archivo, index))}
+              </ScrollView>
             )}
 
             {mensajeError ? (
@@ -404,20 +577,25 @@ const SubirRecibo = ({ navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.modalButton, 
-                  archivoSeleccionado ? styles.uploadModalButton : styles.disabledModalButton
+                  archivos.length > 0 ? styles.uploadModalButton : styles.disabledModalButton
                 ]}
                 onPress={handleEnviar}
-                disabled={!archivoSeleccionado || uploading}
+                disabled={archivos.length === 0 || uploading}
               >
                 {uploading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={styles.modalButtonText}>
-                    {archivoSeleccionado ? '📤 Enviar' : '📎 Subir'}
+                    📤 Enviar ({archivos.length})
                   </Text>
                 )}
               </TouchableOpacity>
             </View>
+
+            {/* Indicador de plataforma */}
+            <Text style={styles.platformIndicator}>
+              {Platform.OS === 'web' ? '🌐 Modo Web' : '📱 Modo Móvil'}
+            </Text>
           </View>
         </View>
       </Modal>
@@ -493,37 +671,99 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
   emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#666', marginTop: 15 },
   emptySubtitle: { fontSize: 14, color: '#999', textAlign: 'center', marginTop: 8, paddingHorizontal: 40 },
+  
+  // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '90%', maxWidth: 400 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '90%', maxWidth: 400, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#2C3E50' },
   modalClienteInfo: { backgroundColor: '#F8F9FA', padding: 12, borderRadius: 8, marginBottom: 16 },
   modalClienteNombre: { fontSize: 16, fontWeight: '600', color: '#2C3E50' },
   modalClienteCodigo: { fontSize: 13, color: '#7F8C8D', marginTop: 2 },
+  
+  // Archivos PDF
+  archivosLabel: { fontSize: 14, fontWeight: '600', color: '#2C3E50', marginBottom: 4 },
+  helperText: { fontSize: 12, color: '#999', marginBottom: 10 },
   selectFileButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F4FF',
-    padding: 14,
+    padding: 12,
     borderRadius: 10,
     borderWidth: 2,
     borderColor: '#4CAF50',
     borderStyle: 'dashed',
-    gap: 8
+    gap: 8,
+    flexWrap: 'wrap',
   },
-  selectFileButtonSuccess: { backgroundColor: '#E8F5E9', borderColor: '#2E7D32', borderStyle: 'solid' },
   selectFileButtonText: { fontSize: 14, color: '#2C3E50' },
-  selectFileButtonTextSuccess: { color: '#2E7D32', fontWeight: '600' },
-  fileInfoContainer: { backgroundColor: '#E8F5E9', padding: 10, borderRadius: 8, marginTop: 10, alignItems: 'center' },
-  fileInfoText: { fontSize: 13, color: '#2E7D32', fontWeight: '500' },
+  webHintText: { fontSize: 12, color: '#999' },
+  archivosScrollView: { maxHeight: 160, marginVertical: 10 },
+  archivoItem: {
+    width: 100,
+    height: 110,
+    marginRight: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pdfPreview: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
+  pdfNombre: {
+    fontSize: 9,
+    color: '#2D3436',
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 80,
+  },
+  pdfSize: {
+    fontSize: 8,
+    color: '#999',
+    marginTop: 2,
+  },
+  btnEliminarArchivo: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 12,
+  },
+  archivoIndex: {
+    position: 'absolute',
+    bottom: 2,
+    left: 4,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    color: '#FFFFFF',
+    fontSize: 9,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
   errorText: { color: '#F44336', fontSize: 13, marginTop: 8, textAlign: 'center' },
-  modalButtons: { flexDirection: 'row', marginTop: 20, gap: 10 },
+  modalButtons: { flexDirection: 'row', marginTop: 10, gap: 10 },
   modalButton: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   uploadModalButton: { backgroundColor: '#4CAF50' },
   disabledModalButton: { backgroundColor: '#BDBDBD' },
   denyModalButton: { backgroundColor: '#F44336' },
-  modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' }
+  modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  platformIndicator: { 
+    textAlign: 'center', 
+    fontSize: 11, 
+    color: '#999', 
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 8,
+  },
 });
 
 export default SubirRecibo;

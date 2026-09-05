@@ -44,6 +44,14 @@ const EjecucionServicio = ({ navigation }) => {
   const [bodega, setBodega] = useState(null);
   const [cargandoBodega, setCargandoBodega] = useState(false);
 
+  // ============================================
+  // 📋 TICKETS - NUEVA FUNCIONALIDAD
+  // ============================================
+  const [ticketSeleccionado, setTicketSeleccionado] = useState(null);
+  const [modalTicketVisible, setModalTicketVisible] = useState(false);
+  const [observacionTicket, setObservacionTicket] = useState('');
+  const [solucionTicket, setSolucionTicket] = useState('');
+
   // ✅ LISTA DE 15 MATERIALES PREDEFINIDOS PARA EL PICKER
   const opcionesMateriales = [
     'FIBRA EN METROS',
@@ -66,6 +74,21 @@ const EjecucionServicio = ({ navigation }) => {
   const isTecnico = user?.rol === 'Tecnico';
   const isAdmin = user?.rol === 'Admin';
   const isJefe = user?.rol === 'Jefe';
+
+  // ============================================
+  // 🎨 COLORES POR ESTADO PARA TICKETS
+  // ============================================
+  const getEstadoColor = (estado) => {
+    const colors = {
+      'Nuevo': '#F39C12',
+      'Asignado': '#3498DB',
+      'TOMADO': '#8E44AD',
+      'En Progreso': '#9B59B6',
+      'Resuelto': '#2ECC71',
+      'Cerrado': '#95A5A6'
+    };
+    return colors[estado] || '#95A5A6';
+  };
 
   // ============================================
   // 📱 ENVIAR NOTIFICACIONES PUSH
@@ -148,19 +171,20 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
-  // 📋 CARGAR SERVICIOS - CORREGIDO ✅
+  // 📋 CARGAR SERVICIOS Y TICKETS - UNIFICADO
   // ============================================
   const cargarServicios = async () => {
     setLoading(true);
     setDebugInfo('Cargando...');
     try {
-      console.log('📱 === CARGANDO SERVICIOS ===');
+      console.log('📱 === CARGANDO SERVICIOS Y TICKETS ===');
       console.log('📱 Usuario:', user?.email);
       console.log('📱 Rol:', user?.rol);
 
+      // ✅ 1. Cargar servicios de recuperación (estado TOMADO)
+      let serviciosData = [];
       let response;
-      
-      // ✅ Si es Técnico: cargar SOLO sus servicios en estado TOMADO
+
       if (isTecnico) {
         const userId = user?._id || user?.id;
         if (!userId) {
@@ -170,45 +194,89 @@ const EjecucionServicio = ({ navigation }) => {
           return;
         }
         console.log('📱 Cargando servicios TOMADO para TÉCNICO:', userId);
-        response = await api.get(`/servicios/estado/TOMADO?tecnico=${userId}`, {
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        });
+        response = await api.get(`/servicios/estado/TOMADO?tecnico=${userId}`);
       } else {
-        // ✅ Admin o Jefe: cargar TODOS los servicios en TOMADO
         console.log('📱 Cargando todos los servicios en TOMADO (Admin/Jefe)');
-        response = await api.get('/servicios/estado/TOMADO', {
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        });
+        response = await api.get('/servicios/estado/TOMADO');
       }
-
-      let serviciosData = [];
 
       if (response.data?.data && Array.isArray(response.data.data)) {
         serviciosData = response.data.data;
-        console.log(`📱 Servicios recibidos: ${serviciosData.length}`);
-      } else if (Array.isArray(response.data)) {
-        serviciosData = response.data;
-        console.log(`📱 Servicios recibidos (array): ${serviciosData.length}`);
+        console.log(`📱 Servicios de recuperación: ${serviciosData.length}`);
       }
 
-      setServicios(serviciosData);
-
-      if (serviciosData.length === 0) {
-        setDebugInfo(`⚠️ No hay servicios TOMADO${isTecnico ? ' para ti' : ''}`);
-      } else {
-        setDebugInfo(`✅ ${serviciosData.length} servicios TOMADO${isTecnico ? ' para ti' : ''}`);
+      // ✅ 2. Cargar tickets de la web (estado Asignado o TOMADO)
+      let ticketsData = [];
+      try {
+        const ticketsResponse = await api.get('/tickets/para-tecnico');
+        if (ticketsResponse.data.success) {
+          ticketsData = ticketsResponse.data.data || [];
+          console.log(`📱 Tickets de la web: ${ticketsData.length}`);
+        }
+      } catch (ticketError) {
+        console.log('⚠️ Error cargando tickets:', ticketError.message);
       }
+
+      // ✅ 3. UNIFICAR: Servicios + Tickets
+      const serviciosConOrigen = serviciosData.map(s => ({ 
+        ...s, 
+        _origen: 'servicio',
+        _tipo: 'servicio_recuperacion',
+        _ticketId: null,
+        _clienteNombre: s.cliente || 'Cliente',
+        _direccion: s.direccion || 'Sin dirección',
+        _nombreServicio: s.nombreServicio || 'Servicio',
+        _tecnico: s.tecnico || null,
+        _estado: s.estado || 'TOMADO',
+      }));
+
+      const ticketsConOrigen = ticketsData.map(t => ({ 
+        ...t, 
+        _origen: 'ticket',
+        _tipo: 'ticket_web',
+        _ticketId: t.ticketId || null,
+        _clienteNombre: t.cliente?.nombre || 'Sin cliente',
+        _direccion: t.cliente?.direccion || t.zona || 'Sin dirección',
+        _nombreServicio: t.tipo || 'Ticket Web',
+        _tecnico: t.tecnicoAsignado || null,
+        _estado: t.estado || 'Asignado',
+        _observaciones: t.observaciones || t.descripcion || '',
+        _fechaSubida: t.fechaCreacion || t.createdAt,
+        // Para compatibilidad con el modal de ejecución
+        cliente: t.cliente?.nombre || 'Sin cliente',
+        direccion: t.cliente?.direccion || t.zona || 'Sin dirección',
+        nombreServicio: t.tipo || 'Ticket Web',
+        tecnico: t.tecnicoAsignado || null,
+        imagen: null,
+        observaciones: t.observaciones || t.descripcion || '',
+        estado: t.estado || 'Asignado',
+        // ✅ NUEVO: Campos para mostrar en el modal de ticket
+        _clienteTelefono: t.cliente?.telefono || 'Sin teléfono',
+        _clienteEmail: t.cliente?.email || 'Sin email',
+        _clienteCedula: t.cliente?.cedula || 'Sin cédula',
+        _clienteDireccion: t.cliente?.direccion || t.zona || 'Sin dirección',
+        _tipoServicio: t.tipo || 'No especificado',
+        _zonaTicket: t.zona || 'No especificada',
+        _descripcionTicket: t.descripcion || 'Sin descripción',
+        _imagenUrl: t.imagenUrl || null,
+        _historial: t.historial || [],
+      }));
+
+      // ✅ 4. Combinar y ordenar por fecha (más reciente primero)
+      const todos = [...serviciosConOrigen, ...ticketsConOrigen];
+      todos.sort((a, b) => {
+        const fechaA = new Date(a.fechaSubida || a.fechaCreacion || a.createdAt);
+        const fechaB = new Date(b.fechaSubida || b.fechaCreacion || b.createdAt);
+        return fechaB - fechaA;
+      });
+
+      setServicios(todos);
+      setDebugInfo(`✅ ${serviciosData.length} servicios + ${ticketsData.length} tickets = ${todos.length} total`);
 
     } catch (error) {
-      console.error('❌ Error cargando servicios:', error);
+      console.error('❌ Error cargando datos:', error);
       setDebugInfo(`❌ Error: ${error.message}`);
-      Alert.alert('Error', 'No se pudieron cargar los servicios');
+      Alert.alert('Error', 'No se pudieron cargar los datos');
     } finally {
       setLoading(false);
     }
@@ -486,6 +554,34 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
+  // 🎫 ACTUALIZAR TICKET DESDE APP - ✅ NUEVO COMPLETO
+  // ============================================
+  const actualizarTicketApp = async (estado) => {
+    if (!ticketSeleccionado) return;
+
+    try {
+      const payload = { 
+        estado,
+        observaciones: observacionTicket || `Ticket ${estado} desde app`
+      };
+      
+      if (estado === 'Resuelto') {
+        payload.solucion = solucionTicket || 'Servicio completado';
+      }
+
+      const response = await api.put(`/tickets/${ticketSeleccionado._id}/app`, payload);
+      
+      if (response.data.success) {
+        Alert.alert('✅ Éxito', `Ticket ${estado} correctamente`);
+        setModalTicketVisible(false);
+        cargarServicios();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo actualizar el ticket');
+    }
+  };
+
+  // ============================================
   // 🖼️ ABRIR IMAGEN AMPLIADA
   // ============================================
   const abrirImagenAmpliada = (uri) => {
@@ -493,6 +589,104 @@ const EjecucionServicio = ({ navigation }) => {
       setImagenAmpliadaUri(uri);
       setImagenAmpliadaVisible(true);
     }
+  };
+
+  // ============================================
+  // 🎨 RENDER ITEM UNIFICADO
+  // ============================================
+  const renderItem = (item) => {
+    const esTicket = item._origen === 'ticket';
+    const esServicio = item._origen === 'servicio';
+
+    return (
+      <TouchableOpacity
+        key={item._id}
+        style={[styles.servicioCard, esTicket && styles.ticketCardStyle]}
+        onPress={() => {
+          if (esTicket) {
+            // ✅ Abrir modal de ticket con todos los datos
+            setTicketSeleccionado(item);
+            setObservacionTicket('');
+            setSolucionTicket('');
+            setModalTicketVisible(true);
+          } else {
+            // Abrir modal de servicio
+            setServicioSeleccionado(item);
+            setMaterialesSeleccionados({});
+            setObservaciones('');
+            setMacEquipo('');
+            setNumeroSerie('');
+            setMaterialSeleccionado('');
+            setCantidadMaterial('1');
+            setModalVisible(true);
+          }
+        }}
+        activeOpacity={0.7}
+      >
+        {/* Badge de origen */}
+        <View style={styles.origenBadge}>
+          {esTicket ? (
+            <View style={styles.ticketOrigenBadge}>
+              <Ionicons name="ticket-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.origenBadgeText}>Ticket Web</Text>
+              {item._ticketId && <Text style={styles.ticketIdText}> ({item._ticketId})</Text>}
+            </View>
+          ) : (
+            <View style={styles.servicioOrigenBadge}>
+              <Ionicons name="construct-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.origenBadgeText}>Servicio</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.servicioHeader}>
+          <Text style={styles.servicioCliente}>{item._clienteNombre || item.cliente}</Text>
+          <View style={[styles.estadoBadge, esTicket ? styles.estadoTicket : styles.estadoServicio]}>
+            <Text style={styles.estadoBadgeText}>{item._estado || item.estado}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.servicioInfo}>🔧 {item._nombreServicio || item.nombreServicio}</Text>
+        <Text style={styles.servicioInfo}>📍 {item._direccion || item.direccion}</Text>
+        <Text style={styles.servicioInfo}>👤 Técnico: {item._tecnico?.nombre || item.tecnico?.nombre || 'N/A'}</Text>
+        
+        {(item._observaciones || item.observaciones) && (
+          <View style={styles.observacionesContainer}>
+            <Text style={styles.observacionesLabel}>📝 Observaciones:</Text>
+            <Text style={styles.observacionesText} numberOfLines={2}>
+              {item._observaciones || item.observaciones}
+            </Text>
+          </View>
+        )}
+
+        {/* ✅ NUEVO: Indicador de imagen en tarjeta para tickets */}
+        {esTicket && item._imagenUrl && (
+          <View style={styles.cardImagePreview}>
+            <Ionicons name="image" size={16} color="#6C5CE7" />
+            <Text style={styles.cardImageText}>📸 Tiene imagen adjunta</Text>
+          </View>
+        )}
+
+        {/* Imagen solo para servicios */}
+        {esServicio && item.imagen && (
+          <TouchableOpacity 
+            style={styles.imagenContainer}
+            onPress={() => abrirImagenAmpliada(item.imagen)}
+            activeOpacity={0.8}
+          >
+            <Image 
+              source={{ uri: item.imagen }} 
+              style={styles.imagenMiniatura}
+              resizeMode="cover"
+            />
+            <View style={styles.imagenOverlay}>
+              <Ionicons name="expand-outline" size={24} color="#FFFFFF" />
+              <Text style={styles.imagenOverlayText}>Tocar para ampliar</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+    );
   };
 
   // ============================================
@@ -512,7 +706,7 @@ const EjecucionServicio = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.title}>⚙️ Ejecutar Servicio</Text>
         <Text style={styles.subtitle}>
-          {servicios.length} servicio{servicios.length !== 1 ? 's' : ''} TOMADO{servicios.length !== 1 ? 'S' : ''}
+          {servicios.length} item{servicios.length !== 1 ? 's' : ''} disponibles
         </Text>
       </View>
 
@@ -526,11 +720,11 @@ const EjecucionServicio = ({ navigation }) => {
         {servicios.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="clipboard-outline" size={64} color="#B2BEC3" />
-            <Text style={styles.emptyTitle}>No hay servicios asignados</Text>
+            <Text style={styles.emptyTitle}>No hay items disponibles</Text>
             <Text style={styles.emptyText}>
               {isTecnico
-                ? 'No tienes servicios TOMADO para ejecutar'
-                : 'No hay servicios disponibles'}
+                ? 'No tienes servicios TOMADO ni tickets asignados'
+                : 'No hay servicios ni tickets disponibles'}
             </Text>
             <TouchableOpacity style={styles.refreshButton} onPress={cargarServicios}>
               <Ionicons name="refresh" size={20} color="#FFFFFF" />
@@ -538,66 +732,12 @@ const EjecucionServicio = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         ) : (
-          servicios.map((servicio) => (
-            <TouchableOpacity
-              key={servicio._id}
-              style={styles.servicioCard}
-              onPress={() => {
-                setServicioSeleccionado(servicio);
-                setMaterialesSeleccionados({});
-                setObservaciones('');
-                setMacEquipo('');
-                setNumeroSerie('');
-                setMaterialSeleccionado('');
-                setCantidadMaterial('1');
-                setModalVisible(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.servicioHeader}>
-                <Text style={styles.servicioCliente}>{servicio.cliente}</Text>
-                <View style={styles.estadoBadge}>
-                  <Text style={styles.estadoBadgeText}>{servicio.estado}</Text>
-                </View>
-              </View>
-
-              {/* ✅ IMAGEN CLICKEABLE */}
-              {servicio.imagen && (
-                <TouchableOpacity 
-                  style={styles.imagenContainer}
-                  onPress={() => abrirImagenAmpliada(servicio.imagen)}
-                  activeOpacity={0.8}
-                >
-                  <Image 
-                    source={{ uri: servicio.imagen }} 
-                    style={styles.imagenMiniatura}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.imagenOverlay}>
-                    <Ionicons name="expand-outline" size={24} color="#FFFFFF" />
-                    <Text style={styles.imagenOverlayText}>Tocar para ampliar</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              <Text style={styles.servicioInfo}>🔧 {servicio.nombreServicio}</Text>
-              <Text style={styles.servicioInfo}>📍 {servicio.direccion}</Text>
-              <Text style={styles.servicioInfo}>👤 Técnico: {servicio.tecnico?.nombre || 'N/A'}</Text>
-              
-              {/* ✅ OBSERVACIONES VISIBLES */}
-              {servicio.observaciones && (
-                <View style={styles.observacionesContainer}>
-                  <Text style={styles.observacionesLabel}>📝 Observaciones:</Text>
-                  <Text style={styles.observacionesText}>{servicio.observaciones}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))
+          servicios.map((item) => renderItem(item))
         )}
       </ScrollView>
 
       {/* ============================================
-          MODAL DE EJECUCIÓN
+          MODAL DE EJECUCIÓN DE SERVICIO (RECUPERACIÓN)
           ============================================ */}
       <Modal
         animationType="slide"
@@ -726,6 +866,182 @@ const EjecucionServicio = ({ navigation }) => {
       </Modal>
 
       {/* ============================================
+          MODAL DE TICKETS WEB - ✅ NUEVO COMPLETO
+          ============================================ */}
+      <Modal
+        visible={modalTicketVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalTicketVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🎫 Gestión de Ticket</Text>
+              <TouchableOpacity onPress={() => setModalTicketVisible(false)}>
+                <Ionicons name="close" size={24} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            {ticketSeleccionado && (
+              <>
+                {/* ✅ INFORMACIÓN COMPLETA DEL TICKET */}
+                <View style={styles.ticketDetalle}>
+                  <Text style={styles.ticketIdGrande}>{ticketSeleccionado._ticketId || ticketSeleccionado.ticketId}</Text>
+                  
+                  <View style={styles.ticketSection}>
+                    <Text style={styles.ticketSectionTitle}>👤 Datos del Cliente</Text>
+                    <Text style={styles.ticketInfoGrande}>Nombre: {ticketSeleccionado._clienteNombre || ticketSeleccionado.cliente?.nombre}</Text>
+                    <Text style={styles.ticketInfoGrande}>📱 {ticketSeleccionado._clienteTelefono || ticketSeleccionado.cliente?.telefono || 'Sin teléfono'}</Text>
+                    {ticketSeleccionado._clienteEmail && (
+                      <Text style={styles.ticketInfoGrande}>📧 {ticketSeleccionado._clienteEmail}</Text>
+                    )}
+                    {ticketSeleccionado._clienteCedula && ticketSeleccionado._clienteCedula !== 'Sin cédula' && (
+                      <Text style={styles.ticketInfoGrande}>🪪 Cédula: {ticketSeleccionado._clienteCedula}</Text>
+                    )}
+                    <Text style={styles.ticketInfoGrande}>📍 {ticketSeleccionado._clienteDireccion || ticketSeleccionado.cliente?.direccion || ticketSeleccionado.zona}</Text>
+                  </View>
+
+                  <View style={styles.ticketSection}>
+                    <Text style={styles.ticketSectionTitle}>📋 Datos del Servicio</Text>
+                    <Text style={styles.ticketInfoGrande}>🔧 Tipo: {ticketSeleccionado._tipoServicio || ticketSeleccionado.tipo}</Text>
+                    <Text style={styles.ticketInfoGrande}>📍 Zona: {ticketSeleccionado._zonaTicket || ticketSeleccionado.zona || 'No especificada'}</Text>
+                    <Text style={styles.ticketInfoGrande}>📝 Descripción:</Text>
+                    <Text style={styles.ticketDescripcion}>{ticketSeleccionado._descripcionTicket || ticketSeleccionado.descripcion || 'Sin descripción'}</Text>
+                  </View>
+
+                  {/* ✅ IMAGEN DEL TICKET */}
+                  {ticketSeleccionado._imagenUrl && (
+                    <View style={styles.ticketSection}>
+                      <Text style={styles.ticketSectionTitle}>📸 Imagen del Servicio</Text>
+                      <TouchableOpacity
+                        style={styles.ticketImagenContainer}
+                        activeOpacity={0.9}
+                        onPress={() => abrirImagenAmpliada(ticketSeleccionado._imagenUrl)}
+                      >
+                        <Image
+                          source={{ uri: ticketSeleccionado._imagenUrl }}
+                          style={styles.ticketImagen}
+                          resizeMode="contain"
+                          onError={(e) => console.log('Error cargando imagen:', e.nativeEvent?.error)}
+                          onLoad={() => console.log('✅ Imagen cargada correctamente')}
+                        />
+                        <View style={styles.imagenOverlay}>
+                          <Ionicons name="expand-outline" size={24} color="#FFFFFF" />
+                          <Text style={styles.imagenOverlayText}>Tocar para ampliar</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* ✅ BOTONES DE ACCIÓN PARA TICKETS - SIEMPRE VISIBLES */}
+                  <View style={styles.ticketButtonsContainer}>
+                    <Text style={styles.ticketButtonsTitle}>⚡ Acciones del Ticket</Text>
+                    
+                    {/* Mostrar estado actual */}
+                    <View style={styles.estadoActualContainer}>
+                      <Text style={styles.estadoActualLabel}>📌 Estado actual:</Text>
+                      <View style={[styles.estadoActualBadge, { backgroundColor: getEstadoColor(ticketSeleccionado.estado || ticketSeleccionado._estado) }]}>
+                        <Text style={styles.estadoActualBadgeText}>
+                          {ticketSeleccionado.estado || ticketSeleccionado._estado || 'Nuevo'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Botón 1: Tomar Servicio */}
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnTomar]}
+                      onPress={() => {
+                        console.log('🔘 Tomar Servicio - Estado:', ticketSeleccionado.estado);
+                        actualizarTicketApp('TOMADO');
+                      }}
+                    >
+                      <Ionicons name="hand" size={20} color="#FFFFFF" />
+                      <Text style={styles.ticketBtnText}>📌 Tomar Servicio</Text>
+                    </TouchableOpacity>
+
+                    {/* Botón 2: En Progreso */}
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnIniciar]}
+                      onPress={() => {
+                        console.log('🔘 En Progreso - Estado:', ticketSeleccionado.estado);
+                        actualizarTicketApp('En Progreso');
+                      }}
+                    >
+                      <Ionicons name="time" size={20} color="#FFFFFF" />
+                      <Text style={styles.ticketBtnText}>⏳ En Progreso</Text>
+                    </TouchableOpacity>
+
+                    {/* Botón 3: Resolver */}
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnResolver]}
+                      onPress={() => {
+                        console.log('🔘 Resolver - Estado:', ticketSeleccionado.estado);
+                        actualizarTicketApp('Resuelto');
+                      }}
+                    >
+                      <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                      <Text style={styles.ticketBtnText}>✅ Resolver</Text>
+                    </TouchableOpacity>
+
+                    {/* Botón 4: Cerrar */}
+                    <TouchableOpacity 
+                      style={[styles.ticketBtn, styles.btnCerrar]}
+                      onPress={() => {
+                        console.log('🔘 Cerrar - Estado:', ticketSeleccionado.estado);
+                        actualizarTicketApp('Cerrado');
+                      }}
+                    >
+                      <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
+                      <Text style={styles.ticketBtnText}>🔒 Cerrar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <Text style={styles.modalLabel}>📝 Observaciones</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Agregar observación..."
+                  value={observacionTicket}
+                  onChangeText={setObservacionTicket}
+                  multiline
+                />
+
+                {ticketSeleccionado.estado === 'Resuelto' && (
+                  <>
+                    <Text style={styles.modalLabel}>✅ Solución</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="Describir la solución..."
+                      value={solucionTicket}
+                      onChangeText={setSolucionTicket}
+                      multiline
+                    />
+                  </>
+                )}
+
+                {/* ✅ HISTORIAL DEL TICKET */}
+                {ticketSeleccionado._historial && ticketSeleccionado._historial.length > 0 && (
+                  <View style={styles.historialContainer}>
+                    <Text style={styles.historialTitle}>📋 Historial</Text>
+                    {ticketSeleccionado._historial.slice(-5).reverse().map((h, i) => (
+                      <View key={i} style={styles.historialItem}>
+                        <Text style={styles.historialEstado}>{h.estado}</Text>
+                        <Text style={styles.historialFecha}>
+                          {h.fecha ? new Date(h.fecha).toLocaleDateString('es-EC') : 'Fecha no disponible'}
+                        </Text>
+                        <Text style={styles.historialUsuario}>{h.usuario || 'Sistema'}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ============================================
           MODAL DE IMAGEN AMPLIADA
           ============================================ */}
       <Modal
@@ -806,6 +1122,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#636E72',
   },
+  // ✅ ESTILOS PARA TARJETAS
   servicioCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -816,6 +1133,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+  },
+  ticketCardStyle: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#6C5CE7',
   },
   servicioHeader: {
     flexDirection: 'row',
@@ -829,23 +1150,63 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     flex: 1,
   },
-  estadoBadge: {
-    backgroundColor: '#FDCB6E',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  estadoBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '500',
-  },
   servicioInfo: {
     fontSize: 14,
     color: '#636E72',
     marginVertical: 2,
   },
-  // ✅ ESTILOS PARA OBSERVACIONES
+  // ✅ BADGES DE ORIGEN
+  origenBadge: {
+    marginBottom: 6,
+  },
+  ticketOrigenBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6C5CE7',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  servicioOrigenBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#00B894',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  origenBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  ticketIdText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '400',
+  },
+  // ✅ ESTADOS
+  estadoBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  estadoTicket: {
+    backgroundColor: '#E3F2FD',
+  },
+  estadoServicio: {
+    backgroundColor: '#FDCB6E',
+  },
+  estadoBadgeText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#333',
+  },
+  // ✅ OBSERVACIONES
   observacionesContainer: {
     marginTop: 8,
     padding: 10,
@@ -864,7 +1225,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#2D3436',
   },
-  // ✅ ESTILOS PARA IMAGEN CLICKEABLE
+  // ✅ NUEVO: Indicador de imagen en tarjeta para tickets
+  cardImagePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    backgroundColor: '#EDE7F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  cardImageText: {
+    fontSize: 12,
+    color: '#6C5CE7',
+    marginLeft: 4,
+  },
+  // ✅ IMAGEN
   imagenContainer: {
     marginVertical: 8,
     borderRadius: 8,
@@ -893,7 +1270,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 6,
   },
-  // ✅ ESTILOS PARA IMAGEN AMPLIADA
   imagenAmpliadaOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
@@ -911,6 +1287,7 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
   },
+  // ✅ VACÍO
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -944,6 +1321,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
   },
+  // ✅ MODAL
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -964,6 +1342,165 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 15,
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  // ✅ TICKET MODAL - NUEVOS ESTILOS
+  ticketDetalle: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  ticketIdGrande: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#6C5CE7',
+    marginBottom: 8,
+  },
+  ticketClienteGrande: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginTop: 4,
+  },
+  ticketInfoGrande: {
+    fontSize: 14,
+    color: '#636E72',
+    marginTop: 2,
+  },
+  ticketSection: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E8E8E8',
+  },
+  ticketSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 4,
+  },
+  ticketDescripcion: {
+    fontSize: 14,
+    color: '#2D3436',
+    marginTop: 4,
+    fontStyle: 'italic',
+    paddingLeft: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#6C5CE7',
+  },
+  // ✅ NUEVO: Imagen en ticket modal
+  ticketImagenContainer: {
+    marginTop: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F0F0F0',
+    position: 'relative',
+  },
+  ticketImagen: {
+    width: '100%',
+    height: 220,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+  },
+  // ✅ NUEVO: Botones de acción para tickets
+  ticketButtonsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E8E8E8',
+  },
+  ticketButtonsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 10,
+  },
+  estadoActualContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    padding: 10,
+    backgroundColor: '#F0ECFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#6C5CE7',
+  },
+  estadoActualLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2D3436',
+    marginRight: 8,
+  },
+  estadoActualBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  estadoActualBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  ticketBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+    width: '100%',
+  },
+  btnTomar: { backgroundColor: '#8E44AD' },
+  btnIniciar: { backgroundColor: '#F39C12' },
+  btnResolver: { backgroundColor: '#2ECC71' },
+  btnCerrar: { backgroundColor: '#95A5A6' },
+  ticketBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // ✅ NUEVO: Historial
+  historialContainer: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  historialTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  historialItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  historialEstado: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  historialFecha: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  historialUsuario: {
+    fontSize: 12,
+    color: '#999',
+  },
+  // ✅ MATERIALES
   bodegaInfoModal: {
     backgroundColor: '#F0F0F0',
     padding: 10,

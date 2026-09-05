@@ -48,6 +48,8 @@ import SubirTransferencia from './src/screens/SubirTransferencia';
 import ConfirmacionTransferencias from './src/screens/ConfirmacionTransferencias';
 import IngresoTransferencias from './src/screens/IngresoTransferencias';
 import RevisionTransferencias from './src/screens/RevisionTransferencias';
+// ✅ NUEVA: TRANSFERENCIAS DENEGADAS
+import TransferenciasDenegadas from './src/screens/TransferenciasDenegadas';
 
 // Servicios
 import ServiciosMenu from './src/screens/ServiciosMenu';
@@ -66,6 +68,8 @@ import EdicionCajas from './src/screens/EdicionCajas';
 import DepositosMenu from './src/screens/DepositosMenu';
 import SubirDeposito from './src/screens/SubirDeposito';
 import RevisarDepositos from './src/screens/RevisarDepositos';
+// ✅ NUEVA: CUADRE DE CAJA
+import CuadreCajas from './src/screens/CuadreCajas';
 
 // Reportes
 import Reportes from './src/screens/Reportes';
@@ -173,6 +177,9 @@ const ThemedNavigation = () => {
         <Stack.Screen name="ConfirmacionTransferencias" component={ConfirmacionTransferencias} options={{ title: 'Confirmación' }} />
         <Stack.Screen name="IngresoTransferencias" component={IngresoTransferencias} options={{ title: 'Ingreso Transferencias' }} />
         <Stack.Screen name="RevisionTransferencias" component={RevisionTransferencias} options={{ title: 'Revisar Transferencias' }} />
+        
+        {/* 🆕 NUEVA PANTALLA: TRANSFERENCIAS DENEGADAS */}
+        <Stack.Screen name="TransferenciasDenegadas" component={TransferenciasDenegadas} options={{ title: '❌ Transferencias Denegadas' }} />
 
         <Stack.Screen name="ServiciosMenu" component={ServiciosMenu} options={{ title: 'Servicios' }} />
         <Stack.Screen name="TomarServicio" component={TomarServicio} options={{ title: 'Tomar Servicio' }} />
@@ -189,6 +196,9 @@ const ThemedNavigation = () => {
         <Stack.Screen name="DepositosMenu" component={DepositosMenu} options={{ title: 'Depósitos' }} />
         <Stack.Screen name="SubirDeposito" component={SubirDeposito} options={{ title: 'Subir Depósito' }} />
         <Stack.Screen name="RevisarDepositos" component={RevisarDepositos} options={{ title: 'Revisar Depósitos' }} />
+        
+        {/* 🆕 NUEVA PANTALLA: CUADRE DE CAJA */}
+        <Stack.Screen name="CuadreCajas" component={CuadreCajas} options={{ headerShown: false }} />
 
         <Stack.Screen name="Reportes" component={Reportes} options={{ title: 'Reportes' }} />
 
@@ -316,7 +326,6 @@ export default function App() {
       }
     } else {
       console.log('🌐 Notificaciones: no disponibles en web');
-      // Intentar registrar para notificaciones web (opcional)
       if ('Notification' in window && Notification.permission === 'granted') {
         console.log('🌐 Notificaciones web disponibles');
       }

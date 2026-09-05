@@ -45,6 +45,7 @@ const TomarServicio = ({ navigation }) => {
   const [imagenBase64, setImagenBase64] = useState(null);
   const [timeoutId, setTimeoutId] = useState(null);
 
+  // ✅ OPCIONES DE SERVICIO CON LAS NUEVAS AGREGADAS
   const opcionesServicio = [
     'INSTALACION DUO',
     'INSTALACION INTERNET',
@@ -53,7 +54,29 @@ const TomarServicio = ({ navigation }) => {
     'INTERNET DEFICIENTE',
     'SIN SEÑAL DE TV',
     'TV DEFICIENTE',
+    'CORTE TV',
+    'CORTE INTERNET',
   ];
+
+  // ============================================
+  // 📤 SUBIR IMAGEN A CLOUDINARY
+  // ============================================
+  const subirImagenACloudinary = async (base64Image) => {
+    try {
+      if (!base64Image) return null;
+      
+      console.log('📤 Subiendo imagen a Cloudinary...');
+      const response = await api.post('/upload/subir', {
+        imagenBase64: base64Image,
+        carpeta: 'servicios'
+      });
+      console.log('✅ Imagen subida a Cloudinary:', response.data.url);
+      return response.data.url;
+    } catch (error) {
+      console.error('❌ Error subiendo imagen a Cloudinary:', error);
+      throw new Error('No se pudo subir la imagen. Intenta de nuevo.');
+    }
+  };
 
   // ✅ Cargar usuarios con mejor manejo de errores
   useEffect(() => {
@@ -67,7 +90,6 @@ const TomarServicio = ({ navigation }) => {
         const response = await api.get('/auth/usuarios');
         console.log('📱 Respuesta recibida:', response.status);
         
-        // ✅ Verificar la estructura de la respuesta
         let usuariosData = [];
         if (response.data && response.data.data) {
           usuariosData = response.data.data;
@@ -82,17 +104,14 @@ const TomarServicio = ({ navigation }) => {
 
         console.log(`📱 Usuarios recibidos: ${usuariosData.length}`);
 
-        // ✅ Mostrar todos los usuarios en consola
         usuariosData.forEach(u => {
           console.log(`📱 Usuario: ${u.nombre} (${u.email}) - Rol: ${u.rol}`);
         });
 
-        // ✅ Filtrar técnicos (rol Tecnico o Coordinador)
         const tecnicosFiltrados = usuariosData.filter(u => 
           u.rol === 'Tecnico' || u.rol === 'Coordinador'
         );
         
-        // ✅ Filtrar jefes (rol Admin o Jefe)
         const jefesFiltrados = usuariosData.filter(u => 
           u.rol === 'Admin' || u.rol === 'Jefe'
         );
@@ -285,6 +304,17 @@ const TomarServicio = ({ navigation }) => {
 
     setLoading(true);
     try {
+      // ✅ SUBIR IMAGEN A CLOUDINARY
+      let imagenUrl = null;
+      try {
+        imagenUrl = await subirImagenACloudinary(imagenBase64);
+      } catch (uploadError) {
+        Alert.alert('Error', uploadError.message || 'No se pudo subir la imagen');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ ENVIAR SERVICIO CON URL DE CLOUDINARY
       const dataToSend = {
         cliente: formData.cliente,
         codigoIdentificador: formData.codigoIdentificador,
@@ -296,10 +326,10 @@ const TomarServicio = ({ navigation }) => {
         observaciones: formData.observaciones,
         tecnicoAsignado: formData.tecnicoAsignado,
         jefeAsignado: formData.jefeAsignado,
-        imagen: imagenBase64 || '',
+        imagen: imagenUrl, // ✅ URL DE CLOUDINARY
       };
 
-      console.log('📤 Enviando servicio:', dataToSend);
+      console.log('📤 Enviando servicio con imagen Cloudinary:', dataToSend);
 
       const response = await api.post('/servicios/tomar', dataToSend);
       console.log('✅ Servicio tomado:', response.data);
@@ -447,7 +477,7 @@ const TomarServicio = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Tipo de Servicio */}
+        {/* Tipo de Servicio - CON LAS NUEVAS OPCIONES */}
         <Text style={styles.label}>Nombre del Servicio *</Text>
         <View style={styles.pickerContainer}>
           <Picker
