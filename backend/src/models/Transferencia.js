@@ -26,7 +26,9 @@ const transferenciaSchema = new mongoose.Schema({
   numeroDocumento: { 
     type: String, 
     required: true, 
-    trim: true 
+    trim: true,
+    unique: true,  // ✅ NUEVO: Evita duplicados
+    index: true    // ✅ NUEVO: Mejora búsquedas
   },
   valor: { 
     type: Number, 
@@ -116,6 +118,9 @@ transferenciaSchema.index({ nombreUsuario: 1 });
 transferenciaSchema.index({ estado: 1 });
 transferenciaSchema.index({ fechaTransferencia: -1 });
 transferenciaSchema.index({ zonaSector: 1 });
+
+// ✅ NUEVO: ÍNDICE ÚNICO PARA NÚMERO DE DOCUMENTO
+transferenciaSchema.index({ numeroDocumento: 1 }, { unique: true });
 
 // ============================================
 // MIDDLEWARE PARA ACTUALIZAR updatedAt

@@ -122,6 +122,28 @@ exports.subirTransferencia = async (req, res) => {
       });
     }
 
+    // ✅ ============================================
+    // ✅ NUEVA VALIDACIÓN: VERIFICAR DOCUMENTO DUPLICADO
+    // ✅ ============================================
+    const documentoExistente = await Transferencia.findOne({ 
+      numeroDocumento: numeroDocumento.trim() 
+    });
+    
+    if (documentoExistente) {
+      console.log(`❌ Documento duplicado: ${numeroDocumento}`);
+      return res.status(400).json({
+        success: false,
+        message: `El número de documento ${numeroDocumento} ya está registrado en otra transferencia`,
+        campo: 'numeroDocumento',
+        transferenciaExistente: {
+          id: documentoExistente._id,
+          fecha: documentoExistente.fechaTransferencia,
+          nombre: documentoExistente.nombreUsuario
+        }
+      });
+    }
+    // ✅ ============================================
+
     const responsable = await User.findById(req.user._id);
     if (!responsable) {
       console.log('❌ Responsable no encontrado');
@@ -275,6 +297,32 @@ exports.confirmarTransferencia = async (req, res) => {
         message: `La transferencia ya está en estado ${transferencia.estado}`,
       });
     }
+
+    // ✅ ============================================
+    // ✅ NUEVA VALIDACIÓN: VERIFICAR DOCUMENTO DUPLICADO AL CONFIRMAR
+    // ✅ ============================================
+    if (estado === 'CONFIRMADA') {
+      const documentoExistente = await Transferencia.findOne({
+        numeroDocumento: transferencia.numeroDocumento,
+        _id: { $ne: id },  // Excluir la actual
+        estado: { $in: ['CONFIRMADA', 'INGRESADA'] }  // Solo confirmadas/ingresadas
+      });
+      
+      if (documentoExistente) {
+        console.log(`❌ Documento duplicado al confirmar: ${transferencia.numeroDocumento}`);
+        return res.status(400).json({
+          success: false,
+          message: `El número de documento ${transferencia.numeroDocumento} ya está confirmado en otra transferencia`,
+          campo: 'numeroDocumento',
+          transferenciaExistente: {
+            id: documentoExistente._id,
+            fecha: documentoExistente.fechaTransferencia,
+            nombre: documentoExistente.nombreUsuario
+          }
+        });
+      }
+    }
+    // ✅ ============================================
 
     // ✅ ACTUALIZAR SEGÚN EL ESTADO
     if (estado === 'CONFIRMADA') {

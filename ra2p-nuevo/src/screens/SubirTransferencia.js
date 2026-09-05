@@ -150,39 +150,46 @@ const SubirTransferencia = ({ navigation }) => {
         try {
             console.log('✅ Validando documento:', documento);
             
-            // 🔥 OBTENER TODAS LAS TRANSFERENCIAS y buscar manualmente
-            const response = await api.get('/transferencias');
-            console.log('📡 Transferencias obtenidas:', response.data?.length || 0);
+            // ✅ USAR EL ENDPOINT DEDICADO EN VEZ DE TRAER TODAS LAS TRANSFERENCIAS
+            const response = await api.get(`/transferencias/verificar-documento/${documento}`);
+            console.log('📡 Respuesta:', response.data);
 
-            let documentoExiste = false;
-            
-            // Verificar si el response es un array
-            if (Array.isArray(response.data) && response.data.length > 0) {
-                documentoExiste = response.data.some(t => 
-                    t.numeroDocumento && t.numeroDocumento.trim() === documento
-                );
-            }
-            // Si el response tiene formato { success: true, data: [...] }
-            else if (response.data && response.data.success && Array.isArray(response.data.data)) {
-                documentoExiste = response.data.data.some(t => 
-                    t.numeroDocumento && t.numeroDocumento.trim() === documento
-                );
-            }
+            // El endpoint devuelve { success: true, exists: true/false, data: {...} }
+            const documentoExiste = response.data?.exists || false;
+            const infoExistente = response.data?.data || null;
 
-            console.log(`📋 Documento existe en transferencias: ${documentoExiste}`);
+            console.log(`📋 Documento existe: ${documentoExiste}`);
 
             if (documentoExiste) {
                 setDocumentoValido(false);
                 setMensajeDocumento('❌ Número ya registrado - No se puede subir transferencia');
-                Alert.alert('Documento registrado', 'Este número de documento ya está registrado en el sistema. No puedes continuar.');
+                
+                // Mostrar información de la transferencia existente
+                let mensajeAdicional = '';
+                if (infoExistente) {
+                    mensajeAdicional = `\n\n📅 Fecha: ${new Date(infoExistente.fecha).toLocaleDateString('es-ES')}\n👤 Nombre: ${infoExistente.nombre || 'N/A'}`;
+                }
+                
+                Alert.alert(
+                    'Documento registrado', 
+                    `Este número de documento ya está registrado en el sistema. No puedes continuar.${mensajeAdicional}`
+                );
             } else {
                 setDocumentoValido(true);
                 setMensajeDocumento('✅ Documento válido - Puedes continuar');
             }
         } catch (error) {
             console.error('❌ Error al validar documento:', error);
-            Alert.alert('Error', 'Error al validar el documento');
-            setDocumentoValido(null);
+            
+            // Si es 404, el documento no existe (es válido)
+            if (error.response?.status === 404) {
+                setDocumentoValido(true);
+                setMensajeDocumento('✅ Documento válido - Puedes continuar');
+            } else {
+                Alert.alert('Error', error.response?.data?.message || 'Error al validar el documento');
+                setDocumentoValido(null);
+                setMensajeDocumento('');
+            }
         } finally {
             setValidandoDocumento(false);
         }
