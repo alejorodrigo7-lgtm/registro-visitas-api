@@ -123,28 +123,31 @@ const DashboardScreen = ({ navigation }) => {
     return d.toISOString().split('T')[0];
   };
 
-  // ✅ Cargar usuarios - SOLO COORDINADORES (usando /auth/usuarios)
+  // ✅ Cargar TODOS los usuarios para el selector de correos
   const cargarUsuarios = async () => {
     try {
-      // ✅ CAMBIADO: Usar /auth/usuarios en lugar de /usuarios
+      console.log('🔍 Cargando todos los usuarios...');
       const response = await api.get('/auth/usuarios');
+      console.log('📡 Respuesta de usuarios:', response.data?.success);
       if (response.data.success) {
         const users = response.data.data || [];
-        // Filtrar solo coordinadores
-        const coordinadores = users.filter(u => 
-          u.rol?.toLowerCase() === 'coordinador'
-        );
-        setUsuarios(coordinadores);
-        setUsuariosFiltrados(coordinadores);
-        console.log(`✅ ${coordinadores.length} coordinadores cargados`);
+        console.log(`✅ ${users.length} usuarios cargados`);
+        // ✅ GUARDAR TODOS LOS USUARIOS (sin filtrar)
+        setUsuarios(users);
+        setUsuariosFiltrados(users);
       }
     } catch (error) {
       console.error('❌ Error al cargar usuarios:', error);
-      // Fallback: coordinadores de prueba
+      // Fallback: usuarios de prueba
       const usuariosPrueba = [
-        { _id: '1', nombre: 'Liliana Chuquimarca', email: 'lilianaelizabethchuquimarca@gmail.com', rol: 'Coordinador' },
-        { _id: '2', nombre: 'Diego Osorio', email: 'charly_f10th@hotmail.com', rol: 'Coordinador' },
-        { _id: '3', nombre: 'Coordinador prueba', email: 'coordinador@visitas.com', rol: 'Coordinador' },
+        { _id: '1', nombre: 'Alejandro Abril', email: 'alejorodrigo7@gmail.com', rol: 'Admin' },
+        { _id: '2', nombre: 'Liliana Chuquimarca', email: 'lilianaelizabethchuquimarca@gmail.com', rol: 'Coordinador' },
+        { _id: '3', nombre: 'Byron Paucar', email: 'byron27caiza@gmail.com', rol: 'Tecnico' },
+        { _id: '4', nombre: 'Diego Osorio', email: 'charly_f10th@hotmail.com', rol: 'Coordinador' },
+        { _id: '5', nombre: 'Isabela Cordoba', email: 'cordobaisabelag@gmail.com', rol: 'Jefe' },
+        { _id: '6', nombre: 'Mary Cordoba', email: 'isabellacordobag@hotmail.com', rol: 'Jefe' },
+        { _id: '7', nombre: 'Coordinador prueba', email: 'coordinador@visitas.com', rol: 'Coordinador' },
+        { _id: '8', nombre: 'Técnico prueba', email: 'tecnico@visitas.com', rol: 'Tecnico' },
       ];
       setUsuarios(usuariosPrueba);
       setUsuariosFiltrados(usuariosPrueba);
@@ -344,12 +347,11 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 7. USUARIOS - CORREGIDO CON /auth/usuarios
+      // 7. USUARIOS
       // ============================================
       let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
 
       try {
-        // ✅ CAMBIADO: Usar /auth/usuarios en lugar de /usuarios
         const usersRes = await api.get('/auth/usuarios');
         if (usersRes.data.success) {
           const users = usersRes.data.data || [];
@@ -458,16 +460,15 @@ const DashboardScreen = ({ navigation }) => {
             const esCobro = v.tipo === 'Cobro';
             const monto = v.monto || 0;
             
-            // OBTENER EL NOMBRE DEL USUARIO
+            // ✅ OBTENER EL NOMBRE DEL USUARIO (prioridad: usuario > tecnico > creadoPor)
             const usuario = v.usuario?.nombre || v.tecnico?.nombre || v.creadoPor?.nombre || 'Sin asignar';
             
-            // Log cada 10 visitas
-            if (index % 10 === 0) {
+            if (index < 5) {
               console.log(`👤 Visita ${index}: Usuario=${usuario}, Fecha=${fechaStr}, Tipo=${v.tipo}`);
             }
             
             if (!visitasPorUsuario[usuario]) {
-              visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0 };
+              visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0, cobradoSemana: 0, cobradoMes: 0 };
             }
             
             let tipo = v.tipo || 'OTROS';
@@ -483,13 +484,19 @@ const DashboardScreen = ({ navigation }) => {
             if (fecha.getMonth() === mesActual) {
               visitasMesCount++;
               visitasPorUsuario[usuario].mes++;
-              if (esCobro) cobradoMesCount += monto;
+              if (esCobro) {
+                cobradoMesCount += monto;
+                visitasPorUsuario[usuario].cobradoMes = (visitasPorUsuario[usuario].cobradoMes || 0) + monto;
+              }
             }
             
             if (fecha >= semanaAtras) {
               visitasSemanaCount++;
               visitasPorUsuario[usuario].semana++;
-              if (esCobro) cobradoSemanaCount += monto;
+              if (esCobro) {
+                cobradoSemanaCount += monto;
+                visitasPorUsuario[usuario].cobradoSemana = (visitasPorUsuario[usuario].cobradoSemana || 0) + monto;
+              }
             }
             
             if (fechaStr === hoyStr) {
@@ -501,12 +508,13 @@ const DashboardScreen = ({ navigation }) => {
             visitasPorUsuario[usuario].total++;
           });
           
-          // ORDENAR POR TOTAL DESCENDENTE
+          // ✅ ORDENAR POR TOTAL DESCENDENTE
           const usuariosOrdenados = Object.entries(visitasPorUsuario)
             .sort((a, b) => b[1].total - a[1].total);
           visitasPorUsuario = Object.fromEntries(usuariosOrdenados);
           
-          console.log('📊 visitasPorUsuario FINAL:', JSON.stringify(visitasPorUsuario, null, 2));
+          console.log('📊 visitasPorUsuario FINAL:', Object.keys(visitasPorUsuario).length, 'usuarios');
+          console.log('📊 visitasPorUsuario:', JSON.stringify(visitasPorUsuario, null, 2));
         }
       } catch (error) {
         console.error('Error al cargar visitas:', error);
@@ -735,7 +743,11 @@ const DashboardScreen = ({ navigation }) => {
           reporte += `- No hay visitas registradas\n`;
         } else {
           for (const [nombre, datos] of Object.entries(usuarios)) {
-            reporte += `- ${nombre}: Total ${datos.total} | Hoy ${datos.hoy} | Semana ${datos.semana} | Mes ${datos.mes}\n`;
+            reporte += `- ${nombre}:\n`;
+            reporte += `  Visitas: Hoy ${datos.hoy} | Semana ${datos.semana} | Mes ${datos.mes} | Total ${datos.total}\n`;
+            if (datos.cobradoSemana > 0 || datos.cobradoMes > 0) {
+              reporte += `  Cobrado: Semana $${(datos.cobradoSemana || 0).toFixed(2)} | Mes $${(datos.cobradoMes || 0).toFixed(2)}\n`;
+            }
           }
         }
         break;
@@ -907,7 +919,7 @@ const DashboardScreen = ({ navigation }) => {
               <StatRow label="📌 OTROS" value={stats.visitasPorTipo?.OTROS || 0} icon="ellipsis-horizontal-outline" color="#95A5A6" />
             </View>
 
-            {/* ✅ VISITAS POR USUARIO */}
+            {/* ✅ VISITAS POR USUARIO CON COBRADO */}
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>👤 Visitas por Usuario</Text>
               {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
@@ -922,6 +934,13 @@ const DashboardScreen = ({ navigation }) => {
                       <Text style={styles.usuarioVisitaCantidad}>Semana: {datos.semana}</Text>
                       <Text style={styles.usuarioVisitaCantidad}>Mes: {datos.mes}</Text>
                     </View>
+                    {(datos.cobradoSemana > 0 || datos.cobradoMes > 0) && (
+                      <View style={styles.usuarioVisitaCobrado}>
+                        <Text style={styles.usuarioVisitaCobradoText}>
+                          💰 Cobrado: Semana ${(datos.cobradoSemana || 0).toFixed(2)} | Mes ${(datos.cobradoMes || 0).toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 ))
               )}
@@ -1679,6 +1698,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E8ECF1',
+  },
+  usuarioVisitaCobrado: {
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#E8ECF1',
+  },
+  usuarioVisitaCobradoText: {
+    fontSize: 12,
+    color: '#00B894',
+    fontWeight: '500',
   },
   recentItem: {
     backgroundColor: '#F8F9FA',
