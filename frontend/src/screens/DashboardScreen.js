@@ -123,13 +123,14 @@ const DashboardScreen = ({ navigation }) => {
     return d.toISOString().split('T')[0];
   };
 
-  // ✅ Cargar usuarios SOLO con rol Coordinador
+  // ✅ Cargar usuarios - SOLO COORDINADORES (usando /auth/usuarios)
   const cargarUsuarios = async () => {
     try {
-      const response = await api.get('/usuarios');
+      // ✅ CAMBIADO: Usar /auth/usuarios en lugar de /usuarios
+      const response = await api.get('/auth/usuarios');
       if (response.data.success) {
         const users = response.data.data || [];
-        // ✅ FILTRAR SOLO USUARIOS CON ROL COORDINADOR
+        // Filtrar solo coordinadores
         const coordinadores = users.filter(u => 
           u.rol?.toLowerCase() === 'coordinador'
         );
@@ -139,7 +140,7 @@ const DashboardScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('❌ Error al cargar usuarios:', error);
-      // Fallback: usuarios de prueba (solo coordinadores)
+      // Fallback: coordinadores de prueba
       const usuariosPrueba = [
         { _id: '1', nombre: 'Liliana Chuquimarca', email: 'lilianaelizabethchuquimarca@gmail.com', rol: 'Coordinador' },
         { _id: '2', nombre: 'Diego Osorio', email: 'charly_f10th@hotmail.com', rol: 'Coordinador' },
@@ -251,7 +252,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 4. SERVICIOS - CORREGIDO ✅
+      // 4. SERVICIOS
       // ============================================
       let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
       let serviciosHoy = 0, serviciosSemana = 0, serviciosMes = 0;
@@ -271,11 +272,6 @@ const DashboardScreen = ({ navigation }) => {
         const ejecutados = ejecutadosRes.data?.data || [];
         const pendientes = pendientesRes.data?.data || [];
         const retroalimentados = retroalimentadosRes.data?.data || [];
-
-        console.log('📡 TOMADO:', tomados.length);
-        console.log('📡 EJECUTADO:', ejecutados.length);
-        console.log('📡 PENDIENTE:', pendientes.length);
-        console.log('📡 RETROALIMENTADO:', retroalimentados.length);
 
         totalServicios = tomados.length + ejecutados.length + pendientes.length + retroalimentados.length;
         serviciosActivos = tomados.length;
@@ -310,17 +306,6 @@ const DashboardScreen = ({ navigation }) => {
             serviciosMes++;
             serviciosPorNombre[nombreServicio].mes++;
           }
-        });
-
-        console.log('📊 Servicios procesados:', {
-          total: totalServicios,
-          activos: serviciosActivos,
-          finalizados: serviciosFinalizados,
-          pendientes: serviciosPendientes,
-          hoy: serviciosHoy,
-          semana: serviciosSemana,
-          mes: serviciosMes,
-          porNombre: serviciosPorNombre
         });
 
       } catch (error) {
@@ -359,12 +344,13 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 7. USUARIOS
+      // 7. USUARIOS - CORREGIDO CON /auth/usuarios
       // ============================================
       let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
 
       try {
-        const usersRes = await api.get('/usuarios');
+        // ✅ CAMBIADO: Usar /auth/usuarios en lugar de /usuarios
+        const usersRes = await api.get('/auth/usuarios');
         if (usersRes.data.success) {
           const users = usersRes.data.data || [];
           totalUsuarios = users.length;
@@ -373,7 +359,9 @@ const DashboardScreen = ({ navigation }) => {
           totalTecnicos = users.filter(u => u.rol?.toLowerCase() === 'tecnico').length;
           totalClientes = users.filter(u => u.rol?.toLowerCase() === 'cliente').length;
         }
-      } catch (error) {}
+      } catch (error) {
+        console.error('❌ Error al cargar usuarios en dashboard:', error);
+      }
 
       // ============================================
       // 8. ASISTENCIA
@@ -441,7 +429,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 12. VISITAS COMPLETAS - CON ESTADÍSTICAS POR USUARIO ✅
+      // 12. VISITAS COMPLETAS - CON ESTADÍSTICAS POR USUARIO
       // ============================================
       let totalVisitasData = 0, totalCobradoData = 0;
       let visitasMesCount = 0, cobradoMesCount = 0;
@@ -451,7 +439,10 @@ const DashboardScreen = ({ navigation }) => {
       let visitasPorUsuario = {};
 
       try {
+        console.log('📡 Cargando visitas...');
         const visitasRes = await api.get('/visitas');
+        console.log('📡 Visitas recibidas:', visitasRes.data?.data?.length || 0);
+        
         if (visitasRes.data.success) {
           const visitas = visitasRes.data.data || [];
           totalVisitasData = visitas.length;
@@ -461,12 +452,19 @@ const DashboardScreen = ({ navigation }) => {
           const semanaAtras = new Date();
           semanaAtras.setDate(semanaAtras.getDate() - 7);
           
-          visitas.forEach(v => {
+          visitas.forEach((v, index) => {
             const fecha = new Date(v.fecha);
             const fechaStr = fecha.toISOString().split('T')[0];
             const esCobro = v.tipo === 'Cobro';
             const monto = v.monto || 0;
-            const usuario = v.usuario?.nombre || v.tecnico?.nombre || 'Sin asignar';
+            
+            // OBTENER EL NOMBRE DEL USUARIO
+            const usuario = v.usuario?.nombre || v.tecnico?.nombre || v.creadoPor?.nombre || 'Sin asignar';
+            
+            // Log cada 10 visitas
+            if (index % 10 === 0) {
+              console.log(`👤 Visita ${index}: Usuario=${usuario}, Fecha=${fechaStr}, Tipo=${v.tipo}`);
+            }
             
             if (!visitasPorUsuario[usuario]) {
               visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0 };
@@ -503,9 +501,12 @@ const DashboardScreen = ({ navigation }) => {
             visitasPorUsuario[usuario].total++;
           });
           
+          // ORDENAR POR TOTAL DESCENDENTE
           const usuariosOrdenados = Object.entries(visitasPorUsuario)
             .sort((a, b) => b[1].total - a[1].total);
           visitasPorUsuario = Object.fromEntries(usuariosOrdenados);
+          
+          console.log('📊 visitasPorUsuario FINAL:', JSON.stringify(visitasPorUsuario, null, 2));
         }
       } catch (error) {
         console.error('Error al cargar visitas:', error);
@@ -873,26 +874,31 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.vistaTitle}>📊 Estadísticas de Visitas</Text>
               <EmailButton tipo="visitas" />
             </View>
+            
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📌 Totales Generales</Text>
               <StatRow label="Total Visitas" value={stats.totalVisitas} icon="eye-outline" color="#6C5CE7" />
               <StatRow label="Total Cobrado" value={`$${stats.totalCobrado.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
+            
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📆 Este Mes</Text>
               <StatRow label="Visitas del Mes" value={stats.visitasMes} icon="calendar-outline" color="#6C5CE7" />
               <StatRow label="Cobrado del Mes" value={`$${stats.cobradoMes.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
+            
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📅 Última Semana</Text>
               <StatRow label="Visitas de la Semana" value={stats.visitasSemana} icon="calendar-outline" color="#6C5CE7" />
               <StatRow label="Cobrado de la Semana" value={`$${stats.cobradoSemana.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
+            
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📌 Hoy</Text>
               <StatRow label="Visitas de Hoy" value={stats.visitasHoy} icon="today-outline" color="#6C5CE7" />
               <StatRow label="Cobrado de Hoy" value={`$${stats.cobradoHoy.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
+            
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📋 Por Tipo de Visita</Text>
               <StatRow label="💲 COBRO" value={stats.visitasPorTipo?.COBRO || 0} icon="cash-outline" color="#00B894" />
@@ -901,6 +907,7 @@ const DashboardScreen = ({ navigation }) => {
               <StatRow label="📌 OTROS" value={stats.visitasPorTipo?.OTROS || 0} icon="ellipsis-horizontal-outline" color="#95A5A6" />
             </View>
 
+            {/* ✅ VISITAS POR USUARIO */}
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>👤 Visitas por Usuario</Text>
               {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
