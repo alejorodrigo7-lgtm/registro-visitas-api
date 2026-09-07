@@ -127,19 +127,16 @@ const DashboardScreen = ({ navigation }) => {
   const cargarUsuarios = async () => {
     try {
       console.log('🔍 Cargando todos los usuarios...');
-      // ✅ CORREGIDO: Usar /usuarios (EXISTE en el backend)
       const response = await api.get('/usuarios');
       console.log('📡 Respuesta de usuarios:', response.data?.success);
       if (response.data.success) {
         const users = response.data.data || [];
         console.log(`✅ ${users.length} usuarios cargados`);
-        // ✅ GUARDAR TODOS LOS USUARIOS (sin filtrar)
         setUsuarios(users);
         setUsuariosFiltrados(users);
       }
     } catch (error) {
       console.error('❌ Error al cargar usuarios:', error);
-      // Fallback: usuarios de prueba
       const usuariosPrueba = [
         { _id: '1', nombre: 'Alejandro Abril', email: 'alejorodrigo7@gmail.com', rol: 'Admin' },
         { _id: '2', nombre: 'Liliana Chuquimarca', email: 'lilianaelizabethchuquimarca@gmail.com', rol: 'Coordinador' },
@@ -348,12 +345,11 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 7. USUARIOS - CORREGIDO CON /usuarios
+      // 7. USUARIOS
       // ============================================
       let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
 
       try {
-        // ✅ CORREGIDO: Usar /usuarios (EXISTE en el backend)
         const usersRes = await api.get('/usuarios');
         if (usersRes.data.success) {
           const users = usersRes.data.data || [];
@@ -433,7 +429,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 12. VISITAS COMPLETAS - CON ESTADÍSTICAS POR USUARIO
+      // 12. VISITAS COMPLETAS - SOLO COORDINADORES
       // ============================================
       let totalVisitasData = 0, totalCobradoData = 0;
       let visitasMesCount = 0, cobradoMesCount = 0;
@@ -456,17 +452,40 @@ const DashboardScreen = ({ navigation }) => {
           const semanaAtras = new Date();
           semanaAtras.setDate(semanaAtras.getDate() - 7);
           
+          // ✅ OBTENER LISTA DE COORDINADORES
+          let coordinadores = [];
+          try {
+            const usersRes = await api.get('/usuarios');
+            if (usersRes.data.success) {
+              coordinadores = usersRes.data.data
+                .filter(u => u.rol?.toLowerCase() === 'coordinador')
+                .map(u => u.nombre);
+              console.log('📡 Coordinadores encontrados:', coordinadores);
+            }
+          } catch (error) {
+            console.error('❌ Error cargando coordinadores:', error);
+          }
+          
           visitas.forEach((v, index) => {
             const fecha = new Date(v.fecha);
             const fechaStr = fecha.toISOString().split('T')[0];
             const esCobro = v.tipo === 'Cobro';
             const monto = v.monto || 0;
             
-            // ✅ OBTENER EL NOMBRE DEL USUARIO (prioridad: usuario > tecnico > creadoPor)
             const usuario = v.usuario?.nombre || v.tecnico?.nombre || v.creadoPor?.nombre || 'Sin asignar';
             
+            // ✅ SOLO PROCESAR SI EL USUARIO ES COORDINADOR
+            const esCoordinador = coordinadores.some(c => 
+              usuario.toLowerCase().includes(c.toLowerCase()) || 
+              c.toLowerCase().includes(usuario.toLowerCase())
+            );
+            
+            if (!esCoordinador && coordinadores.length > 0) {
+              return;
+            }
+            
             if (index < 5) {
-              console.log(`👤 Visita ${index}: Usuario=${usuario}, Fecha=${fechaStr}, Tipo=${v.tipo}`);
+              console.log(`👤 Visita ${index}: Usuario=${usuario}, EsCoordinador=${esCoordinador}`);
             }
             
             if (!visitasPorUsuario[usuario]) {
@@ -510,13 +529,11 @@ const DashboardScreen = ({ navigation }) => {
             visitasPorUsuario[usuario].total++;
           });
           
-          // ✅ ORDENAR POR TOTAL DESCENDENTE
           const usuariosOrdenados = Object.entries(visitasPorUsuario)
             .sort((a, b) => b[1].total - a[1].total);
           visitasPorUsuario = Object.fromEntries(usuariosOrdenados);
           
-          console.log('📊 visitasPorUsuario FINAL:', Object.keys(visitasPorUsuario).length, 'usuarios');
-          console.log('📊 visitasPorUsuario:', JSON.stringify(visitasPorUsuario, null, 2));
+          console.log('📊 visitasPorUsuario FINAL (solo coordinadores):', Object.keys(visitasPorUsuario).length, 'usuarios');
         }
       } catch (error) {
         console.error('Error al cargar visitas:', error);
@@ -738,11 +755,11 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- MANTENIMIENTO: ${stats.visitasPorTipo?.MANTENIMIENTO || 0}\n`;
         reporte += `- OTROS: ${stats.visitasPorTipo?.OTROS || 0}\n\n`;
         
-        reporte += `👤 VISITAS POR USUARIO\n`;
+        reporte += `👤 VISITAS POR COORDINADOR\n`;
         reporte += `====================================\n`;
         const usuarios = stats.visitasPorUsuario || {};
         if (Object.keys(usuarios).length === 0) {
-          reporte += `- No hay visitas registradas\n`;
+          reporte += `- No hay visitas de coordinadores registradas\n`;
         } else {
           for (const [nombre, datos] of Object.entries(usuarios)) {
             reporte += `- ${nombre}:\n`;
@@ -888,7 +905,35 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.vistaTitle}>📊 Estadísticas de Visitas</Text>
               <EmailButton tipo="visitas" />
             </View>
+
+            {/* ✅ PRIMERO: VISITAS POR COORDINADOR */}
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>👤 Visitas por Coordinador</Text>
+              {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay visitas de coordinadores registradas</Text>
+              ) : (
+                Object.entries(stats.visitasPorUsuario || {}).map(([nombre, datos]) => (
+                  <View key={nombre} style={styles.usuarioVisitaItem}>
+                    <Text style={styles.usuarioVisitaNombre}>{nombre}</Text>
+                    <View style={styles.usuarioVisitaDetalles}>
+                      <Text style={styles.usuarioVisitaCantidad}>Total: {datos.total}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>Hoy: {datos.hoy}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>Semana: {datos.semana}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>Mes: {datos.mes}</Text>
+                    </View>
+                    {(datos.cobradoSemana > 0 || datos.cobradoMes > 0) && (
+                      <View style={styles.usuarioVisitaCobrado}>
+                        <Text style={styles.usuarioVisitaCobradoText}>
+                          💰 Cobrado: Semana ${(datos.cobradoSemana || 0).toFixed(2)} | Mes ${(datos.cobradoMes || 0).toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))
+              )}
+            </View>
             
+            {/* DESPUÉS: Totales Generales */}
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📌 Totales Generales</Text>
               <StatRow label="Total Visitas" value={stats.totalVisitas} icon="eye-outline" color="#6C5CE7" />
@@ -919,33 +964,6 @@ const DashboardScreen = ({ navigation }) => {
               <StatRow label="🔧 INSTALACIÓN" value={stats.visitasPorTipo?.INSTALACION || 0} icon="construct-outline" color="#3498DB" />
               <StatRow label="🛠 MANTENIMIENTO" value={stats.visitasPorTipo?.MANTENIMIENTO || 0} icon="settings-outline" color="#F39C12" />
               <StatRow label="📌 OTROS" value={stats.visitasPorTipo?.OTROS || 0} icon="ellipsis-horizontal-outline" color="#95A5A6" />
-            </View>
-
-            {/* ✅ VISITAS POR USUARIO CON COBRADO */}
-            <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>👤 Visitas por Usuario</Text>
-              {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
-                <Text style={styles.emptyText}>No hay visitas registradas</Text>
-              ) : (
-                Object.entries(stats.visitasPorUsuario || {}).map(([nombre, datos]) => (
-                  <View key={nombre} style={styles.usuarioVisitaItem}>
-                    <Text style={styles.usuarioVisitaNombre}>{nombre}</Text>
-                    <View style={styles.usuarioVisitaDetalles}>
-                      <Text style={styles.usuarioVisitaCantidad}>Total: {datos.total}</Text>
-                      <Text style={styles.usuarioVisitaCantidad}>Hoy: {datos.hoy}</Text>
-                      <Text style={styles.usuarioVisitaCantidad}>Semana: {datos.semana}</Text>
-                      <Text style={styles.usuarioVisitaCantidad}>Mes: {datos.mes}</Text>
-                    </View>
-                    {(datos.cobradoSemana > 0 || datos.cobradoMes > 0) && (
-                      <View style={styles.usuarioVisitaCobrado}>
-                        <Text style={styles.usuarioVisitaCobradoText}>
-                          💰 Cobrado: Semana ${(datos.cobradoSemana || 0).toFixed(2)} | Mes ${(datos.cobradoMes || 0).toFixed(2)}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                ))
-              )}
             </View>
           </View>
         );
