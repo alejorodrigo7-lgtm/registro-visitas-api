@@ -127,7 +127,8 @@ const DashboardScreen = ({ navigation }) => {
   const cargarUsuarios = async () => {
     try {
       console.log('🔍 Cargando todos los usuarios...');
-      const response = await api.get('/auth/usuarios');
+      // ✅ CORREGIDO: Usar /usuarios (EXISTE en el backend)
+      const response = await api.get('/usuarios');
       console.log('📡 Respuesta de usuarios:', response.data?.success);
       if (response.data.success) {
         const users = response.data.data || [];
@@ -347,12 +348,13 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 7. USUARIOS
+      // 7. USUARIOS - CORREGIDO CON /usuarios
       // ============================================
       let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
 
       try {
-        const usersRes = await api.get('/auth/usuarios');
+        // ✅ CORREGIDO: Usar /usuarios (EXISTE en el backend)
+        const usersRes = await api.get('/usuarios');
         if (usersRes.data.success) {
           const users = usersRes.data.data || [];
           totalUsuarios = users.length;
