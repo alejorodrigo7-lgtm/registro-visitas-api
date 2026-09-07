@@ -108,6 +108,7 @@ const DashboardScreen = ({ navigation }) => {
       MANTENIMIENTO: 0,
       OTROS: 0,
     },
+    visitasPorUsuario: {}, // ✅ NUEVO: Estadísticas por usuario
   });
 
   const [recentActivity, setRecentActivity] = useState([]);
@@ -436,13 +437,14 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 12. VISITAS COMPLETAS
+      // 12. VISITAS COMPLETAS - CON ESTADÍSTICAS POR USUARIO ✅
       // ============================================
       let totalVisitasData = 0, totalCobradoData = 0;
       let visitasMesCount = 0, cobradoMesCount = 0;
       let visitasSemanaCount = 0, cobradoSemanaCount = 0;
       let visitasHoyCount = 0, cobradoHoyCount = 0;
       let visitasPorTipo = { COBRO: 0, INSTALACION: 0, MANTENIMIENTO: 0, OTROS: 0 };
+      let visitasPorUsuario = {}; // ✅ NUEVO: Estadísticas por usuario
 
       try {
         const visitasRes = await api.get('/visitas');
@@ -460,6 +462,12 @@ const DashboardScreen = ({ navigation }) => {
             const fechaStr = fecha.toISOString().split('T')[0];
             const esCobro = v.tipo === 'Cobro';
             const monto = v.monto || 0;
+            const usuario = v.usuario?.nombre || v.tecnico?.nombre || 'Sin asignar';
+            
+            // ✅ Inicializar contador por usuario
+            if (!visitasPorUsuario[usuario]) {
+              visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0 };
+            }
             
             let tipo = v.tipo || 'OTROS';
             let tipoMapeado = 'OTROS';
@@ -471,21 +479,33 @@ const DashboardScreen = ({ navigation }) => {
             
             if (esCobro) totalCobradoData += monto;
             
+            // Contar por período
             if (fecha.getMonth() === mesActual) {
               visitasMesCount++;
+              visitasPorUsuario[usuario].mes++;
               if (esCobro) cobradoMesCount += monto;
             }
             
             if (fecha >= semanaAtras) {
               visitasSemanaCount++;
+              visitasPorUsuario[usuario].semana++;
               if (esCobro) cobradoSemanaCount += monto;
             }
             
             if (fechaStr === hoyStr) {
               visitasHoyCount++;
+              visitasPorUsuario[usuario].hoy++;
               if (esCobro) cobradoHoyCount += monto;
             }
+            
+            // Total general
+            visitasPorUsuario[usuario].total++;
           });
+          
+          // ✅ Ordenar usuarios por total de visitas (descendente)
+          const usuariosOrdenados = Object.entries(visitasPorUsuario)
+            .sort((a, b) => b[1].total - a[1].total);
+          visitasPorUsuario = Object.fromEntries(usuariosOrdenados);
         }
       } catch (error) {
         console.error('Error al cargar visitas:', error);
@@ -566,6 +586,7 @@ const DashboardScreen = ({ navigation }) => {
         visitasHoy: visitasHoyCount,
         cobradoHoy: cobradoHoyCount,
         visitasPorTipo,
+        visitasPorUsuario, // ✅ NUEVO
       });
 
     } catch (error) {
@@ -681,7 +702,7 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ Generar reporte según el tipo - CON TODOS LOS DATOS DE SERVICIOS
+  // ✅ Generar reporte según el tipo - CON ESTADÍSTICAS POR USUARIO
   const generarReporte = (tipo) => {
     const fecha = new Date().toLocaleDateString('es-EC');
     let reporte = `📊 REPORTE DE ${getTituloReporte(tipo).toUpperCase()} - RA²P\n`;
@@ -706,7 +727,19 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- COBRO: ${stats.visitasPorTipo?.COBRO || 0}\n`;
         reporte += `- INSTALACIÓN: ${stats.visitasPorTipo?.INSTALACION || 0}\n`;
         reporte += `- MANTENIMIENTO: ${stats.visitasPorTipo?.MANTENIMIENTO || 0}\n`;
-        reporte += `- OTROS: ${stats.visitasPorTipo?.OTROS || 0}\n`;
+        reporte += `- OTROS: ${stats.visitasPorTipo?.OTROS || 0}\n\n`;
+        
+        // ✅ NUEVO: ESTADÍSTICAS POR USUARIO
+        reporte += `👤 VISITAS POR USUARIO\n`;
+        reporte += `====================================\n`;
+        const usuarios = stats.visitasPorUsuario || {};
+        if (Object.keys(usuarios).length === 0) {
+          reporte += `- No hay visitas registradas\n`;
+        } else {
+          for (const [nombre, datos] of Object.entries(usuarios)) {
+            reporte += `- ${nombre}: Total ${datos.total} | Hoy ${datos.hoy} | Semana ${datos.semana} | Mes ${datos.mes}\n`;
+          }
+        }
         break;
 
       case 'cajas':
@@ -750,7 +783,6 @@ const DashboardScreen = ({ navigation }) => {
         if (Object.keys(tipos).length === 0) {
           reporte += `- No hay servicios registrados\n`;
         } else {
-          // Ordenar por total descendente
           const tiposOrdenados = Object.entries(tipos).sort((a, b) => {
             const totalA = a[1].hoy + a[1].semana + a[1].mes;
             const totalB = b[1].hoy + b[1].semana + b[1].mes;
@@ -870,6 +902,26 @@ const DashboardScreen = ({ navigation }) => {
               <StatRow label="🔧 INSTALACIÓN" value={stats.visitasPorTipo?.INSTALACION || 0} icon="construct-outline" color="#3498DB" />
               <StatRow label="🛠 MANTENIMIENTO" value={stats.visitasPorTipo?.MANTENIMIENTO || 0} icon="settings-outline" color="#F39C12" />
               <StatRow label="📌 OTROS" value={stats.visitasPorTipo?.OTROS || 0} icon="ellipsis-horizontal-outline" color="#95A5A6" />
+            </View>
+
+            {/* ✅ NUEVO: ESTADÍSTICAS POR USUARIO */}
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>👤 Visitas por Usuario</Text>
+              {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay visitas registradas</Text>
+              ) : (
+                Object.entries(stats.visitasPorUsuario || {}).map(([nombre, datos]) => (
+                  <View key={nombre} style={styles.usuarioVisitaItem}>
+                    <Text style={styles.usuarioVisitaNombre}>{nombre}</Text>
+                    <View style={styles.usuarioVisitaDetalles}>
+                      <Text style={styles.usuarioVisitaCantidad}>Total: {datos.total}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>Hoy: {datos.hoy}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>Semana: {datos.semana}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>Mes: {datos.mes}</Text>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
           </View>
         );
@@ -1589,6 +1641,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   servicioTipoCantidad: {
+    fontSize: 12,
+    color: '#636E72',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+  },
+  // ✅ Nuevos estilos para visitas por usuario
+  usuarioVisitaItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  usuarioVisitaNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 4,
+  },
+  usuarioVisitaDetalles: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  usuarioVisitaCantidad: {
     fontSize: 12,
     color: '#636E72',
     backgroundColor: '#FFFFFF',
