@@ -258,7 +258,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 3. TRANSFERENCIAS - CON FILTRO DE FECHAS
+      // 3. TRANSFERENCIAS - ESTADÍSTICAS POR BANCO + CUENTA
       // ============================================
       let totalTransferencias = 0, transferenciasPendientes = 0, transferenciasAprobadas = 0, transferenciasDenegadas = 0;
       let totalValorTransferencias = 0;
@@ -297,14 +297,38 @@ const DashboardScreen = ({ navigation }) => {
           semanaAtras.setDate(semanaAtras.getDate() - 7);
           
           transferenciasFiltradas.forEach(t => {
-            let banco = 'OTRO';
+            // ===== EXTRAER BANCO Y NÚMERO DE CUENTA =====
+            let bancoNombre = 'OTRO';
+            let numeroCuenta = '';
+            let bancoCompleto = '';
+            
             if (t.bancoCuenta) {
-              const match = t.bancoCuenta.match(/Banco\s+([A-Za-zÁÉÍÓÚñÑ]+)/i);
-              if (match) {
-                banco = match[1].toUpperCase();
-              } else {
-                banco = t.bancoCuenta.length > 30 ? t.bancoCuenta.substring(0, 30) + '...' : t.bancoCuenta;
+              // Extraer número de cuenta
+              const numMatch = t.bancoCuenta.match(/N[º°]\s*(\d+)/i) || t.bancoCuenta.match(/(\d{8,})/);
+              if (numMatch) {
+                numeroCuenta = numMatch[1];
               }
+              
+              // Extraer nombre del banco
+              const bancoMatch = t.bancoCuenta.match(/Banco\s+([A-Za-zÁÉÍÓÚñÑ\s]+)/i);
+              if (bancoMatch) {
+                bancoNombre = bancoMatch[1].trim().toUpperCase();
+              } else if (t.bancoCuenta.toLowerCase().includes('pichincha')) {
+                bancoNombre = 'PICHINCHA';
+              } else if (t.bancoCuenta.toLowerCase().includes('guayaquil')) {
+                bancoNombre = 'GUAYAQUIL';
+              } else if (t.bancoCuenta.toLowerCase().includes('internacional')) {
+                bancoNombre = 'INTERNACIONAL';
+              } else if (t.bancoCuenta.toLowerCase().includes('produbanco')) {
+                bancoNombre = 'PRODUBANCO';
+              } else if (t.bancoCuenta.toLowerCase().includes('bolivariano')) {
+                bancoNombre = 'BOLIVARIANO';
+              } else {
+                bancoNombre = t.bancoCuenta.substring(0, 30).toUpperCase();
+              }
+              
+              // Construir clave única: Banco + Número de Cuenta
+              bancoCompleto = numeroCuenta ? `${bancoNombre} (${numeroCuenta})` : bancoNombre;
             }
             
             const zona = t.zonaSector || 'SIN ZONA';
@@ -314,18 +338,26 @@ const DashboardScreen = ({ navigation }) => {
             
             totalValorTransferencias += valor;
             
-            if (!transferenciasPorBanco[banco]) {
-              transferenciasPorBanco[banco] = { total: 0, totalValor: 0 };
+            // ===== POR BANCO + CUENTA =====
+            if (!transferenciasPorBanco[bancoCompleto]) {
+              transferenciasPorBanco[bancoCompleto] = { 
+                total: 0, 
+                totalValor: 0,
+                bancoNombre: bancoNombre,
+                numeroCuenta: numeroCuenta
+              };
             }
-            transferenciasPorBanco[banco].total += 1;
-            transferenciasPorBanco[banco].totalValor += valor;
+            transferenciasPorBanco[bancoCompleto].total += 1;
+            transferenciasPorBanco[bancoCompleto].totalValor += valor;
             
+            // ===== POR ZONA =====
             if (!transferenciasPorZona[zona]) {
               transferenciasPorZona[zona] = { total: 0, totalValor: 0 };
             }
             transferenciasPorZona[zona].total += 1;
             transferenciasPorZona[zona].totalValor += valor;
             
+            // ===== PERÍODOS =====
             if (fechaStr === hoyStr) {
               transferenciasHoy++;
               valorTransferenciasHoy += valor;
@@ -363,7 +395,7 @@ const DashboardScreen = ({ navigation }) => {
             .map(([fecha, datos]) => ({ fecha: new Date(fecha), ...datos }))
             .sort((a, b) => a.fecha - b.fecha);
           
-          console.log(`✅ Transferencias procesadas: ${totalTransferencias}, Bancos: ${Object.keys(transferenciasPorBanco).length}, Zonas: ${Object.keys(transferenciasPorZona).length}`);
+          console.log(`✅ Transferencias procesadas: ${totalTransferencias}, Bancos+Cuentas: ${Object.keys(transferenciasPorBanco).length}, Zonas: ${Object.keys(transferenciasPorZona).length}`);
         }
       } catch (error) {
         console.error('❌ Error al cargar transferencias:', error);
@@ -645,10 +677,6 @@ const DashboardScreen = ({ navigation }) => {
             
             if (!esCoordinador && coordinadores.length > 0) {
               return;
-            }
-            
-            if (index < 5) {
-              console.log(`👤 Visita ${index}: Usuario=${usuario}, EsCoordinador=${esCoordinador}`);
             }
             
             if (!visitasPorUsuario[usuario]) {
@@ -979,15 +1007,16 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Mes: ${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}\n`;
         reporte += `- Hoy: ${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}\n\n`;
         
-        reporte += `🏦 POR BANCO (en el período seleccionado)\n`;
+        reporte += `🏦 POR BANCO + CUENTA (en el período seleccionado)\n`;
         reporte += `====================================\n`;
         const bancos = stats.transferenciasPorBanco || {};
         if (Object.keys(bancos).length === 0) {
           reporte += `- No hay transferencias en este período\n`;
         } else {
           const bancosOrdenados = Object.entries(bancos).sort((a, b) => b[1].totalValor - a[1].totalValor);
-          for (const [banco, datos] of bancosOrdenados) {
-            reporte += `- ${banco}: ${datos.total} transf - $${datos.totalValor.toFixed(2)}\n`;
+          for (const [clave, datos] of bancosOrdenados) {
+            const cuentaInfo = datos.numeroCuenta ? ` (Cuenta: ${datos.numeroCuenta})` : '';
+            reporte += `- ${datos.bancoNombre || 'OTRO'}${cuentaInfo}: ${datos.total} transf - $${datos.totalValor.toFixed(2)}\n`;
           }
         }
         
@@ -1230,43 +1259,53 @@ const DashboardScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>🏦 Transferencias por Banco</Text>
+              <Text style={styles.subSectionTitle}>🏦 Transferencias por Banco + Cuenta</Text>
               {Object.keys(stats.transferenciasPorBanco || {}).length === 0 ? (
                 <Text style={styles.emptyText}>No hay transferencias registradas en este período</Text>
               ) : (
                 Object.entries(stats.transferenciasPorBanco || {})
                   .sort((a, b) => b[1].totalValor - a[1].totalValor)
-                  .map(([banco, datos]) => (
-                    <View key={banco} style={styles.bancoTransferenciaItem}>
-                      <View style={styles.bancoTransferenciaHeader}>
-                        <Text style={styles.bancoTransferenciaNombre} numberOfLines={1} ellipsizeMode="tail">
-                          {banco}
-                        </Text>
-                        <Text style={styles.bancoTransferenciaTotal}>
-                          ${datos.totalValor.toFixed(2)}
-                        </Text>
+                  .map(([clave, datos], index) => {
+                    const colores = ['#6C5CE7', '#00B894', '#FDCB6E', '#E17055', '#0984E3', '#6C5CE7', '#00B894', '#FDCB6E'];
+                    return (
+                      <View key={clave} style={styles.bancoTransferenciaItem}>
+                        <View style={styles.bancoTransferenciaHeader}>
+                          <View style={styles.bancoTransferenciaInfo}>
+                            <Text style={styles.bancoTransferenciaNombre} numberOfLines={1} ellipsizeMode="tail">
+                              🏦 {datos.bancoNombre || 'OTRO'}
+                            </Text>
+                            {datos.numeroCuenta && (
+                              <Text style={styles.bancoTransferenciaCuenta}>
+                                💳 Cuenta: {datos.numeroCuenta}
+                              </Text>
+                            )}
+                          </View>
+                          <Text style={styles.bancoTransferenciaTotal}>
+                            ${datos.totalValor.toFixed(2)}
+                          </Text>
+                        </View>
+                        <View style={styles.bancoTransferenciaDetalles}>
+                          <Text style={styles.bancoTransferenciaCantidad}>
+                            📄 {datos.total} transferencias
+                          </Text>
+                          <Text style={styles.bancoTransferenciaCantidad}>
+                            💰 Promedio: ${(datos.totalValor / datos.total).toFixed(2)}
+                          </Text>
+                        </View>
+                        <View style={styles.barraProgresoContainer}>
+                          <View 
+                            style={[
+                              styles.barraProgresoFill, 
+                              { 
+                                width: `${Math.min((datos.totalValor / (stats.maxValorBanco || 1)) * 100, 100)}%`,
+                                backgroundColor: colores[index % colores.length]
+                              }
+                            ]} 
+                          />
+                        </View>
                       </View>
-                      <View style={styles.bancoTransferenciaDetalles}>
-                        <Text style={styles.bancoTransferenciaCantidad}>
-                          📄 {datos.total} transferencias
-                        </Text>
-                        <Text style={styles.bancoTransferenciaCantidad}>
-                          💰 Promedio: ${(datos.totalValor / datos.total).toFixed(2)}
-                        </Text>
-                      </View>
-                      <View style={styles.barraProgresoContainer}>
-                        <View 
-                          style={[
-                            styles.barraProgresoFill, 
-                            { 
-                              width: `${Math.min((datos.totalValor / (stats.maxValorBanco || 1)) * 100, 100)}%`,
-                              backgroundColor: ['#6C5CE7', '#00B894', '#FDCB6E', '#E17055', '#0984E3', '#6C5CE7'][Object.keys(stats.transferenciasPorBanco || {}).indexOf(banco) % 6]
-                            }
-                          ]} 
-                        />
-                      </View>
-                    </View>
-                  ))
+                    );
+                  })
               )}
             </View>
 
@@ -2075,12 +2114,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  bancoTransferenciaInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
   bancoTransferenciaNombre: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2D3436',
-    flex: 1,
-    marginRight: 8,
+  },
+  bancoTransferenciaCuenta: {
+    fontSize: 12,
+    color: '#636E72',
+    marginTop: 2,
   },
   bancoTransferenciaTotal: {
     fontSize: 15,
