@@ -60,9 +60,19 @@ const DashboardScreen = ({ navigation }) => {
     cajaCerrada: 0,
     saldoTotalCaja: 0,
     totalTransferencias: 0,
+    totalValorTransferencias: 0,
     transferenciasPendientes: 0,
     transferenciasAprobadas: 0,
     transferenciasDenegadas: 0,
+    transferenciasPorBanco: {},
+    transferenciasSemana: 0,
+    valorTransferenciasSemana: 0,
+    transferenciasMes: 0,
+    valorTransferenciasMes: 0,
+    transferenciasHoy: 0,
+    valorTransferenciasHoy: 0,
+    evolucionTransferencias: [],
+    maxValorBanco: 0,
     totalServicios: 0,
     serviciosActivos: 0,
     serviciosFinalizados: 0,
@@ -127,19 +137,16 @@ const DashboardScreen = ({ navigation }) => {
   const cargarUsuarios = async () => {
     try {
       console.log('🔍 Cargando todos los usuarios...');
-      // ✅ CORREGIDO: Usar /usuarios (EXISTE en el backend)
       const response = await api.get('/usuarios');
       console.log('📡 Respuesta de usuarios:', response.data?.success);
       if (response.data.success) {
         const users = response.data.data || [];
         console.log(`✅ ${users.length} usuarios cargados`);
-        // ✅ GUARDAR TODOS LOS USUARIOS (sin filtrar)
         setUsuarios(users);
         setUsuariosFiltrados(users);
       }
     } catch (error) {
       console.error('❌ Error al cargar usuarios:', error);
-      // Fallback: usuarios de prueba
       const usuariosPrueba = [
         { _id: '1', nombre: 'Alejandro Abril', email: 'alejorodrigo7@gmail.com', rol: 'Admin' },
         { _id: '2', nombre: 'Liliana Chuquimarca', email: 'lilianaelizabethchuquimarca@gmail.com', rol: 'Coordinador' },
@@ -240,20 +247,90 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 3. TRANSFERENCIAS
+      // 3. TRANSFERENCIAS - CON ESTADÍSTICAS AVANZADAS
       // ============================================
       let totalTransferencias = 0, transferenciasPendientes = 0, transferenciasAprobadas = 0, transferenciasDenegadas = 0;
+      let totalValorTransferencias = 0;
+      let transferenciasPorBanco = {};
+      let transferenciasSemana = 0, valorTransferenciasSemana = 0;
+      let transferenciasMes = 0, valorTransferenciasMes = 0;
+      let transferenciasHoy = 0, valorTransferenciasHoy = 0;
+      let evolucionTransferencias = [];
+      let maxValorBanco = 0;
 
       try {
+        console.log('📡 Cargando transferencias con estadísticas...');
         const transferenciasRes = await api.get('/transferencias');
+        
         if (transferenciasRes.data.success) {
           const transferencias = transferenciasRes.data.data || [];
           totalTransferencias = transferencias.length;
           transferenciasPendientes = transferencias.filter(t => t.estado === 'pendiente').length;
           transferenciasAprobadas = transferencias.filter(t => t.estado === 'aprobado').length;
           transferenciasDenegadas = transferencias.filter(t => t.estado === 'denegado').length;
+          
+          const hoyStr = new Date().toISOString().split('T')[0];
+          const mesActual = new Date().getMonth();
+          const semanaAtras = new Date();
+          semanaAtras.setDate(semanaAtras.getDate() - 7);
+          
+          // Agrupar por banco
+          transferencias.forEach(t => {
+            const banco = t.banco || 'OTRO';
+            const valor = t.valor || 0;
+            const fecha = new Date(t.fecha || t.createdAt);
+            const fechaStr = fecha.toISOString().split('T')[0];
+            
+            totalValorTransferencias += valor;
+            
+            // Por banco
+            if (!transferenciasPorBanco[banco]) {
+              transferenciasPorBanco[banco] = { total: 0, totalValor: 0 };
+            }
+            transferenciasPorBanco[banco].total += 1;
+            transferenciasPorBanco[banco].totalValor += valor;
+            
+            // Por período
+            if (fechaStr === hoyStr) {
+              transferenciasHoy++;
+              valorTransferenciasHoy += valor;
+            }
+            if (fecha >= semanaAtras) {
+              transferenciasSemana++;
+              valorTransferenciasSemana += valor;
+            }
+            if (fecha.getMonth() === mesActual) {
+              transferenciasMes++;
+              valorTransferenciasMes += valor;
+            }
+          });
+          
+          // Calcular máximo para barras de progreso
+          maxValorBanco = Math.max(...Object.values(transferenciasPorBanco).map(d => d.totalValor), 0);
+          
+          // Evolución diaria (últimos 7 días)
+          const evolucionMap = {};
+          transferencias.forEach(t => {
+            const fecha = new Date(t.fecha || t.createdAt);
+            const fechaStr = fecha.toISOString().split('T')[0];
+            const valor = t.valor || 0;
+            
+            if (!evolucionMap[fechaStr]) {
+              evolucionMap[fechaStr] = { transferencias: 0, valor: 0 };
+            }
+            evolucionMap[fechaStr].transferencias += 1;
+            evolucionMap[fechaStr].valor += valor;
+          });
+          
+          evolucionTransferencias = Object.entries(evolucionMap)
+            .map(([fecha, datos]) => ({ fecha: new Date(fecha), ...datos }))
+            .sort((a, b) => a.fecha - b.fecha);
+          
+          console.log(`✅ Transferencias procesadas: ${totalTransferencias}, Bancos: ${Object.keys(transferenciasPorBanco).length}`);
         }
-      } catch (error) {}
+      } catch (error) {
+        console.error('❌ Error al cargar transferencias:', error);
+      }
 
       // ============================================
       // 4. SERVICIOS
@@ -348,12 +425,11 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 7. USUARIOS - CORREGIDO CON /usuarios
+      // 7. USUARIOS
       // ============================================
       let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
 
       try {
-        // ✅ CORREGIDO: Usar /usuarios (EXISTE en el backend)
         const usersRes = await api.get('/usuarios');
         if (usersRes.data.success) {
           const users = usersRes.data.data || [];
@@ -433,7 +509,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 12. VISITAS COMPLETAS - CON ESTADÍSTICAS POR USUARIO
+      // 12. VISITAS COMPLETAS - SOLO COORDINADORES
       // ============================================
       let totalVisitasData = 0, totalCobradoData = 0;
       let visitasMesCount = 0, cobradoMesCount = 0;
@@ -456,17 +532,40 @@ const DashboardScreen = ({ navigation }) => {
           const semanaAtras = new Date();
           semanaAtras.setDate(semanaAtras.getDate() - 7);
           
+          // ✅ OBTENER LISTA DE COORDINADORES
+          let coordinadores = [];
+          try {
+            const usersRes = await api.get('/usuarios');
+            if (usersRes.data.success) {
+              coordinadores = usersRes.data.data
+                .filter(u => u.rol?.toLowerCase() === 'coordinador')
+                .map(u => u.nombre);
+              console.log('📡 Coordinadores encontrados:', coordinadores);
+            }
+          } catch (error) {
+            console.error('❌ Error cargando coordinadores:', error);
+          }
+          
           visitas.forEach((v, index) => {
             const fecha = new Date(v.fecha);
             const fechaStr = fecha.toISOString().split('T')[0];
             const esCobro = v.tipo === 'Cobro';
             const monto = v.monto || 0;
             
-            // ✅ OBTENER EL NOMBRE DEL USUARIO (prioridad: usuario > tecnico > creadoPor)
             const usuario = v.usuario?.nombre || v.tecnico?.nombre || v.creadoPor?.nombre || 'Sin asignar';
             
+            // ✅ SOLO PROCESAR SI EL USUARIO ES COORDINADOR
+            const esCoordinador = coordinadores.some(c => 
+              usuario.toLowerCase().includes(c.toLowerCase()) || 
+              c.toLowerCase().includes(usuario.toLowerCase())
+            );
+            
+            if (!esCoordinador && coordinadores.length > 0) {
+              return;
+            }
+            
             if (index < 5) {
-              console.log(`👤 Visita ${index}: Usuario=${usuario}, Fecha=${fechaStr}, Tipo=${v.tipo}`);
+              console.log(`👤 Visita ${index}: Usuario=${usuario}, EsCoordinador=${esCoordinador}`);
             }
             
             if (!visitasPorUsuario[usuario]) {
@@ -510,13 +609,11 @@ const DashboardScreen = ({ navigation }) => {
             visitasPorUsuario[usuario].total++;
           });
           
-          // ✅ ORDENAR POR TOTAL DESCENDENTE
           const usuariosOrdenados = Object.entries(visitasPorUsuario)
             .sort((a, b) => b[1].total - a[1].total);
           visitasPorUsuario = Object.fromEntries(usuariosOrdenados);
           
-          console.log('📊 visitasPorUsuario FINAL:', Object.keys(visitasPorUsuario).length, 'usuarios');
-          console.log('📊 visitasPorUsuario:', JSON.stringify(visitasPorUsuario, null, 2));
+          console.log('📊 visitasPorUsuario FINAL (solo coordinadores):', Object.keys(visitasPorUsuario).length, 'usuarios');
         }
       } catch (error) {
         console.error('Error al cargar visitas:', error);
@@ -554,9 +651,19 @@ const DashboardScreen = ({ navigation }) => {
         cajaCerrada,
         saldoTotalCaja,
         totalTransferencias,
+        totalValorTransferencias,
         transferenciasPendientes,
         transferenciasAprobadas,
         transferenciasDenegadas,
+        transferenciasPorBanco,
+        transferenciasSemana,
+        valorTransferenciasSemana,
+        transferenciasMes,
+        valorTransferenciasMes,
+        transferenciasHoy,
+        valorTransferenciasHoy,
+        evolucionTransferencias,
+        maxValorBanco,
         totalServicios,
         serviciosActivos,
         serviciosFinalizados,
@@ -738,11 +845,11 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- MANTENIMIENTO: ${stats.visitasPorTipo?.MANTENIMIENTO || 0}\n`;
         reporte += `- OTROS: ${stats.visitasPorTipo?.OTROS || 0}\n\n`;
         
-        reporte += `👤 VISITAS POR USUARIO\n`;
+        reporte += `👤 VISITAS POR COORDINADOR\n`;
         reporte += `====================================\n`;
         const usuarios = stats.visitasPorUsuario || {};
         if (Object.keys(usuarios).length === 0) {
-          reporte += `- No hay visitas registradas\n`;
+          reporte += `- No hay visitas de coordinadores registradas\n`;
         } else {
           for (const [nombre, datos] of Object.entries(usuarios)) {
             reporte += `- ${nombre}:\n`;
@@ -769,10 +876,29 @@ const DashboardScreen = ({ navigation }) => {
 
       case 'transferencias':
         reporte += `🔄 TRANSFERENCIAS\n`;
+        reporte += `====================================\n`;
+        reporte += `📌 TOTALES\n`;
         reporte += `- Total Transferencias: ${stats.totalTransferencias}\n`;
+        reporte += `- Total Valor: $${(stats.totalValorTransferencias || 0).toFixed(2)}\n`;
         reporte += `- Pendientes: ${stats.transferenciasPendientes}\n`;
         reporte += `- Aprobadas: ${stats.transferenciasAprobadas}\n`;
-        reporte += `- Denegadas: ${stats.transferenciasDenegadas}\n`;
+        reporte += `- Denegadas: ${stats.transferenciasDenegadas}\n\n`;
+        
+        reporte += `📌 POR PERÍODO\n`;
+        reporte += `- Semana: ${stats.transferenciasSemana || 0} transf - $${(stats.valorTransferenciasSemana || 0).toFixed(2)}\n`;
+        reporte += `- Mes: ${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}\n`;
+        reporte += `- Hoy: ${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}\n\n`;
+        
+        reporte += `🏦 POR BANCO\n`;
+        const bancos = stats.transferenciasPorBanco || {};
+        if (Object.keys(bancos).length === 0) {
+          reporte += `- No hay transferencias registradas\n`;
+        } else {
+          const bancosOrdenados = Object.entries(bancos).sort((a, b) => b[1].totalValor - a[1].totalValor);
+          for (const [banco, datos] of bancosOrdenados) {
+            reporte += `- ${banco.replace(/_/g, ' ')}: ${datos.total} transf - $${datos.totalValor.toFixed(2)}\n`;
+          }
+        }
         break;
 
       case 'servicios':
@@ -888,7 +1014,35 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.vistaTitle}>📊 Estadísticas de Visitas</Text>
               <EmailButton tipo="visitas" />
             </View>
+
+            {/* ✅ PRIMERO: VISITAS POR COORDINADOR */}
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>👤 Visitas por Coordinador</Text>
+              {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay visitas de coordinadores registradas</Text>
+              ) : (
+                Object.entries(stats.visitasPorUsuario || {}).map(([nombre, datos]) => (
+                  <View key={nombre} style={styles.usuarioVisitaItem}>
+                    <Text style={styles.usuarioVisitaNombre}>{nombre}</Text>
+                    <View style={styles.usuarioVisitaDetalles}>
+                      <Text style={styles.usuarioVisitaCantidad}>Total: {datos.total}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>Hoy: {datos.hoy}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>Semana: {datos.semana}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>Mes: {datos.mes}</Text>
+                    </View>
+                    {(datos.cobradoSemana > 0 || datos.cobradoMes > 0) && (
+                      <View style={styles.usuarioVisitaCobrado}>
+                        <Text style={styles.usuarioVisitaCobradoText}>
+                          💰 Cobrado: Semana ${(datos.cobradoSemana || 0).toFixed(2)} | Mes ${(datos.cobradoMes || 0).toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))
+              )}
+            </View>
             
+            {/* DESPUÉS: Totales Generales */}
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📌 Totales Generales</Text>
               <StatRow label="Total Visitas" value={stats.totalVisitas} icon="eye-outline" color="#6C5CE7" />
@@ -919,33 +1073,6 @@ const DashboardScreen = ({ navigation }) => {
               <StatRow label="🔧 INSTALACIÓN" value={stats.visitasPorTipo?.INSTALACION || 0} icon="construct-outline" color="#3498DB" />
               <StatRow label="🛠 MANTENIMIENTO" value={stats.visitasPorTipo?.MANTENIMIENTO || 0} icon="settings-outline" color="#F39C12" />
               <StatRow label="📌 OTROS" value={stats.visitasPorTipo?.OTROS || 0} icon="ellipsis-horizontal-outline" color="#95A5A6" />
-            </View>
-
-            {/* ✅ VISITAS POR USUARIO CON COBRADO */}
-            <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>👤 Visitas por Usuario</Text>
-              {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
-                <Text style={styles.emptyText}>No hay visitas registradas</Text>
-              ) : (
-                Object.entries(stats.visitasPorUsuario || {}).map(([nombre, datos]) => (
-                  <View key={nombre} style={styles.usuarioVisitaItem}>
-                    <Text style={styles.usuarioVisitaNombre}>{nombre}</Text>
-                    <View style={styles.usuarioVisitaDetalles}>
-                      <Text style={styles.usuarioVisitaCantidad}>Total: {datos.total}</Text>
-                      <Text style={styles.usuarioVisitaCantidad}>Hoy: {datos.hoy}</Text>
-                      <Text style={styles.usuarioVisitaCantidad}>Semana: {datos.semana}</Text>
-                      <Text style={styles.usuarioVisitaCantidad}>Mes: {datos.mes}</Text>
-                    </View>
-                    {(datos.cobradoSemana > 0 || datos.cobradoMes > 0) && (
-                      <View style={styles.usuarioVisitaCobrado}>
-                        <Text style={styles.usuarioVisitaCobradoText}>
-                          💰 Cobrado: Semana ${(datos.cobradoSemana || 0).toFixed(2)} | Mes ${(datos.cobradoMes || 0).toFixed(2)}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                ))
-              )}
             </View>
           </View>
         );
@@ -981,10 +1108,89 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.vistaTitle}>🔄 Estadísticas de Transferencias</Text>
               <EmailButton tipo="transferencias" />
             </View>
-            <StatRow label="Total Transferencias" value={stats.totalTransferencias} icon="swap-horizontal-outline" color="#6C5CE7" />
-            <StatRow label="Pendientes" value={stats.transferenciasPendientes} icon="time-outline" color="#F39C12" />
-            <StatRow label="Aprobadas" value={stats.transferenciasAprobadas} icon="checkmark-circle-outline" color="#2ECC71" />
-            <StatRow label="Denegadas" value={stats.transferenciasDenegadas} icon="close-circle-outline" color="#E74C3C" />
+
+            {/* Resumen General */}
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📊 Resumen General</Text>
+              <StatRow label="Total Transferencias" value={stats.totalTransferencias} icon="swap-horizontal-outline" color="#6C5CE7" />
+              <StatRow label="Total Valor Transferido" value={`$${stats.totalValorTransferencias?.toFixed(2) || '0.00'}`} icon="cash-outline" color="#00B894" />
+              <StatRow label="Pendientes" value={stats.transferenciasPendientes} icon="time-outline" color="#F39C12" />
+              <StatRow label="Aprobadas" value={stats.transferenciasAprobadas} icon="checkmark-circle-outline" color="#2ECC71" />
+              <StatRow label="Denegadas" value={stats.transferenciasDenegadas} icon="close-circle-outline" color="#E74C3C" />
+            </View>
+
+            {/* Estadísticas por Banco */}
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>🏦 Transferencias por Banco</Text>
+              {Object.keys(stats.transferenciasPorBanco || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay transferencias registradas</Text>
+              ) : (
+                Object.entries(stats.transferenciasPorBanco || {})
+                  .sort((a, b) => b[1].totalValor - a[1].totalValor)
+                  .map(([banco, datos]) => (
+                    <View key={banco} style={styles.bancoTransferenciaItem}>
+                      <View style={styles.bancoTransferenciaHeader}>
+                        <Text style={styles.bancoTransferenciaNombre}>
+                          {banco.replace(/_/g, ' ')}
+                        </Text>
+                        <Text style={styles.bancoTransferenciaTotal}>
+                          ${datos.totalValor.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.bancoTransferenciaDetalles}>
+                        <Text style={styles.bancoTransferenciaCantidad}>
+                          Transferencias: {datos.total}
+                        </Text>
+                        <Text style={styles.bancoTransferenciaCantidad}>
+                          Promedio: ${(datos.totalValor / datos.total).toFixed(2)}
+                        </Text>
+                      </View>
+                      {/* Barra de progreso */}
+                      <View style={styles.barraProgresoContainer}>
+                        <View 
+                          style={[
+                            styles.barraProgresoFill, 
+                            { 
+                              width: `${Math.min((datos.totalValor / (stats.maxValorBanco || 1)) * 100, 100)}%`,
+                              backgroundColor: ['#6C5CE7', '#00B894', '#FDCB6E', '#E17055', '#0984E3', '#6C5CE7'][Object.keys(stats.transferenciasPorBanco || {}).indexOf(banco) % 6]
+                            }
+                          ]} 
+                        />
+                      </View>
+                    </View>
+                  ))
+              )}
+            </View>
+
+            {/* Transferencias por Período */}
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📅 Por Período</Text>
+              <StatRow label="📌 Esta Semana" value={`${stats.transferenciasSemana || 0} transf - $${(stats.valorTransferenciasSemana || 0).toFixed(2)}`} icon="calendar-outline" color="#0984E3" />
+              <StatRow label="📌 Este Mes" value={`${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}`} icon="calendar-outline" color="#6C5CE7" />
+              <StatRow label="📌 Hoy" value={`${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}`} icon="today-outline" color="#00B894" />
+            </View>
+
+            {/* Evolución Diaria (últimos 7 días) */}
+            {stats.evolucionTransferencias && stats.evolucionTransferencias.length > 0 && (
+              <View style={styles.subSection}>
+                <Text style={styles.subSectionTitle}>📈 Evolución Diaria</Text>
+                <View style={styles.evolucionContainer}>
+                  {stats.evolucionTransferencias.slice(-7).map((dia, index) => (
+                    <View key={index} style={styles.evolucionDia}>
+                      <Text style={styles.evolucionFecha}>
+                        {new Date(dia.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                      </Text>
+                      <Text style={styles.evolucionValor}>
+                        ${dia.valor.toFixed(2)}
+                      </Text>
+                      <Text style={styles.evolucionCantidad}>
+                        {dia.transferencias} trans
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         );
 
@@ -1173,8 +1379,7 @@ const DashboardScreen = ({ navigation }) => {
           <Text style={[styles.subMenuItemText, subMenuActual === 'transferencias' && styles.subMenuItemTextActive]}>Transferencias</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.subMenuItem, subMenuActual === 'servicios' && styles.subMenuItemActive]}
+        <TouchableOpacity          style={[styles.subMenuItem, subMenuActual === 'servicios' && styles.subMenuItemActive]}
           onPress={() => setSubMenuActual('servicios')}
         >
           <Ionicons name="construct-outline" size={16} color={subMenuActual === 'servicios' ? '#6C5CE7' : '#636E72'} />
@@ -1711,6 +1916,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#00B894',
     fontWeight: '500',
+  },
+  bancoTransferenciaItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  bancoTransferenciaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bancoTransferenciaNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  bancoTransferenciaTotal: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#6C5CE7',
+  },
+  bancoTransferenciaDetalles: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 6,
+  },
+  bancoTransferenciaCantidad: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  barraProgresoContainer: {
+    height: 4,
+    backgroundColor: '#E8ECF1',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  barraProgresoFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  evolucionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    paddingVertical: 10,
+    minHeight: 80,
+  },
+  evolucionDia: {
+    alignItems: 'center',
+  },
+  evolucionFecha: {
+    fontSize: 10,
+    color: '#636E72',
+    marginBottom: 4,
+  },
+  evolucionValor: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#6C5CE7',
+    marginBottom: 2,
+  },
+  evolucionCantidad: {
+    fontSize: 10,
+    color: '#999',
   },
   recentItem: {
     backgroundColor: '#F8F9FA',
