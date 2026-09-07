@@ -70,6 +70,9 @@ const recuperacionRoutes = require('./routes/recuperacionRoutes');
 // ✅ NUEVO: IMPORTAR RUTAS DE TICKETS
 const ticketRoutes = require('./routes/ticketRoutes');
 
+// ✅ NUEVO: IMPORTAR RUTAS DE EMAIL
+const emailRoutes = require('./routes/emailRoutes');
+
 // ============================================
 // NUEVO: IMPORTAR RUTAS DE UPLOAD (CLOUDINARY)
 // ============================================
@@ -206,6 +209,9 @@ app.use('/api/recuperacion', recuperacionRoutes);
 
 // ✅ NUEVO: RUTA DE TICKETS
 app.use('/api/tickets', ticketRoutes);
+
+// ✅ NUEVO: RUTA DE EMAIL
+app.use('/api/email', emailRoutes);
 
 // ============================================
 // NUEVO: RUTA DE UPLOAD (CLOUDINARY)
@@ -391,6 +397,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`  /api/solicitudes-recibo`);
   logger.info(`  /api/recuperacion`);
   logger.info(`  ✅ /api/tickets (NUEVO)`);
+  logger.info(`  ✅ /api/email (NUEVO)`);
   logger.info(`  /api/upload`);
   
   iniciarCierreAutomatico();
