@@ -108,7 +108,7 @@ const DashboardScreen = ({ navigation }) => {
       MANTENIMIENTO: 0,
       OTROS: 0,
     },
-    visitasPorUsuario: {}, // ✅ NUEVO: Estadísticas por usuario
+    visitasPorUsuario: {},
   });
 
   const [recentActivity, setRecentActivity] = useState([]);
@@ -123,23 +123,27 @@ const DashboardScreen = ({ navigation }) => {
     return d.toISOString().split('T')[0];
   };
 
-  // ✅ Cargar usuarios para el selector de correos
+  // ✅ Cargar usuarios SOLO con rol Coordinador
   const cargarUsuarios = async () => {
     try {
       const response = await api.get('/usuarios');
       if (response.data.success) {
         const users = response.data.data || [];
-        setUsuarios(users);
-        setUsuariosFiltrados(users);
-        console.log(`✅ ${users.length} usuarios cargados`);
+        // ✅ FILTRAR SOLO USUARIOS CON ROL COORDINADOR
+        const coordinadores = users.filter(u => 
+          u.rol?.toLowerCase() === 'coordinador'
+        );
+        setUsuarios(coordinadores);
+        setUsuariosFiltrados(coordinadores);
+        console.log(`✅ ${coordinadores.length} coordinadores cargados`);
       }
     } catch (error) {
       console.error('❌ Error al cargar usuarios:', error);
-      // Fallback: usuarios de prueba
+      // Fallback: usuarios de prueba (solo coordinadores)
       const usuariosPrueba = [
-        { _id: '1', nombre: 'Alejandro Abril', email: 'alejorodrigo7@gmail.com', rol: 'Admin' },
-        { _id: '2', nombre: 'Liliana Chuquimarca', email: 'lilianaelizabethchuquimarca@gmail.com', rol: 'Coordinador' },
-        { _id: '3', nombre: 'Byron Paucar', email: 'byron27caiza@gmail.com', rol: 'Tecnico' },
+        { _id: '1', nombre: 'Liliana Chuquimarca', email: 'lilianaelizabethchuquimarca@gmail.com', rol: 'Coordinador' },
+        { _id: '2', nombre: 'Diego Osorio', email: 'charly_f10th@hotmail.com', rol: 'Coordinador' },
+        { _id: '3', nombre: 'Coordinador prueba', email: 'coordinador@visitas.com', rol: 'Coordinador' },
       ];
       setUsuarios(usuariosPrueba);
       setUsuariosFiltrados(usuariosPrueba);
@@ -444,7 +448,7 @@ const DashboardScreen = ({ navigation }) => {
       let visitasSemanaCount = 0, cobradoSemanaCount = 0;
       let visitasHoyCount = 0, cobradoHoyCount = 0;
       let visitasPorTipo = { COBRO: 0, INSTALACION: 0, MANTENIMIENTO: 0, OTROS: 0 };
-      let visitasPorUsuario = {}; // ✅ NUEVO: Estadísticas por usuario
+      let visitasPorUsuario = {};
 
       try {
         const visitasRes = await api.get('/visitas');
@@ -464,7 +468,6 @@ const DashboardScreen = ({ navigation }) => {
             const monto = v.monto || 0;
             const usuario = v.usuario?.nombre || v.tecnico?.nombre || 'Sin asignar';
             
-            // ✅ Inicializar contador por usuario
             if (!visitasPorUsuario[usuario]) {
               visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0 };
             }
@@ -479,7 +482,6 @@ const DashboardScreen = ({ navigation }) => {
             
             if (esCobro) totalCobradoData += monto;
             
-            // Contar por período
             if (fecha.getMonth() === mesActual) {
               visitasMesCount++;
               visitasPorUsuario[usuario].mes++;
@@ -498,11 +500,9 @@ const DashboardScreen = ({ navigation }) => {
               if (esCobro) cobradoHoyCount += monto;
             }
             
-            // Total general
             visitasPorUsuario[usuario].total++;
           });
           
-          // ✅ Ordenar usuarios por total de visitas (descendente)
           const usuariosOrdenados = Object.entries(visitasPorUsuario)
             .sort((a, b) => b[1].total - a[1].total);
           visitasPorUsuario = Object.fromEntries(usuariosOrdenados);
@@ -586,7 +586,7 @@ const DashboardScreen = ({ navigation }) => {
         visitasHoy: visitasHoyCount,
         cobradoHoy: cobradoHoyCount,
         visitasPorTipo,
-        visitasPorUsuario, // ✅ NUEVO
+        visitasPorUsuario,
       });
 
     } catch (error) {
@@ -663,7 +663,6 @@ const DashboardScreen = ({ navigation }) => {
     setModalCorreoVisible(true);
   };
 
-  // ✅ Enviar estadísticas por correo
   const enviarEstadisticasPorCorreo = async () => {
     const emails = [
       ...usuariosSeleccionados.map(u => u.email),
@@ -702,7 +701,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ Generar reporte según el tipo - CON ESTADÍSTICAS POR USUARIO
   const generarReporte = (tipo) => {
     const fecha = new Date().toLocaleDateString('es-EC');
     let reporte = `📊 REPORTE DE ${getTituloReporte(tipo).toUpperCase()} - RA²P\n`;
@@ -729,7 +727,6 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- MANTENIMIENTO: ${stats.visitasPorTipo?.MANTENIMIENTO || 0}\n`;
         reporte += `- OTROS: ${stats.visitasPorTipo?.OTROS || 0}\n\n`;
         
-        // ✅ NUEVO: ESTADÍSTICAS POR USUARIO
         reporte += `👤 VISITAS POR USUARIO\n`;
         reporte += `====================================\n`;
         const usuarios = stats.visitasPorUsuario || {};
@@ -904,7 +901,6 @@ const DashboardScreen = ({ navigation }) => {
               <StatRow label="📌 OTROS" value={stats.visitasPorTipo?.OTROS || 0} icon="ellipsis-horizontal-outline" color="#95A5A6" />
             </View>
 
-            {/* ✅ NUEVO: ESTADÍSTICAS POR USUARIO */}
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>👤 Visitas por Usuario</Text>
               {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
@@ -1650,7 +1646,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8ECF1',
   },
-  // ✅ Nuevos estilos para visitas por usuario
   usuarioVisitaItem: {
     backgroundColor: '#F8F9FA',
     padding: 10,
