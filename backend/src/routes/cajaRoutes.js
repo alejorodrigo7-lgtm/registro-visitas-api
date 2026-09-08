@@ -57,7 +57,7 @@ router.post('/cuadre/enviar-correo', authorize('Jefe', 'Admin'), cajaController.
 // Obtener resumen del día para las 3 zonas
 router.get('/resumen/:fecha', authorize('Jefe', 'Admin'), cajaController.getResumenDia);
 
-// ✅ NUEVA: Eliminar cuadre - Solo Admin
-router.delete('/cuadre/:id', authorize('Admin'), cajaController.eliminarCuadre);
+// 🗑️ ELIMINAR CUADRE - SOLO ADMIN (pendiente de implementar)
+// router.delete('/cuadre/:id', authorize('Admin'), cajaController.eliminarCuadre);
 
 module.exports = router;
