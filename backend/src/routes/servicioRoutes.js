@@ -15,8 +15,8 @@ router.post('/', authorize('Admin', 'Jefe', 'Coordinador'), servicioController.c
 // 📋 Obtener todos los servicios - ADMIN, JEFE, COORDINADOR
 router.get('/', authorize('Admin', 'Jefe', 'Coordinador'), servicioController.getServicios);
 
-// 📋 Obtener servicios por estado (TOMADO, EJECUTADO, PENDIENTE)
-router.get('/estado/:estado', authorize('Admin', 'Jefe', 'Coordinador'), servicioController.getServiciosByEstado);
+// 📋 Obtener servicios por estado (TOMADO, EJECUTADO, PENDIENTE) - ✅ AGREGADO TECNICO
+router.get('/estado/:estado', authorize('Admin', 'Jefe', 'Coordinador', 'Tecnico'), servicioController.getServiciosByEstado);
 
 // 🔍 Buscar servicios (por cliente, dirección, etc.)
 router.get('/buscar', authorize('Admin', 'Jefe', 'Coordinador'), servicioController.buscarServicios);
@@ -46,13 +46,13 @@ router.put('/:id/retroalimentar', authorize('Admin', 'Jefe', 'Tecnico'), servici
 // ❌ Rechazar servicio
 router.put('/:id/rechazar', authorize('Admin', 'Jefe', 'Coordinador'), servicioController.rechazarServicio);
 
-// ✅ NUEVA: Obtener servicios TOMADOS asignados a un técnico específico
+// ✅ Obtener servicios TOMADOS asignados a un técnico específico
 router.get('/tecnico/:tecnicoId/tomados', authorize('Admin', 'Jefe', 'Tecnico'), servicioController.getServiciosTomadosByTecnico);
 
-// ✅ NUEVA: Obtener mis servicios asignados (Técnico)
+// ✅ Obtener mis servicios asignados (Técnico)
 router.get('/mis-servicios', authorize('Tecnico'), servicioController.getMisServicios);
 
-// ✅ NUEVA: Eliminar servicio (Admin, Jefe)
+// ✅ Eliminar servicio (Admin, Jefe)
 router.delete('/:id', authorize('Admin', 'Jefe'), servicioController.eliminarServicio);
 
 module.exports = router;
