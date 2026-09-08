@@ -9,8 +9,9 @@ router.use(protect);
 // 🔌 RUTAS DE DESCONEXIONES CON CONTROL DE ROLES
 // ============================================
 
-// ✅ NUEVA: Obtener mis desconexiones - SOLO TÉCNICO
-router.get('/mis-desconexiones', authorize('Tecnico'), desconexionController.getMisDesconexiones);
+// 👤 OBTENER MIS DESCONEXIONES - SOLO TÉCNICO
+// COMENTADO TEMPORALMENTE - FUNCIÓN NO IMPLEMENTADA EN EL CONTROLADOR
+// router.get('/mis-desconexiones', authorize('Tecnico'), desconexionController.getMisDesconexiones);
 
 // 📋 RUTAS PRINCIPALES
 router.post('/', authorize('Admin', 'Jefe', 'Coordinador', 'Tecnico'), desconexionController.crear);
@@ -22,7 +23,8 @@ router.get('/buscar', authorize('Admin', 'Jefe', 'Coordinador'), desconexionCont
 router.put('/:id/realizado', authorize('Admin', 'Jefe', 'Coordinador', 'Tecnico'), desconexionController.realizar);
 router.put('/:id/anulado', authorize('Admin', 'Jefe', 'Coordinador', 'Tecnico'), desconexionController.anular);
 
-// ✅ NUEVA: Eliminar desconexión - ADMIN, JEFE
-router.delete('/:id', authorize('Admin', 'Jefe'), desconexionController.eliminar);
+// 🗑️ ELIMINAR DESCONEXIÓN - ADMIN, JEFE
+// COMENTADO TEMPORALMENTE - FUNCIÓN NO IMPLEMENTADA EN EL CONTROLADOR
+// router.delete('/:id', authorize('Admin', 'Jefe'), desconexionController.eliminar);
 
 module.exports = router;
