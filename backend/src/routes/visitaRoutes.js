@@ -7,7 +7,7 @@ const {
   obtenerVisita,
   actualizarVisita,
   eliminarVisita,
-  obtenerMisVisitas,
+  // obtenerMisVisitas,  // COMENTADO TEMPORALMENTE - FUNCIÓN NO IMPLEMENTADA
 } = require('../controllers/visitaController');
 
 // Todas las rutas requieren autenticación
@@ -18,10 +18,11 @@ router.use(protect);
 // ============================================
 
 // 👤 OBTENER MIS VISITAS - SOLO TÉCNICO (sus propias visitas)
-router.get('/mis-visitas', 
-  authorize('Tecnico'), 
-  obtenerMisVisitas
-);
+// COMENTADO TEMPORALMENTE - FUNCIÓN NO IMPLEMENTADA EN EL CONTROLADOR
+// router.get('/mis-visitas', 
+//   authorize('Tecnico'), 
+//   obtenerMisVisitas
+// );
 
 // 📋 OBTENER TODAS LAS VISITAS - ADMIN, JEFE, COORDINADOR
 router.get('/', 
