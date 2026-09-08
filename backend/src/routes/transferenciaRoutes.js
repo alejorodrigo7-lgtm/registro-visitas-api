@@ -123,10 +123,4 @@ router.put('/:id/ingresar',
   transferenciaController.ingresarTransferencia
 );
 
-// ✅ NUEVA: ELIMINAR TRANSFERENCIA - SOLO ADMIN
-router.delete('/:id', 
-  authorize('Admin'), 
-  transferenciaController.eliminarTransferencia
-);
-
 module.exports = router;
