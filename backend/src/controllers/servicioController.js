@@ -516,11 +516,14 @@ exports.getServicios = async (req, res) => {
 
     console.log(`📋 Query final: ${JSON.stringify(query, null, 2)}`);
 
+    // ✅ CORRECCIÓN: Agregar limit(500) y lean() para evitar error de memoria
     const servicios = await Servicio.find(query)
       .populate('tecnico', 'nombre email')
       .populate('jefe', 'nombre email')
       .populate('responsableId', 'nombre email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(500)   // ✅ Limitar a 500 registros
+      .lean();      // ✅ Usar lean() para mejor rendimiento
 
     console.log(`✅ Servicios encontrados: ${servicios.length}`);
 
