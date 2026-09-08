@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const {
   getSolicitudes,
   crearSolicitud,
@@ -10,32 +10,35 @@ const {
 } = require('../controllers/solicitudReciboController');
 
 // Todas las rutas requieren autenticación
-router.use(protect);  // ✅ CORRECTO: protect es la función del middleware
+router.use(protect);
 
-// Rutas públicas (todos los roles autenticados)
-router.get('/clientes/buscar', buscarClientes);
-router.get('/', getSolicitudes);
-router.post('/', crearSolicitud);
+// ============================================
+// 📄 RUTAS DE SOLICITUDES DE RECIBOS CON CONTROL DE ROLES
+// ============================================
 
-// Rutas solo para Admin y Jefe
-router.put('/:id/aprobar', (req, res, next) => {
-  if (!['Admin', 'Jefe'].includes(req.user.rol)) {
-    return res.status(403).json({
-      success: false,
-      message: 'No tienes permiso para aprobar solicitudes'
-    });
-  }
-  next();
-}, aprobarSolicitud);
+// ✅ NUEVA: Obtener mis solicitudes - SOLO TÉCNICO
+router.get('/mis-solicitudes', authorize('Tecnico'), async (req, res) => {
+  // Implementar en el controlador
+});
 
-router.put('/:id/denegar', (req, res, next) => {
-  if (!['Admin', 'Jefe'].includes(req.user.rol)) {
-    return res.status(403).json({
-      success: false,
-      message: 'No tienes permiso para denegar solicitudes'
-    });
-  }
-  next();
-}, denegarSolicitud);
+// Buscar clientes - ADMIN, JEFE, COORDINADOR, TECNICO
+router.get('/clientes/buscar', authorize('Admin', 'Jefe', 'Coordinador', 'Tecnico'), buscarClientes);
+
+// Obtener todas las solicitudes - ADMIN, JEFE, COORDINADOR
+router.get('/', authorize('Admin', 'Jefe', 'Coordinador'), getSolicitudes);
+
+// Crear solicitud - ADMIN, JEFE, COORDINADOR, TECNICO
+router.post('/', authorize('Admin', 'Jefe', 'Coordinador', 'Tecnico'), crearSolicitud);
+
+// Aprobar solicitud - ADMIN, JEFE
+router.put('/:id/aprobar', authorize('Admin', 'Jefe'), aprobarSolicitud);
+
+// Denegar solicitud - ADMIN, JEFE
+router.put('/:id/denegar', authorize('Admin', 'Jefe'), denegarSolicitud);
+
+// ✅ NUEVA: Eliminar solicitud - ADMIN, JEFE
+router.delete('/:id', authorize('Admin', 'Jefe'), async (req, res) => {
+  // Implementar en el controlador
+});
 
 module.exports = router;

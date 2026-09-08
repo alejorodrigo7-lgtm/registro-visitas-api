@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const {
   getCoordinadores,
   crearOrden,
@@ -17,64 +17,48 @@ const {
 // Todas las rutas requieren autenticación
 router.use(protect);
 
-// Obtener coordinadores
-router.get('/coordinadores', getCoordinadores);
+// ============================================
+// 📋 RUTAS DE RECUPERACIÓN CON CONTROL DE ROLES
+// ============================================
 
-// Crear orden (Admin/Jefe)
-router.post('/orden', (req, res, next) => {
-  if (!['Admin', 'Jefe'].includes(req.user.rol)) {
-    return res.status(403).json({ success: false, message: 'No tienes permiso para subir órdenes' });
-  }
-  next();
-}, crearOrden);
+// Obtener coordinadores - ADMIN, JEFE, COORDINADOR
+router.get('/coordinadores', authorize('Admin', 'Jefe', 'Coordinador'), getCoordinadores);
 
-// Obtener órdenes por estado
-router.get('/ordenes/estado/:estado', getOrdenesPorEstado);
+// Crear orden - ADMIN, JEFE
+router.post('/orden', authorize('Admin', 'Jefe'), crearOrden);
 
-// Obtener órdenes con filtros
-router.get('/ordenes', getOrdenes);
+// Obtener órdenes por estado - ADMIN, JEFE, COORDINADOR
+router.get('/ordenes/estado/:estado', authorize('Admin', 'Jefe', 'Coordinador'), getOrdenesPorEstado);
 
-// Obtener orden por ID
-router.get('/orden/:id', getOrdenById);
+// Obtener órdenes con filtros - ADMIN, JEFE, COORDINADOR
+router.get('/ordenes', authorize('Admin', 'Jefe', 'Coordinador'), getOrdenes);
 
-// Ejecutar visita (Coordinador, Admin, Jefe)
-router.put('/orden/:id/visita', (req, res, next) => {
-  if (!['Coordinador', 'Admin', 'Jefe'].includes(req.user.rol)) {
-    return res.status(403).json({ success: false, message: 'No tienes permiso para ejecutar órdenes' });
-  }
-  next();
-}, ejecutarVisita);
+// Obtener orden por ID - ADMIN, JEFE, COORDINADOR
+router.get('/orden/:id', authorize('Admin', 'Jefe', 'Coordinador'), getOrdenById);
 
-// Actualizar visita (Coordinador, Admin, Jefe)
-router.put('/orden/:id/visita/:visitaId', (req, res, next) => {
-  if (!['Coordinador', 'Admin', 'Jefe'].includes(req.user.rol)) {
-    return res.status(403).json({ success: false, message: 'No tienes permiso para modificar visitas' });
-  }
-  next();
-}, actualizarVisita);
+// Ejecutar visita - ADMIN, JEFE, COORDINADOR
+router.put('/orden/:id/visita', authorize('Admin', 'Jefe', 'Coordinador'), ejecutarVisita);
 
-// Marcar como retirado (Coordinador, Admin, Jefe)
-router.put('/orden/:id/marcar-retirado', (req, res, next) => {
-  if (!['Coordinador', 'Admin', 'Jefe'].includes(req.user.rol)) {
-    return res.status(403).json({ success: false, message: 'No tienes permiso para marcar como retirado' });
-  }
-  next();
-}, marcarRetirado);
+// Actualizar visita - ADMIN, JEFE, COORDINADOR
+router.put('/orden/:id/visita/:visitaId', authorize('Admin', 'Jefe', 'Coordinador'), actualizarVisita);
 
-// ✅ ANULAR ORDEN (solo Admin/Jefe)
-router.put('/orden/:id/anular', (req, res, next) => {
-  if (!['Admin', 'Jefe'].includes(req.user.rol)) {
-    return res.status(403).json({ success: false, message: 'Solo Administradores y Jefes pueden anular órdenes' });
-  }
-  next();
-}, anularOrden);
+// Marcar como retirado - ADMIN, JEFE, COORDINADOR
+router.put('/orden/:id/marcar-retirado', authorize('Admin', 'Jefe', 'Coordinador'), marcarRetirado);
 
-// ✅ RECONECTAR EQUIPO (solo Admin/Jefe)
-router.put('/orden/:id/reconectar', (req, res, next) => {
-  if (!['Admin', 'Jefe'].includes(req.user.rol)) {
-    return res.status(403).json({ success: false, message: 'Solo Administradores y Jefes pueden reconectar equipos' });
-  }
-  next();
-}, reconectarEquipo);
+// ANULAR ORDEN - ADMIN, JEFE
+router.put('/orden/:id/anular', authorize('Admin', 'Jefe'), anularOrden);
+
+// RECONECTAR EQUIPO - ADMIN, JEFE
+router.put('/orden/:id/reconectar', authorize('Admin', 'Jefe'), reconectarEquipo);
+
+// ✅ NUEVA: Obtener mis órdenes - SOLO TÉCNICO
+router.get('/mis-ordenes', authorize('Tecnico'), async (req, res) => {
+  // Implementar en el controlador
+});
+
+// ✅ NUEVA: Eliminar orden - SOLO ADMIN
+router.delete('/orden/:id', authorize('Admin'), async (req, res) => {
+  // Implementar en el controlador
+});
 
 module.exports = router;

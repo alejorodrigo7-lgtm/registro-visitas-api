@@ -40,21 +40,24 @@ router.put('/depositos/:id/revisar', authorize('Jefe', 'Admin'), cajaController.
 // ============================================
 
 // Obtener cuadre por zona y fecha (crea automáticamente si no existe)
-router.get('/cuadre/:zona/:fecha', cajaController.getCuadre);
+router.get('/cuadre/:zona/:fecha', authorize('Jefe', 'Admin'), cajaController.getCuadre);
 
 // Agregar ingreso a un cuadre
-router.post('/cuadre/:id/ingreso', cajaController.agregarIngreso);
+router.post('/cuadre/:id/ingreso', authorize('Jefe', 'Admin'), cajaController.agregarIngreso);
 
 // Agregar pago a un cuadre
-router.post('/cuadre/:id/pago', cajaController.agregarPago);
+router.post('/cuadre/:id/pago', authorize('Jefe', 'Admin'), cajaController.agregarPago);
 
 // Cerrar cuadre del día para una zona
-router.put('/cuadre/:id/cerrar', cajaController.cerrarCuadre);
+router.put('/cuadre/:id/cerrar', authorize('Jefe', 'Admin'), cajaController.cerrarCuadre);
 
 // Enviar correo con resumen de las 3 zonas
-router.post('/cuadre/enviar-correo', cajaController.enviarCorreoResumen);
+router.post('/cuadre/enviar-correo', authorize('Jefe', 'Admin'), cajaController.enviarCorreoResumen);
 
 // Obtener resumen del día para las 3 zonas
-router.get('/resumen/:fecha', cajaController.getResumenDia);
+router.get('/resumen/:fecha', authorize('Jefe', 'Admin'), cajaController.getResumenDia);
+
+// ✅ NUEVA: Eliminar cuadre - Solo Admin
+router.delete('/cuadre/:id', authorize('Admin'), cajaController.eliminarCuadre);
 
 module.exports = router;
