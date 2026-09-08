@@ -1,4 +1,4 @@
-// ✅ CONTROLADOR CORREGIDO - VERSIÓN CON CLOUDINARY
+// ✅ CONTROLADOR CORREGIDO - VERSIÓN COMPLETA CON TODAS LAS FUNCIONES
 // ✅ CON CORREO AL TÉCNICO EN TOMAR SERVICIO
 // ✅ CON CORREO AL SOLICITANTE EN RETROALIMENTAR SERVICIO
 // ✅ GUARDA URL DE CLOUDINARY EN LUGAR DE BASE64
@@ -282,8 +282,6 @@ exports.tomarServicio = async (req, res) => {
       } 
       // ✅ Si es Base64 con prefijo
       else if (imagen.startsWith('data:image')) {
-        // Esto no debería pasar porque el frontend sube a Cloudinary
-        // pero lo manejamos por si acaso
         console.log(`⚠️ Recibido Base64, convirtiendo a URL...`);
         imagenGuardar = imagen;
       }
@@ -1016,6 +1014,75 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       success: false,
       message: 'Error al obtener servicios del técnico',
       error: error.message
+    });
+  }
+};
+
+// ============================================
+// 👤 OBTENER MIS SERVICIOS ASIGNADOS (TÉCNICO)
+// ============================================
+exports.getMisServicios = async (req, res) => {
+  try {
+    console.log(`👤 Obteniendo servicios asignados a técnico: ${req.user.email}`);
+
+    const query = {
+      activo: true,
+      'tecnico._id': req.user._id
+    };
+
+    const servicios = await Servicio.find(query)
+      .sort({ createdAt: -1 })
+      .limit(500)
+      .lean();
+
+    console.log(`✅ ${servicios.length} servicios encontrados para técnico ${req.user.email}`);
+
+    res.json({
+      success: true,
+      count: servicios.length,
+      data: servicios
+    });
+
+  } catch (error) {
+    console.error('❌ Error en getMisServicios:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// ============================================
+// 🗑️ ELIMINAR SERVICIO (Admin/Jefe)
+// ============================================
+exports.eliminarServicio = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`🗑️ Eliminando servicio ${id}`);
+
+    const servicio = await Servicio.findOne({ _id: id, activo: true });
+    if (!servicio) {
+      return res.status(404).json({
+        success: false,
+        message: 'Servicio no encontrado'
+      });
+    }
+
+    // Soft delete
+    await servicio.softDelete();
+
+    console.log(`✅ Servicio ${id} eliminado (soft delete)`);
+
+    res.json({
+      success: true,
+      message: 'Servicio eliminado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error en eliminarServicio:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
