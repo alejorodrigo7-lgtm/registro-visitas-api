@@ -31,11 +31,15 @@ const EjecucionServicio = ({ navigation }) => {
   const [macEquipo, setMacEquipo] = useState('');
   const [numeroSerie, setNumeroSerie] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
-  
+
+  // ✅ NUEVO: Estados para el modal de detalle
+  const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
+  const [servicioDetalle, setServicioDetalle] = useState(null);
+
   // ✅ Estado para el modal de imagen ampliada
   const [imagenAmpliadaVisible, setImagenAmpliadaVisible] = useState(false);
   const [imagenAmpliadaUri, setImagenAmpliadaUri] = useState('');
-  
+
   // 📦 Estado para el Picker de materiales
   const [materialSeleccionado, setMaterialSeleccionado] = useState('');
   const [cantidadMaterial, setCantidadMaterial] = useState('1');
@@ -96,10 +100,10 @@ const EjecucionServicio = ({ navigation }) => {
   const enviarNotificaciones = async (tipo, servicio, usuarioActual) => {
     try {
       console.log(`📱 Enviando notificación ${tipo}...`);
-      
+
       let titulo = '';
       let mensaje = '';
-      
+
       if (tipo === 'EJECUTADO') {
         titulo = '✅ Servicio Ejecutado';
         mensaje = `✅ Se ha ejecutado el servicio de ${servicio.cliente} por ${usuarioActual?.nombre || 'Técnico'}`;
@@ -107,14 +111,14 @@ const EjecucionServicio = ({ navigation }) => {
         titulo = '⏳ Servicio Pendiente';
         mensaje = `⏳ El servicio de ${servicio.cliente} está en PENDIENTE`;
       }
-      
+
       const usuarioTomadorId = servicio.responsableId?._id || servicio.responsableId;
       const jefeId = servicio.jefe?._id || servicio.jefe;
       const tecnicoId = servicio.tecnico?._id || servicio.tecnico;
-      
+
       const destinatariosSet = new Set();
       const destinatarios = [];
-      
+
       if (usuarioTomadorId) {
         const idStr = usuarioTomadorId.toString();
         if (!destinatariosSet.has(idStr)) {
@@ -122,7 +126,7 @@ const EjecucionServicio = ({ navigation }) => {
           destinatarios.push({ userId: usuarioTomadorId, rol: 'Tomador' });
         }
       }
-      
+
       if (jefeId) {
         const idStr = jefeId.toString();
         if (!destinatariosSet.has(idStr)) {
@@ -130,7 +134,7 @@ const EjecucionServicio = ({ navigation }) => {
           destinatarios.push({ userId: jefeId, rol: 'Jefe' });
         }
       }
-      
+
       if (tecnicoId) {
         const idStr = tecnicoId.toString();
         if (!destinatariosSet.has(idStr) && tecnicoId !== usuarioActual?._id) {
@@ -138,7 +142,7 @@ const EjecucionServicio = ({ navigation }) => {
           destinatarios.push({ userId: tecnicoId, rol: 'Técnico' });
         }
       }
-      
+
       if (usuarioActual?._id) {
         const idStr = usuarioActual._id.toString();
         if (!destinatariosSet.has(idStr)) {
@@ -146,7 +150,7 @@ const EjecucionServicio = ({ navigation }) => {
           destinatarios.push({ userId: usuarioActual._id, rol: 'Ejecutor' });
         }
       }
-      
+
       for (const destinatario of destinatarios) {
         try {
           await api.post('/notificaciones/enviar', {
@@ -218,8 +222,8 @@ const EjecucionServicio = ({ navigation }) => {
       }
 
       // ✅ 3. UNIFICAR: Servicios + Tickets
-      const serviciosConOrigen = serviciosData.map(s => ({ 
-        ...s, 
+      const serviciosConOrigen = serviciosData.map(s => ({
+        ...s,
         _origen: 'servicio',
         _tipo: 'servicio_recuperacion',
         _ticketId: null,
@@ -230,8 +234,8 @@ const EjecucionServicio = ({ navigation }) => {
         _estado: s.estado || 'TOMADO',
       }));
 
-      const ticketsConOrigen = ticketsData.map(t => ({ 
-        ...t, 
+      const ticketsConOrigen = ticketsData.map(t => ({
+        ...t,
         _origen: 'ticket',
         _tipo: 'ticket_web',
         _ticketId: t.ticketId || null,
@@ -289,13 +293,13 @@ const EjecucionServicio = ({ navigation }) => {
     setCargandoBodega(true);
     try {
       console.log('📦 === CARGANDO BODEGA DEL TÉCNICO ===');
-      
+
       const response = await api.get('/bodegas/mis-materiales');
-      
+
       if (response.data.success && response.data.data) {
         const bodegaData = response.data.data;
         const materiales = bodegaData.materiales || [];
-        
+
         setBodega({
           _id: bodegaData._id,
           nombre: bodegaData.nombre || 'Bodega Técnico',
@@ -303,7 +307,7 @@ const EjecucionServicio = ({ navigation }) => {
           usuarioNombre: bodegaData.usuarioNombre,
           permitirNegativo: true,
         });
-        
+
         console.log('✅ Bodega cargada correctamente');
       } else {
         console.log('⚠️ No se pudo obtener la bodega');
@@ -327,7 +331,7 @@ const EjecucionServicio = ({ navigation }) => {
         usuarioNombre: user.nombre,
         permitirNegativo: true,
       });
-      
+
       if (createResponse.data?.data) {
         console.log('✅ Bodega creada automáticamente');
         setBodega({
@@ -396,17 +400,17 @@ const EjecucionServicio = ({ navigation }) => {
   const restarMaterialDeBodega = async (materialesDelServicio) => {
     try {
       const materialesReportados = Object.keys(materialesDelServicio);
-      
+
       if (materialesReportados.length === 0) {
         return true;
       }
-      
+
       const materialesARestar = materialesReportados.map(nombre => ({
         nombre: nombre,
         cantidad: materialesDelServicio[nombre],
         permitirNegativo: true,
       }));
-      
+
       await api.post('/bodegas/restar-materiales-bodega', {
         materiales: materialesARestar,
         permitirNegativo: true,
@@ -414,7 +418,7 @@ const EjecucionServicio = ({ navigation }) => {
         usuarioNombre: user.nombre,
         crearBodegaAutomatica: true,
       });
-      
+
       return true;
     } catch (error) {
       console.error('❌ Error restando materiales:', error);
@@ -560,17 +564,17 @@ const EjecucionServicio = ({ navigation }) => {
     if (!ticketSeleccionado) return;
 
     try {
-      const payload = { 
+      const payload = {
         estado,
         observaciones: observacionTicket || `Ticket ${estado} desde app`
       };
-      
+
       if (estado === 'Resuelto') {
         payload.solucion = solucionTicket || 'Servicio completado';
       }
 
       const response = await api.put(`/tickets/${ticketSeleccionado._id}/app`, payload);
-      
+
       if (response.data.success) {
         Alert.alert('✅ Éxito', `Ticket ${estado} correctamente`);
         setModalTicketVisible(false);
@@ -592,7 +596,7 @@ const EjecucionServicio = ({ navigation }) => {
   };
 
   // ============================================
-  // 🎨 RENDER ITEM UNIFICADO
+  // 🎨 RENDER ITEM UNIFICADO - CON DETALLE
   // ============================================
   const renderItem = (item) => {
     const esTicket = item._origen === 'ticket';
@@ -603,23 +607,9 @@ const EjecucionServicio = ({ navigation }) => {
         key={item._id}
         style={[styles.servicioCard, esTicket && styles.ticketCardStyle]}
         onPress={() => {
-          if (esTicket) {
-            // ✅ Abrir modal de ticket con todos los datos
-            setTicketSeleccionado(item);
-            setObservacionTicket('');
-            setSolucionTicket('');
-            setModalTicketVisible(true);
-          } else {
-            // Abrir modal de servicio
-            setServicioSeleccionado(item);
-            setMaterialesSeleccionados({});
-            setObservaciones('');
-            setMacEquipo('');
-            setNumeroSerie('');
-            setMaterialSeleccionado('');
-            setCantidadMaterial('1');
-            setModalVisible(true);
-          }
+          // ✅ ABRIR MODAL DE DETALLE PRIMERO
+          setServicioDetalle(item);
+          setModalDetalleVisible(true);
         }}
         activeOpacity={0.7}
       >
@@ -648,42 +638,13 @@ const EjecucionServicio = ({ navigation }) => {
 
         <Text style={styles.servicioInfo}>🔧 {item._nombreServicio || item.nombreServicio}</Text>
         <Text style={styles.servicioInfo}>📍 {item._direccion || item.direccion}</Text>
-        <Text style={styles.servicioInfo}>👤 Técnico: {item._tecnico?.nombre || item.tecnico?.nombre || 'N/A'}</Text>
-        
-        {(item._observaciones || item.observaciones) && (
-          <View style={styles.observacionesContainer}>
-            <Text style={styles.observacionesLabel}>📝 Observaciones:</Text>
-            <Text style={styles.observacionesText} numberOfLines={2}>
-              {item._observaciones || item.observaciones}
-            </Text>
-          </View>
-        )}
 
-        {/* ✅ NUEVO: Indicador de imagen en tarjeta para tickets */}
-        {esTicket && item._imagenUrl && (
+        {/* Indicador de que tiene imagen */}
+        {(item.imagen || item._imagenUrl) && (
           <View style={styles.cardImagePreview}>
             <Ionicons name="image" size={16} color="#6C5CE7" />
             <Text style={styles.cardImageText}>📸 Tiene imagen adjunta</Text>
           </View>
-        )}
-
-        {/* Imagen solo para servicios */}
-        {esServicio && item.imagen && (
-          <TouchableOpacity 
-            style={styles.imagenContainer}
-            onPress={() => abrirImagenAmpliada(item.imagen)}
-            activeOpacity={0.8}
-          >
-            <Image 
-              source={{ uri: item.imagen }} 
-              style={styles.imagenMiniatura}
-              resizeMode="cover"
-            />
-            <View style={styles.imagenOverlay}>
-              <Ionicons name="expand-outline" size={24} color="#FFFFFF" />
-              <Text style={styles.imagenOverlayText}>Tocar para ampliar</Text>
-            </View>
-          </TouchableOpacity>
         )}
       </TouchableOpacity>
     );
@@ -737,6 +698,193 @@ const EjecucionServicio = ({ navigation }) => {
       </ScrollView>
 
       {/* ============================================
+          MODAL DE DETALLE DEL SERVICIO/TICKET (NUEVO)
+          ============================================ */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalDetalleVisible}
+        onRequestClose={() => setModalDetalleVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {servicioDetalle && (
+              <>
+                {/* Cabecera con botón cerrar */}
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    {servicioDetalle._origen === 'ticket' ? '🎫 Detalle del Ticket' : '📋 Detalle del Servicio'}
+                  </Text>
+                  <TouchableOpacity onPress={() => setModalDetalleVisible(false)}>
+                    <Ionicons name="close" size={28} color="#999" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Badge de estado */}
+                <View style={[styles.detalleEstadoBadge, { backgroundColor: getEstadoColor(servicioDetalle.estado || servicioDetalle._estado) }]}>
+                  <Text style={styles.detalleEstadoText}>{servicioDetalle.estado || servicioDetalle._estado || 'Nuevo'}</Text>
+                </View>
+
+                {/* IMAGEN (si existe) */}
+                {(servicioDetalle.imagen || servicioDetalle._imagenUrl) && (
+                  <TouchableOpacity
+                    style={styles.detalleImagenContainer}
+                    onPress={() => abrirImagenAmpliada(servicioDetalle.imagen || servicioDetalle._imagenUrl)}
+                    activeOpacity={0.9}
+                  >
+                    <Image
+                      source={{ uri: servicioDetalle.imagen || servicioDetalle._imagenUrl }}
+                      style={styles.detalleImagen}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.imagenOverlay}>
+                      <Ionicons name="expand-outline" size={24} color="#FFFFFF" />
+                      <Text style={styles.imagenOverlayText}>Tocar para ampliar</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* INFORMACIÓN DEL SERVICIO */}
+                <View style={styles.detalleSeccion}>
+                  <Text style={styles.detalleSeccionTitulo}>📌 Información del Servicio</Text>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>🔧 Servicio</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle._nombreServicio || servicioDetalle.nombreServicio || 'N/A'}</Text>
+                  </View>
+
+                  {servicioDetalle._tipoServicio && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>📋 Tipo</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle._tipoServicio}</Text>
+                    </View>
+                  )}
+
+                  {servicioDetalle.codigoIdentificador && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>🔢 Código</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle.codigoIdentificador}</Text>
+                    </View>
+                  )}
+
+                  {servicioDetalle._zonaTicket && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>📍 Zona</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle._zonaTicket}</Text>
+                    </View>
+                  )}
+
+                  {(servicioDetalle.observaciones || servicioDetalle._observaciones) && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>📝 Observaciones</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle.observaciones || servicioDetalle._observaciones}</Text>
+                    </View>
+                  )}
+
+                  {servicioDetalle._descripcionTicket && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>📝 Descripción</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle._descripcionTicket}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* INFORMACIÓN DEL CLIENTE */}
+                <View style={styles.detalleSeccion}>
+                  <Text style={styles.detalleSeccionTitulo}>👤 Información del Cliente</Text>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>👤 Nombre</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle._clienteNombre || servicioDetalle.cliente || 'N/A'}</Text>
+                  </View>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>📍 Dirección</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle._direccion || servicioDetalle.direccion || 'N/A'}</Text>
+                  </View>
+
+                  {servicioDetalle.barrio && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>🏘️ Barrio</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle.barrio}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>📞 Teléfono</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.telefono || servicioDetalle._clienteTelefono || 'N/A'}</Text>
+                  </View>
+
+                  {servicioDetalle._clienteEmail && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>📧 Email</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle._clienteEmail}</Text>
+                    </View>
+                  )}
+
+                  {servicioDetalle._clienteCedula && servicioDetalle._clienteCedula !== 'Sin cédula' && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>🪪 Cédula</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle._clienteCedula}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* TÉCNICO ASIGNADO */}
+                {(servicioDetalle.tecnico || servicioDetalle._tecnico) && (
+                  <View style={styles.detalleSeccion}>
+                    <Text style={styles.detalleSeccionTitulo}>🔧 Técnico Asignado</Text>
+                    <Text style={styles.detalleCampoValor}>
+                      {(servicioDetalle.tecnico?.nombre || servicioDetalle._tecnico?.nombre) || 'Sin asignar'}
+                    </Text>
+                  </View>
+                )}
+
+                {/* BOTONES DE ACCIÓN */}
+                <View style={styles.detalleBotonesContainer}>
+                  <TouchableOpacity
+                    style={styles.detalleBotonAtras}
+                    onPress={() => setModalDetalleVisible(false)}
+                  >
+                    <Ionicons name="arrow-back" size={20} color="#6C5CE7" />
+                    <Text style={styles.detalleBotonAtrasText}>Atrás</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.detalleBotonEjecutar}
+                    onPress={() => {
+                      setModalDetalleVisible(false);
+                      // Abrir el modal de ejecución o ticket
+                      if (servicioDetalle._origen === 'ticket') {
+                        setTicketSeleccionado(servicioDetalle);
+                        setObservacionTicket('');
+                        setSolucionTicket('');
+                        setModalTicketVisible(true);
+                      } else {
+                        setServicioSeleccionado(servicioDetalle);
+                        setMaterialesSeleccionados({});
+                        setObservaciones('');
+                        setMacEquipo('');
+                        setNumeroSerie('');
+                        setMaterialSeleccionado('');
+                        setCantidadMaterial('1');
+                        setModalVisible(true);
+                      }
+                    }}
+                  >
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.detalleBotonEjecutarText}>
+                      {servicioDetalle._origen === 'ticket' ? 'Gestionar Ticket' : 'Retroalimentar'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ============================================
           MODAL DE EJECUCIÓN DE SERVICIO (RECUPERACIÓN)
           ============================================ */}
       <Modal
@@ -772,7 +920,7 @@ const EjecucionServicio = ({ navigation }) => {
             />
 
             <Text style={styles.modalLabel}>📦 Materiales Usados (Opcional)</Text>
-            
+
             <View style={styles.materialContainer}>
               <View style={styles.pickerContainer}>
                 <Picker
@@ -786,7 +934,7 @@ const EjecucionServicio = ({ navigation }) => {
                   ))}
                 </Picker>
               </View>
-              
+
               <TextInput
                 style={styles.cantidadInput}
                 value={cantidadMaterial}
@@ -794,9 +942,9 @@ const EjecucionServicio = ({ navigation }) => {
                 placeholder="Cant"
                 keyboardType="numeric"
               />
-              
-              <TouchableOpacity 
-                style={styles.agregarMaterialButton} 
+
+              <TouchableOpacity
+                style={styles.agregarMaterialButton}
                 onPress={agregarMaterial}
               >
                 <Text style={styles.agregarMaterialText}>➕</Text>
@@ -888,7 +1036,7 @@ const EjecucionServicio = ({ navigation }) => {
                 {/* ✅ INFORMACIÓN COMPLETA DEL TICKET */}
                 <View style={styles.ticketDetalle}>
                   <Text style={styles.ticketIdGrande}>{ticketSeleccionado._ticketId || ticketSeleccionado.ticketId}</Text>
-                  
+
                   <View style={styles.ticketSection}>
                     <Text style={styles.ticketSectionTitle}>👤 Datos del Cliente</Text>
                     <Text style={styles.ticketInfoGrande}>Nombre: {ticketSeleccionado._clienteNombre || ticketSeleccionado.cliente?.nombre}</Text>
@@ -937,7 +1085,7 @@ const EjecucionServicio = ({ navigation }) => {
                   {/* ✅ BOTONES DE ACCIÓN PARA TICKETS - SIEMPRE VISIBLES */}
                   <View style={styles.ticketButtonsContainer}>
                     <Text style={styles.ticketButtonsTitle}>⚡ Acciones del Ticket</Text>
-                    
+
                     {/* Mostrar estado actual */}
                     <View style={styles.estadoActualContainer}>
                       <Text style={styles.estadoActualLabel}>📌 Estado actual:</Text>
@@ -949,7 +1097,7 @@ const EjecucionServicio = ({ navigation }) => {
                     </View>
 
                     {/* Botón 1: Tomar Servicio */}
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={[styles.ticketBtn, styles.btnTomar]}
                       onPress={() => {
                         console.log('🔘 Tomar Servicio - Estado:', ticketSeleccionado.estado);
@@ -961,7 +1109,7 @@ const EjecucionServicio = ({ navigation }) => {
                     </TouchableOpacity>
 
                     {/* Botón 2: En Progreso */}
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={[styles.ticketBtn, styles.btnIniciar]}
                       onPress={() => {
                         console.log('🔘 En Progreso - Estado:', ticketSeleccionado.estado);
@@ -973,7 +1121,7 @@ const EjecucionServicio = ({ navigation }) => {
                     </TouchableOpacity>
 
                     {/* Botón 3: Resolver */}
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={[styles.ticketBtn, styles.btnResolver]}
                       onPress={() => {
                         console.log('🔘 Resolver - Estado:', ticketSeleccionado.estado);
@@ -985,7 +1133,7 @@ const EjecucionServicio = ({ navigation }) => {
                     </TouchableOpacity>
 
                     {/* Botón 4: Cerrar */}
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={[styles.ticketBtn, styles.btnCerrar]}
                       onPress={() => {
                         console.log('🔘 Cerrar - Estado:', ticketSeleccionado.estado);
@@ -1050,20 +1198,20 @@ const EjecucionServicio = ({ navigation }) => {
         visible={imagenAmpliadaVisible}
         onRequestClose={() => setImagenAmpliadaVisible(false)}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.imagenAmpliadaOverlay}
           activeOpacity={1}
           onPress={() => setImagenAmpliadaVisible(false)}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.imagenAmpliadaClose}
             onPress={() => setImagenAmpliadaVisible(false)}
           >
             <Ionicons name="close-circle" size={40} color="#FFFFFF" />
           </TouchableOpacity>
           {imagenAmpliadaUri && (
-            <Image 
-              source={{ uri: imagenAmpliadaUri }} 
+            <Image
+              source={{ uri: imagenAmpliadaUri }}
               style={styles.imagenAmpliada}
               resizeMode="contain"
             />
@@ -1361,12 +1509,6 @@ const styles = StyleSheet.create({
     color: '#6C5CE7',
     marginBottom: 8,
   },
-  ticketClienteGrande: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2D3436',
-    marginTop: 4,
-  },
   ticketInfoGrande: {
     fontSize: 14,
     color: '#636E72',
@@ -1393,7 +1535,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: '#6C5CE7',
   },
-  // ✅ NUEVO: Imagen en ticket modal
   ticketImagenContainer: {
     marginTop: 8,
     borderRadius: 8,
@@ -1407,7 +1548,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#F0F0F0',
   },
-  // ✅ NUEVO: Botones de acción para tickets
   ticketButtonsContainer: {
     marginTop: 12,
     paddingTop: 12,
@@ -1467,7 +1607,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  // ✅ NUEVO: Historial
   historialContainer: {
     marginTop: 16,
     paddingTop: 12,
@@ -1634,6 +1773,98 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+
+  // ✅ NUEVOS ESTILOS PARA EL MODAL DE DETALLE
+  detalleEstadoBadge: {
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  detalleEstadoText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  detalleImagenContainer: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    position: 'relative',
+    backgroundColor: '#E8ECF1',
+  },
+  detalleImagen: {
+    width: '100%',
+    height: '100%',
+  },
+  detalleSeccion: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  detalleSeccionTitulo: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8ECF1',
+    paddingBottom: 8,
+  },
+  detalleCampo: {
+    marginBottom: 8,
+  },
+  detalleCampoLabel: {
+    fontSize: 12,
+    color: '#636E72',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  detalleCampoValor: {
+    fontSize: 15,
+    color: '#2D3436',
+  },
+  detalleBotonesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  detalleBotonAtras: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  detalleBotonAtrasText: {
+    fontSize: 16,
+    color: '#6C5CE7',
+    fontWeight: '600',
+  },
+  detalleBotonEjecutar: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00B894',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  detalleBotonEjecutarText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
 
