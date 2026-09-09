@@ -2,6 +2,7 @@
 // ✅ CON CORREO AL TÉCNICO EN TOMAR SERVICIO
 // ✅ CON CORREO AL SOLICITANTE EN RETROALIMENTAR SERVICIO
 // ✅ GUARDA URL DE CLOUDINARY EN LUGAR DE BASE64
+// ✅ CORREGIDO PROCESAMIENTO DE MATERIALES EN EJECUTAR SERVICIO
 
 const Servicio = require('../models/Servicio');
 const User = require('../models/User');
@@ -582,7 +583,7 @@ exports.ejecutarServicio = async (req, res) => {
 
     console.log(`🔧 Ejecutando servicio ID: ${id}`);
     console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
-    console.log(`📦 Materiales recibidos:`, materiales);
+    console.log(`📦 Materiales recibidos (raw):`, JSON.stringify(materiales, null, 2));
 
     const servicio = await Servicio.findById(id)
       .populate('responsableId', 'nombre email');
@@ -613,9 +614,54 @@ exports.ejecutarServicio = async (req, res) => {
 
     const usuario = await User.findById(req.user._id);
 
+    // ✅ CORREGIDO: Procesar materiales correctamente
+    let materialesProcesados = [];
+    
+    if (materiales && Array.isArray(materiales)) {
+      console.log('📦 Procesando array de materiales...');
+      materialesProcesados = materiales.map(m => {
+        // Si el material es un objeto con nombre y cantidad
+        if (m.nombre) {
+          return {
+            nombre: m.nombre,
+            cantidad: m.cantidad || 1
+          };
+        }
+        // Si el material es solo un nombre (string)
+        if (typeof m === 'string') {
+          return {
+            nombre: m,
+            cantidad: 1
+          };
+        }
+        // Si el material es un objeto con _id (de la bodega)
+        if (m._id || m.id) {
+          return {
+            nombre: m.nombre || 'Material',
+            cantidad: m.cantidad || 1
+          };
+        }
+        // Fallback
+        return {
+          nombre: 'Material desconocido',
+          cantidad: 1
+        };
+      });
+      
+      console.log('📦 Materiales procesados:', JSON.stringify(materialesProcesados, null, 2));
+    } else if (materiales && typeof materiales === 'object') {
+      // Si es un objeto { "nombre": cantidad, ... }
+      console.log('📦 Procesando objeto de materiales...');
+      materialesProcesados = Object.keys(materiales).map(nombre => ({
+        nombre: nombre,
+        cantidad: materiales[nombre] || 1
+      }));
+      console.log('📦 Materiales procesados:', JSON.stringify(materialesProcesados, null, 2));
+    }
+
     servicio.ejecucion = {
       observaciones: observaciones || '',
-      materiales: materiales || [],
+      materiales: materialesProcesados,  // ✅ Guardar con nombre y cantidad
       macEquipo: macEquipo || '',
       macRepetidor: macRepetidor || '',
       snReceptor: snReceptor || '',
@@ -628,12 +674,13 @@ exports.ejecutarServicio = async (req, res) => {
     await servicio.save();
 
     console.log(`✅ Servicio ${id} ejecutado correctamente`);
+    console.log(`📦 Materiales guardados:`, JSON.stringify(servicio.ejecucion.materiales, null, 2));
 
     // 📦 ACTUALIZAR BODEGA
-    if (materiales && materiales.length > 0) {
+    if (materialesProcesados && materialesProcesados.length > 0) {
       console.log(`📦 Actualizando bodega del técnico (RESTANDO)...`);
       const tecnicoId = servicio.tecnico?._id || req.user._id;
-      const resultadoBodega = await actualizarBodegaTecnico(tecnicoId, materiales, 'restar');
+      const resultadoBodega = await actualizarBodegaTecnico(tecnicoId, materialesProcesados, 'restar');
       
       if (resultadoBodega.success) {
         console.log(`✅ Bodega actualizada: ${resultadoBodega.actualizados} materiales restados`);
@@ -654,7 +701,8 @@ exports.ejecutarServicio = async (req, res) => {
             cliente: servicio.cliente,
             direccion: servicio.direccion || 'N/A',
             telefono: servicio.telefono || 'N/A',
-            observacionesEjecucion: observaciones || 'Sin observaciones'
+            observacionesEjecucion: observaciones || 'Sin observaciones',
+            materiales: materialesProcesados
           },
           usuarioSolicitante
         );
