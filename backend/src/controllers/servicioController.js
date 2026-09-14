@@ -1,5 +1,5 @@
 // ✅ CONTROLADOR CORREGIDO - VERSIÓN FINAL
-// ✅ FILTRO DE ÚLTIMOS 10 DÍAS
+// ✅ FILTRO DE FECHAS DINÁMICO (fechaInicio/fechaFin)
 // ✅ SUBE IMÁGENES A CLOUDINARY EN TOMAR SERVICIO
 // ✅ EXCLUYE IMAGEN DE CONSULTAS DE LISTA
 // ✅ LOGS DETALLADOS PARA DIAGNÓSTICO
@@ -12,13 +12,36 @@ const { enviarNotificacionPush } = require('../services/pushService');
 const emailService = require('../services/emailService');
 
 // ============================================
-// 📅 FUNCIÓN AUXILIAR: FECHA HACE 10 DÍAS
+// 📅 FUNCIÓN AUXILIAR: FILTRO DE FECHAS DINÁMICO
 // ============================================
-const getFechaHace10Dias = () => {
-  const fecha = new Date();
-  fecha.setDate(fecha.getDate() - 10);
-  fecha.setHours(0, 0, 0, 0);
-  return fecha;
+const getFiltroFechas = (req) => {
+  const { fechaInicio, fechaFin, dias } = req.query;
+  const filtro = {};
+
+  // Si el frontend envía fechaInicio y fechaFin, usarlos
+  if (fechaInicio) {
+    const inicio = new Date(fechaInicio);
+    inicio.setHours(0, 0, 0, 0);
+    filtro.$gte = inicio;
+  }
+
+  if (fechaFin) {
+    const fin = new Date(fechaFin);
+    fin.setHours(23, 59, 59, 999);
+    filtro.$lte = fin;
+  }
+
+  // Si no hay fechas, usar el parámetro 'dias' o por defecto 10 días
+  if (!fechaInicio && !fechaFin) {
+    const diasAtras = parseInt(dias) || 10;
+    const hace = new Date();
+    hace.setDate(hace.getDate() - diasAtras);
+    hace.setHours(0, 0, 0, 0);
+    filtro.$gte = hace;
+  }
+
+  console.log(`📅 [FILTRO FECHAS] Desde: ${filtro.$gte || 'sin límite'}, Hasta: ${filtro.$lte || 'sin límite'}`);
+  return filtro;
 };
 
 // ============================================
@@ -380,17 +403,17 @@ exports.tomarServicio = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER SERVICIOS POR ESTADO (últimos 10 días)
+// ✅ OBTENER SERVICIOS POR ESTADO (filtro dinámico)
 // ============================================
 exports.getServiciosByEstado = async (req, res) => {
   const inicio = Date.now();
   try {
     const { estado } = req.params;
-    const hace10Dias = getFechaHace10Dias();
+    const filtroFechas = getFiltroFechas(req);
     
     console.log('========================================');
     console.log(`🔍 [GET POR ESTADO] Estado: ${estado}`);
-    console.log(`📅 Desde: ${hace10Dias.toISOString()}`);
+    console.log(`📅 Filtro: ${JSON.stringify(filtroFechas)}`);
     console.log(`👤 Usuario: ${req.user.email}`);
     console.log('========================================');
     
@@ -406,7 +429,7 @@ exports.getServiciosByEstado = async (req, res) => {
     let query = { 
       estado,
       activo: true,
-      createdAt: { $gte: hace10Dias }  // ✅ Últimos 10 días
+      createdAt: filtroFechas
     };
     
     if (req.user.rol === 'Tecnico') {
@@ -416,7 +439,7 @@ exports.getServiciosByEstado = async (req, res) => {
     }
 
     const servicios = await Servicio.find(query)
-      .select('-imagen')  // ✅ Excluir imagen
+      .select('-imagen')
       .limit(50)
       .lean();
 
@@ -440,20 +463,20 @@ exports.getServiciosByEstado = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER TODOS LOS SERVICIOS (últimos 10 días)
+// ✅ OBTENER TODOS LOS SERVICIOS (filtro dinámico)
 // ============================================
 exports.getServicios = async (req, res) => {
   const inicio = Date.now();
   try {
-    const hace10Dias = getFechaHace10Dias();
+    const filtroFechas = getFiltroFechas(req);
     let query = { 
       activo: true,
-      createdAt: { $gte: hace10Dias }  // ✅ Últimos 10 días
+      createdAt: filtroFechas
     };
 
     console.log('========================================');
     console.log(`🔍 [GET SERVICIOS] Usuario: ${req.user.email} (${req.user.rol})`);
-    console.log(`📅 Desde: ${hace10Dias.toISOString()}`);
+    console.log(`📅 Filtro: ${JSON.stringify(filtroFechas)}`);
     console.log('========================================');
 
     if (req.user.rol === 'Tecnico') {
@@ -461,7 +484,7 @@ exports.getServicios = async (req, res) => {
       query = {
         $and: [
           { activo: true },
-          { createdAt: { $gte: hace10Dias } },
+          { createdAt: filtroFechas },
           { estado: { $in: ['TOMADO', 'ASIGNADO', 'EN PROCESO'] } },
           { $or: [{ 'tecnico._id': tecnicoId }, { tecnico: { $exists: false } }] }
         ]
@@ -470,14 +493,14 @@ exports.getServicios = async (req, res) => {
       query = {
         $and: [
           { activo: true },
-          { createdAt: { $gte: hace10Dias } },
+          { createdAt: filtroFechas },
           { 'jefe._id': req.user._id }
         ]
       };
     }
 
     const servicios = await Servicio.find(query)
-      .select('-imagen')  // ✅ Excluir imagen
+      .select('-imagen')
       .limit(50)
       .lean();
 
@@ -785,13 +808,13 @@ exports.retroalimentarServicio = async (req, res) => {
 };
 
 // ============================================
-// BUSCAR SERVICIOS (últimos 10 días)
+// BUSCAR SERVICIOS (filtro dinámico)
 // ============================================
 exports.buscarServicios = async (req, res) => {
   const inicio = Date.now();
   try {
     const { search } = req.query;
-    const hace10Dias = getFechaHace10Dias();
+    const filtroFechas = getFiltroFechas(req);
 
     console.log(`🔍 [BUSCAR] Término: "${search}"`);
 
@@ -805,7 +828,7 @@ exports.buscarServicios = async (req, res) => {
     const query = {
       $and: [
         { activo: true },
-        { createdAt: { $gte: hace10Dias } },  // ✅ Últimos 10 días
+        { createdAt: filtroFechas },
         {
           $or: [
             { cliente: { $regex: search, $options: 'i' } },
@@ -871,13 +894,13 @@ exports.rechazarServicio = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO (últimos 10 días)
+// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO (filtro dinámico)
 // ============================================
 exports.getServiciosTomadosByTecnico = async (req, res) => {
   const inicio = Date.now();
   try {
     const { tecnicoId } = req.params;
-    const hace10Dias = getFechaHace10Dias();
+    const filtroFechas = getFiltroFechas(req);
     
     console.log(`📋 [TOMADOS] Técnico: ${tecnicoId}`);
     
@@ -894,7 +917,7 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       'tecnico._id': tecnicoId,
       estado: 'TOMADO',
       activo: true,
-      createdAt: { $gte: hace10Dias }  // ✅ Últimos 10 días
+      createdAt: filtroFechas
     })
     .select('-imagen')
     .limit(50)
@@ -920,19 +943,19 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
 };
 
 // ============================================
-// 👤 OBTENER MIS SERVICIOS (TÉCNICO) - últimos 10 días
+// 👤 OBTENER MIS SERVICIOS (TÉCNICO) - filtro dinámico
 // ============================================
 exports.getMisServicios = async (req, res) => {
   const inicio = Date.now();
   try {
-    const hace10Dias = getFechaHace10Dias();
+    const filtroFechas = getFiltroFechas(req);
 
     console.log(`👤 [MIS SERVICIOS] Usuario: ${req.user.email}`);
 
     const query = {
       activo: true,
       'tecnico._id': req.user._id,
-      createdAt: { $gte: hace10Dias }  // ✅ Últimos 10 días
+      createdAt: filtroFechas
     };
 
     const servicios = await Servicio.find(query)
