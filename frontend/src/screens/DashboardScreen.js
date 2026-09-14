@@ -380,7 +380,7 @@ const DashboardScreen = ({ navigation }) => {
       }
 
       // ============================================
-      // 4. SERVICIOS - CON FECHAS ✅
+      // 4. SERVICIOS - CON FECHAS
       // ============================================
       let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
       let serviciosHoy = 0, serviciosSemana = 0, serviciosMes = 0;
@@ -867,11 +867,18 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
+  // ✅ GENERAR REPORTE CON FECHAS EN EL TÍTULO
   const generarReporte = (tipo) => {
     const fecha = new Date().toLocaleDateString('es-EC');
+    const fechaInicioStr = formatDate(fechaInicio);
+    const fechaFinStr = formatDate(fechaFin);
+    
+    // ✅ TÍTULO CON FECHAS SELECCIONADAS
     let reporte = `📊 REPORTE DE ${getTituloReporte(tipo).toUpperCase()} - RA²P\n`;
-    reporte += `====================================\n`;
-    reporte += `Fecha: ${fecha}\n\n`;
+    reporte += `📅 DEL ${fechaInicioStr.toUpperCase()} AL ${fechaFinStr.toUpperCase()}\n`;
+    reporte += `════════════════════════════════════\n`;
+    reporte += `Fecha de generación: ${fecha}\n`;
+    reporte += `════════════════════════════════════\n\n`;
 
     switch (tipo) {
       case 'visitas':
@@ -1026,7 +1033,8 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `Sin datos disponibles\n`;
     }
 
-    reporte += `\n====================================\n`;
+    reporte += `\n════════════════════════════════════\n`;
+    reporte += `📅 Período: ${fechaInicioStr} al ${fechaFinStr}\n`;
     reporte += `Reporte generado automáticamente desde RA²P\n`;
     return reporte;
   };
@@ -1601,6 +1609,9 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={styles.modalTitle}>📧 Enviar Reporte por Correo</Text>
             <Text style={styles.modalSubtitle}>
               Reporte: {getTituloReporte(tipoReporte)}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              📅 {formatDate(fechaInicio)} al {formatDate(fechaFin)}
             </Text>
 
             <Text style={styles.modalLabel}>👥 Seleccionar usuarios:</Text>
