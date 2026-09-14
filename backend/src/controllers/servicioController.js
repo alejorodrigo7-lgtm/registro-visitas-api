@@ -1,9 +1,10 @@
-// ✅ CONTROLADOR CORREGIDO - VERSIÓN FINAL
+// ✅ CONTROLADOR CORREGIDO - VERSIÓN FINAL CON LOGS DETALLADOS
 // ✅ CON allowDiskUse EN TODAS LAS CONSULTAS CON SORT
 // ✅ CON CORREO AL TÉCNICO EN TOMAR SERVICIO
 // ✅ CON CORREO AL SOLICITANTE EN RETROALIMENTAR SERVICIO
 // ✅ GUARDA URL DE CLOUDINARY EN LUGAR DE BASE64
 // ✅ CORREGIDO PROCESAMIENTO DE MATERIALES EN EJECUTAR SERVICIO
+// ✅ LOGS DETALLADOS PARA DIAGNÓSTICO
 
 const Servicio = require('../models/Servicio');
 const User = require('../models/User');
@@ -16,13 +17,13 @@ const emailService = require('../services/emailService');
 // ============================================
 const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'restar') => {
   try {
-    console.log(`📦 Actualizando bodega del técnico ${tecnicoId} (${operacion})`);
-    console.log(`📦 Materiales a procesar:`, materiales);
+    console.log(`📦 [BODEGA] Actualizando bodega del técnico ${tecnicoId} (${operacion})`);
+    console.log(`📦 [BODEGA] Materiales a procesar:`, JSON.stringify(materiales, null, 2));
     
     let bodega = await Bodega.findOne({ usuario: tecnicoId });
     
     if (!bodega) {
-      console.log('⚠️ Bodega no encontrada, creando una nueva...');
+      console.log('⚠️ [BODEGA] Bodega no encontrada, creando una nueva...');
       const user = await User.findById(tecnicoId);
       bodega = new Bodega({
         usuario: tecnicoId,
@@ -33,12 +34,12 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'resta
         creadoPor: tecnicoId,
       });
       await bodega.save();
-      console.log('✅ Bodega creada');
+      console.log('✅ [BODEGA] Bodega creada');
     }
     
-    console.log('📦 Materiales actuales en bodega:');
+    console.log('📦 [BODEGA] Materiales actuales en bodega:');
     bodega.materiales.forEach(m => {
-      console.log(`   ${m.nombre}: ${m.cantidad}`);
+      console.log(`   📦 ${m.nombre}: ${m.cantidad}`);
     });
     
     let actualizados = 0;
@@ -46,17 +47,20 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'resta
       const nombre = material.nombre;
       const cantidad = parseFloat(material.cantidad) || 1;
       
-      if (!nombre) continue;
+      if (!nombre) {
+        console.log(`⚠️ [BODEGA] Material sin nombre, saltando...`);
+        continue;
+      }
       
       const materialExistente = bodega.materiales.find(m => m.nombre === nombre);
       
       if (materialExistente) {
         if (operacion === 'restar') {
           materialExistente.cantidad = (parseFloat(materialExistente.cantidad) || 0) - cantidad;
-          console.log(`✅ Material restado: ${nombre} → ${materialExistente.cantidad}`);
+          console.log(`✅ [BODEGA] Material restado: ${nombre} → ${materialExistente.cantidad}`);
         } else {
           materialExistente.cantidad = (parseFloat(materialExistente.cantidad) || 0) + cantidad;
-          console.log(`✅ Material sumado: ${nombre} → ${materialExistente.cantidad}`);
+          console.log(`✅ [BODEGA] Material sumado: ${nombre} → ${materialExistente.cantidad}`);
         }
         materialExistente.fechaActualizacion = new Date();
       } else {
@@ -68,7 +72,7 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'resta
           fechaAsignacion: new Date(),
           fechaActualizacion: new Date(),
         });
-        console.log(`✅ Nuevo material agregado: ${nombre} → ${nuevaCantidad}`);
+        console.log(`✅ [BODEGA] Nuevo material agregado: ${nombre} → ${nuevaCantidad}`);
       }
       actualizados++;
     }
@@ -76,12 +80,12 @@ const actualizarBodegaTecnico = async (tecnicoId, materiales, operacion = 'resta
     if (actualizados > 0) {
       bodega.updatedAt = new Date();
       await bodega.save();
-      console.log(`✅ Bodega actualizada con ${actualizados} materiales`);
+      console.log(`✅ [BODEGA] Bodega actualizada con ${actualizados} materiales`);
     }
     
     return { success: true, actualizados };
   } catch (error) {
-    console.error('❌ Error actualizando bodega:', error.message);
+    console.error('❌ [BODEGA] Error actualizando bodega:', error.message);
     return { success: false, error: error.message };
   }
 };
@@ -99,10 +103,16 @@ exports.crearServicio = async (req, res) => {
       prioridad 
     } = req.body;
 
-    console.log(`📝 Creando servicio para cliente: ${cliente}`);
-    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
+    console.log(`📝 [CREAR SERVICIO] Iniciando...`);
+    console.log(`📝 [CREAR SERVICIO] Cliente: ${cliente}`);
+    console.log(`📝 [CREAR SERVICIO] Dirección: ${direccion}`);
+    console.log(`📝 [CREAR SERVICIO] Teléfono: ${telefono}`);
+    console.log(`👤 [CREAR SERVICIO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
 
     if (!cliente || !direccion || !telefono) {
+      console.log('❌ [CREAR SERVICIO] Faltan campos obligatorios');
       return res.status(400).json({
         success: false,
         message: 'Los campos cliente, dirección y teléfono son obligatorios'
@@ -124,7 +134,7 @@ exports.crearServicio = async (req, res) => {
 
     await servicio.save();
 
-    console.log(`✅ Servicio creado ID: ${servicio._id}`);
+    console.log(`✅ [CREAR SERVICIO] Servicio creado ID: ${servicio._id}`);
 
     res.status(201).json({
       success: true,
@@ -133,7 +143,7 @@ exports.crearServicio = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error al crear servicio:', error);
+    console.error('❌ [CREAR SERVICIO] Error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -150,18 +160,26 @@ exports.asignarServicio = async (req, res) => {
     const { tecnicoId } = req.body;
     const usuario = req.user;
 
-    console.log(`🔧 Asignando servicio ${id} al técnico ${tecnicoId}`);
-    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
+    console.log(`🔧 [ASIGNAR SERVICIO] Iniciando...`);
+    console.log(`🔧 [ASIGNAR SERVICIO] Servicio ID: ${id}`);
+    console.log(`🔧 [ASIGNAR SERVICIO] Técnico ID: ${tecnicoId}`);
+    console.log(`👤 [ASIGNAR SERVICIO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
 
     const servicio = await Servicio.findById(id);
     if (!servicio) {
+      console.log('❌ [ASIGNAR SERVICIO] Servicio no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Servicio no encontrado'
       });
     }
 
+    console.log(`📋 [ASIGNAR SERVICIO] Estado actual: ${servicio.estado}`);
+
     if (servicio.estado !== 'TOMADO' && servicio.estado !== 'PENDIENTE') {
+      console.log('❌ [ASIGNAR SERVICIO] Estado no válido para asignar');
       return res.status(400).json({
         success: false,
         message: 'Solo se pueden asignar servicios en estado TOMADO o PENDIENTE'
@@ -170,11 +188,14 @@ exports.asignarServicio = async (req, res) => {
 
     const tecnico = await User.findById(tecnicoId);
     if (!tecnico || tecnico.rol !== 'Tecnico') {
+      console.log('❌ [ASIGNAR SERVICIO] Técnico no válido');
       return res.status(400).json({
         success: false,
         message: 'El usuario no es un técnico válido'
       });
     }
+
+    console.log(`👤 [ASIGNAR SERVICIO] Técnico: ${tecnico.nombre} (${tecnico.email})`);
 
     servicio.tecnico = {
       _id: tecnico._id,
@@ -186,9 +207,11 @@ exports.asignarServicio = async (req, res) => {
     servicio.asignadoPor = usuario._id;
     await servicio.save();
 
+    console.log(`✅ [ASIGNAR SERVICIO] Servicio asignado correctamente`);
+
     try {
       if (tecnico && tecnico.email) {
-        console.log(`📧 Enviando correo de asignación al técnico: ${tecnico.email}`);
+        console.log(`📧 [ASIGNAR SERVICIO] Enviando correo al técnico: ${tecnico.email}`);
         await emailService.enviarNotificacionServicioAsignado(
           {
             cliente: servicio.cliente,
@@ -200,10 +223,10 @@ exports.asignarServicio = async (req, res) => {
           },
           tecnico
         );
-        console.log(`✅ Correo de asignación enviado al técnico: ${tecnico.email}`);
+        console.log(`✅ [ASIGNAR SERVICIO] Correo enviado al técnico`);
       }
     } catch (error) {
-      console.error(`❌ Error enviando correo al técnico:`, error.message);
+      console.error(`❌ [ASIGNAR SERVICIO] Error enviando correo:`, error.message);
     }
 
     res.json({
@@ -213,7 +236,7 @@ exports.asignarServicio = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error al asignar servicio:', error);
+    console.error('❌ [ASIGNAR SERVICIO] Error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -222,12 +245,13 @@ exports.asignarServicio = async (req, res) => {
 };
 
 // ============================================
-// 📤 TOMAR SERVICIO - CON CLOUDINARY ✅ CORREGIDO
+// 📤 TOMAR SERVICIO - CON CLOUDINARY
 // ============================================
 exports.tomarServicio = async (req, res) => {
   try {
     const rolesPermitidos = ['Admin', 'Jefe', 'Coordinador', 'Tecnico'];
     if (!rolesPermitidos.includes(req.user.rol)) {
+      console.log(`❌ [TOMAR SERVICIO] Rol ${req.user.rol} no autorizado`);
       return res.status(403).json({
         success: false,
         message: `Rol ${req.user.rol} no autorizado para tomar servicios`
@@ -248,15 +272,18 @@ exports.tomarServicio = async (req, res) => {
       imagen,
     } = req.body;
 
-    console.log('📋 Datos recibidos:');
-    console.log(`📋 Cliente: ${cliente}`);
-    console.log(`📋 Servicio: ${nombreServicio}`);
-    console.log(`📋 Imagen recibida: ${imagen ? imagen.substring(0, 80) + '...' : 'Sin imagen'}`);
-    console.log(`📋 ¿Empieza con http? ${imagen?.startsWith('http')}`);
-    console.log(`📋 ¿Empieza con data:image? ${imagen?.startsWith('data:image')}`);
+    console.log('========================================');
+    console.log(`📤 [TOMAR SERVICIO] Iniciando...`);
+    console.log(`📤 [TOMAR SERVICIO] Cliente: ${cliente}`);
+    console.log(`📤 [TOMAR SERVICIO] Servicio: ${nombreServicio}`);
+    console.log(`📤 [TOMAR SERVICIO] Imagen: ${imagen ? 'SÍ (' + imagen.substring(0, 80) + '...)' : 'NO'}`);
+    console.log(`📤 [TOMAR SERVICIO] ¿Empieza con http? ${imagen?.startsWith('http')}`);
+    console.log(`👤 [TOMAR SERVICIO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
 
     if (!cliente || !codigoIdentificador || !barrio || !direccion || !telefono ||
         !nombreServicio || !telefonos || !observaciones || !tecnicoAsignado || !jefeAsignado) {
+      console.log('❌ [TOMAR SERVICIO] Faltan campos obligatorios');
       return res.status(400).json({
         success: false,
         message: 'Todos los campos son obligatorios',
@@ -265,6 +292,7 @@ exports.tomarServicio = async (req, res) => {
 
     const responsable = await User.findById(req.user._id);
     if (!responsable) {
+      console.log('❌ [TOMAR SERVICIO] Usuario responsable no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Usuario responsable no encontrado',
@@ -274,32 +302,33 @@ exports.tomarServicio = async (req, res) => {
     const tecnico = await User.findById(tecnicoAsignado);
     const jefe = await User.findById(jefeAsignado);
 
+    console.log(`👤 [TOMAR SERVICIO] Técnico: ${tecnico?.nombre || 'No encontrado'}`);
+    console.log(`👤 [TOMAR SERVICIO] Jefe: ${jefe?.nombre || 'No encontrado'}`);
+
     // ✅ CORRECCIÓN: Guardar la imagen correctamente
     let imagenGuardar = '';
     if (imagen) {
       if (imagen.startsWith('http://') || imagen.startsWith('https://')) {
         imagenGuardar = imagen;
-        console.log(`✅ Guardando URL de Cloudinary: ${imagenGuardar.substring(0, 80)}...`);
+        console.log(`✅ [TOMAR SERVICIO] Guardando URL de Cloudinary: ${imagenGuardar.substring(0, 80)}...`);
       } 
       else if (imagen.startsWith('data:image')) {
-        console.log(`⚠️ Recibido Base64, convirtiendo a URL...`);
+        console.log(`⚠️ [TOMAR SERVICIO] Recibido Base64, convirtiendo a URL...`);
         imagenGuardar = imagen;
       }
       else if (imagen.includes('cloudinary.com')) {
         const urlCompleta = imagen.startsWith('http') ? imagen : `https://${imagen}`;
         imagenGuardar = urlCompleta;
-        console.log(`✅ URL corregida: ${imagenGuardar.substring(0, 80)}...`);
+        console.log(`✅ [TOMAR SERVICIO] URL corregida: ${imagenGuardar.substring(0, 80)}...`);
       }
       else {
-        console.log(`⚠️ Formato de imagen no reconocido: ${typeof imagen}`);
+        console.log(`⚠️ [TOMAR SERVICIO] Formato de imagen no reconocido: ${typeof imagen}`);
         imagenGuardar = '';
       }
     } else {
-      console.log('⚠️ Sin imagen');
+      console.log('⚠️ [TOMAR SERVICIO] Sin imagen');
       imagenGuardar = '';
     }
-
-    console.log(`📷 Imagen a guardar en DB: ${imagenGuardar ? imagenGuardar.substring(0, 80) + '...' : 'Sin imagen'}`);
 
     const servicio = await Servicio.create({
       cliente,
@@ -327,13 +356,12 @@ exports.tomarServicio = async (req, res) => {
       activo: true,
     });
 
-    console.log('✅ Servicio creado:', servicio._id);
-    console.log(`📷 Imagen guardada en DB: ${servicio.imagen ? servicio.imagen.substring(0, 80) + '...' : 'Sin imagen'}`);
+    console.log(`✅ [TOMAR SERVICIO] Servicio creado: ${servicio._id}`);
 
-    // ✅ 📧 ENVIAR CORREO AL TÉCNICO ASIGNADO
+    // Enviar correo al técnico
     try {
       if (tecnico && tecnico.email) {
-        console.log(`📧 Enviando correo al técnico: ${tecnico.email}`);
+        console.log(`📧 [TOMAR SERVICIO] Enviando correo al técnico: ${tecnico.email}`);
         await emailService.enviarNotificacionServicioAsignado(
           {
             cliente: servicio.cliente,
@@ -345,40 +373,38 @@ exports.tomarServicio = async (req, res) => {
           },
           tecnico
         );
-        console.log(`✅ Correo de asignación enviado al técnico: ${tecnico.email}`);
+        console.log(`✅ [TOMAR SERVICIO] Correo enviado al técnico`);
       }
     } catch (error) {
-      console.error(`❌ Error enviando correo al técnico:`, error.message);
+      console.error(`❌ [TOMAR SERVICIO] Error enviando correo:`, error.message);
     }
 
-    // NOTIFICACIONES PUSH
+    // Notificaciones push
     const mensajePush = `📋 Se ha tomado un servicio "${nombreServicio}" para el cliente ${cliente}`;
 
     if (tecnico) {
       try {
-        console.log(`📤 Enviando push al técnico ${tecnico.email}`);
         await enviarNotificacionPush(tecnico._id, {
           title: '📋 Nuevo Servicio',
           body: mensajePush,
           data: { servicioId: servicio._id.toString(), tipo: 'nuevo_servicio' },
         });
-        console.log(`✅ Push enviado al técnico ${tecnico.email}`);
+        console.log(`✅ [TOMAR SERVICIO] Push enviado al técnico`);
       } catch (pushError) {
-        console.error('Error enviando push al técnico:', pushError);
+        console.error('❌ [TOMAR SERVICIO] Error enviando push al técnico:', pushError);
       }
     }
 
     if (jefe) {
       try {
-        console.log(`📤 Enviando push al jefe ${jefe.email}`);
         await enviarNotificacionPush(jefe._id, {
           title: '📋 Nuevo Servicio',
           body: mensajePush,
           data: { servicioId: servicio._id.toString(), tipo: 'nuevo_servicio' },
         });
-        console.log(`✅ Push enviado al jefe ${jefe.email}`);
+        console.log(`✅ [TOMAR SERVICIO] Push enviado al jefe`);
       } catch (pushError) {
-        console.error('Error enviando push al jefe:', pushError);
+        console.error('❌ [TOMAR SERVICIO] Error enviando push al jefe:', pushError);
       }
     }
 
@@ -388,7 +414,7 @@ exports.tomarServicio = async (req, res) => {
       data: servicio,
     });
   } catch (error) {
-    console.error('❌ Error en tomarServicio:', error);
+    console.error('❌ [TOMAR SERVICIO] Error:', error);
     res.status(500).json({ 
       success: false,
       message: error.message 
@@ -397,19 +423,22 @@ exports.tomarServicio = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER SERVICIOS POR ESTADO - CORREGIDO CON allowDiskUse
+// ✅ OBTENER SERVICIOS POR ESTADO - CON LOGS DETALLADOS
 // ============================================
 exports.getServiciosByEstado = async (req, res) => {
+  const inicio = Date.now();
   try {
     const { estado } = req.params;
     
     console.log('========================================');
-    console.log('🔍 BUSCANDO SERVICIOS POR ESTADO');
-    console.log(`📋 Estado solicitado: ${estado}`);
-    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('🔍 [GET SERVICIOS POR ESTADO] INICIO');
+    console.log(`📋 [GET SERVICIOS POR ESTADO] Estado: ${estado}`);
+    console.log(`👤 [GET SERVICIOS POR ESTADO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log(`🆔 [GET SERVICIOS POR ESTADO] User ID: ${req.user._id}`);
     console.log('========================================');
     
     if (!estado) {
+      console.log('❌ [GET SERVICIOS POR ESTADO] Estado no proporcionado');
       return res.status(400).json({
         success: false,
         message: 'Se requiere un estado',
@@ -418,6 +447,7 @@ exports.getServiciosByEstado = async (req, res) => {
 
     const estadosValidos = ['TOMADO', 'EJECUTADO', 'PENDIENTE', 'RETROALIMENTADO'];
     if (!estadosValidos.includes(estado)) {
+      console.log(`❌ [GET SERVICIOS POR ESTADO] Estado inválido: ${estado}`);
       return res.status(400).json({
         success: false,
         message: 'Estado inválido',
@@ -432,30 +462,40 @@ exports.getServiciosByEstado = async (req, res) => {
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
       query['tecnico._id'] = tecnicoId;
-      console.log(`🎯 Filtrando por técnico ID: ${tecnicoId}`);
+      console.log(`🎯 [GET SERVICIOS POR ESTADO] Filtrando por técnico ID: ${tecnicoId}`);
     } else if (req.user.rol === 'Jefe') {
       query['jefe._id'] = req.user._id;
-      console.log(`🎯 Filtrando por jefe ID: ${req.user._id}`);
+      console.log(`🎯 [GET SERVICIOS POR ESTADO] Filtrando por jefe ID: ${req.user._id}`);
     } else if (req.user.rol === 'Coordinador' || req.user.rol === 'Admin') {
-      console.log('🎯 Rol con acceso a todos los servicios');
+      console.log('🎯 [GET SERVICIOS POR ESTADO] Acceso completo a todos los servicios');
     }
 
-    console.log(`📋 Query final: ${JSON.stringify(query, null, 2)}`);
+    console.log(`📋 [GET SERVICIOS POR ESTADO] Query: ${JSON.stringify(query, null, 2)}`);
+    console.log(`📋 [GET SERVICIOS POR ESTADO] Ejecutando consulta...`);
     
-    // ✅ CORRECCIÓN: allowDiskUse + limit + lean
+    // ✅ CAMBIO: sort por _id en lugar de createdAt
     const servicios = await Servicio.find(query)
       .populate('tecnico', 'nombre email')
       .populate('jefe', 'nombre email')
       .populate('responsableId', 'nombre email')
-      .sort({ createdAt: -1 })
+      .sort({ _id: -1 })
       .limit(500)
-      .lean()
-      .allowDiskUse(true);
+      .lean();
 
-    console.log(`✅ Servicios encontrados: ${servicios.length}`);
+    const duracion = Date.now() - inicio;
+    console.log(`✅ [GET SERVICIOS POR ESTADO] Servicios encontrados: ${servicios.length}`);
+    console.log(`⏱️ [GET SERVICIOS POR ESTADO] Duración: ${duracion}ms`);
     
     if (servicios.length === 0 && req.user.rol === 'Tecnico') {
-      console.log('⚠️ No se encontraron servicios para este técnico');
+      console.log('⚠️ [GET SERVICIOS POR ESTADO] No se encontraron servicios para este técnico');
+    }
+    
+    // Mostrar primeros 3 servicios
+    if (servicios.length > 0) {
+      console.log('📋 [GET SERVICIOS POR ESTADO] Primeros 3 servicios:');
+      servicios.slice(0, 3).forEach((s, i) => {
+        console.log(`   ${i+1}. Cliente: ${s.cliente}, Estado: ${s.estado}, Técnico: ${s.tecnico?.nombre || 'N/A'}`);
+      });
     }
     
     console.log('========================================');
@@ -466,7 +506,16 @@ exports.getServiciosByEstado = async (req, res) => {
       data: servicios,
     });
   } catch (error) {
-    console.error('❌ Error en getServiciosByEstado:', error);
+    const duracion = Date.now() - inicio;
+    console.error('========================================');
+    console.error('❌ [GET SERVICIOS POR ESTADO] ERROR');
+    console.error(`❌ [GET SERVICIOS POR ESTADO] Mensaje: ${error.message}`);
+    console.error(`❌ [GET SERVICIOS POR ESTADO] Código: ${error.code}`);
+    console.error(`❌ [GET SERVICIOS POR ESTADO] Código Nombre: ${error.codeName}`);
+    console.error(`⏱️ [GET SERVICIOS POR ESTADO] Duración: ${duracion}ms`);
+    console.error(`❌ [GET SERVICIOS POR ESTADO] Stack: ${error.stack}`);
+    console.error('========================================');
+    
     res.status(500).json({ 
       success: false,
       message: 'Error al obtener servicios', 
@@ -476,14 +525,18 @@ exports.getServiciosByEstado = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER TODOS LOS SERVICIOS - CON allowDiskUse
+// ✅ OBTENER TODOS LOS SERVICIOS - CON LOGS DETALLADOS
 // ============================================
 exports.getServicios = async (req, res) => {
+  const inicio = Date.now();
   try {
     let query = { activo: true };
 
-    console.log(`🔍 Obteniendo todos los servicios para rol: ${req.user.rol}`);
-    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
+    console.log('🔍 [GET SERVICIOS] INICIO');
+    console.log(`👤 [GET SERVICIOS] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log(`🆔 [GET SERVICIOS] User ID: ${req.user._id}`);
+    console.log('========================================');
 
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
@@ -503,7 +556,7 @@ exports.getServicios = async (req, res) => {
           }
         ]
       };
-      console.log(`🎯 Técnico filtrado por estados: TOMADO, ASIGNADO, EN PROCESO`);
+      console.log(`🎯 [GET SERVICIOS] Técnico filtrado por estados: TOMADO, ASIGNADO, EN PROCESO`);
     } else if (req.user.rol === 'Jefe') {
       query = {
         $and: [
@@ -511,24 +564,27 @@ exports.getServicios = async (req, res) => {
           { 'jefe._id': req.user._id }
         ]
       };
-      console.log(`🎯 Jefe filtrado por: ${req.user._id}`);
+      console.log(`🎯 [GET SERVICIOS] Jefe filtrado por: ${req.user._id}`);
     } else if (req.user.rol === 'Admin' || req.user.rol === 'Coordinador') {
-      console.log('🎯 Acceso completo a todos los servicios activos');
+      console.log('🎯 [GET SERVICIOS] Acceso completo a todos los servicios activos');
     }
 
-    console.log(`📋 Query final: ${JSON.stringify(query, null, 2)}`);
+    console.log(`📋 [GET SERVICIOS] Query: ${JSON.stringify(query, null, 2)}`);
+    console.log(`📋 [GET SERVICIOS] Ejecutando consulta...`);
 
-    // ✅ CORRECCIÓN: allowDiskUse + limit + lean
+    // ✅ CAMBIO: sort por _id
     const servicios = await Servicio.find(query)
       .populate('tecnico', 'nombre email')
       .populate('jefe', 'nombre email')
       .populate('responsableId', 'nombre email')
-      .sort({ createdAt: -1 })
+      .sort({ _id: -1 })
       .limit(500)
-      .lean()
-      .allowDiskUse(true);
+      .lean();
 
-    console.log(`✅ Servicios encontrados: ${servicios.length}`);
+    const duracion = Date.now() - inicio;
+    console.log(`✅ [GET SERVICIOS] Servicios encontrados: ${servicios.length}`);
+    console.log(`⏱️ [GET SERVICIOS] Duración: ${duracion}ms`);
+    console.log('========================================');
 
     res.json({
       success: true,
@@ -536,7 +592,16 @@ exports.getServicios = async (req, res) => {
       data: servicios,
     });
   } catch (error) {
-    console.error('❌ Error en getServicios:', error);
+    const duracion = Date.now() - inicio;
+    console.error('========================================');
+    console.error('❌ [GET SERVICIOS] ERROR');
+    console.error(`❌ [GET SERVICIOS] Mensaje: ${error.message}`);
+    console.error(`❌ [GET SERVICIOS] Código: ${error.code}`);
+    console.error(`❌ [GET SERVICIOS] Código Nombre: ${error.codeName}`);
+    console.error(`⏱️ [GET SERVICIOS] Duración: ${duracion}ms`);
+    console.error(`❌ [GET SERVICIOS] Stack: ${error.stack}`);
+    console.error('========================================');
+    
     res.status(500).json({ 
       success: false,
       message: error.message 
@@ -550,24 +615,33 @@ exports.getServicios = async (req, res) => {
 exports.getServicio = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    console.log('========================================');
+    console.log(`🔍 [GET SERVICIO] Buscando servicio: ${id}`);
+    console.log(`👤 [GET SERVICIO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
+    
     const servicio = await Servicio.findById(id)
       .populate('tecnico', 'nombre email')
       .populate('jefe', 'nombre email')
       .populate('responsableId', 'nombre email');
 
     if (!servicio) {
+      console.log('❌ [GET SERVICIO] Servicio no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Servicio no encontrado',
       });
     }
 
+    console.log(`✅ [GET SERVICIO] Servicio encontrado: ${servicio.cliente}`);
+
     res.json({
       success: true,
       data: servicio,
     });
   } catch (error) {
-    console.error('❌ Error en getServicio:', error);
+    console.error('❌ [GET SERVICIO] Error:', error);
     res.status(500).json({ 
       success: false,
       message: error.message 
@@ -576,30 +650,38 @@ exports.getServicio = async (req, res) => {
 };
 
 // ============================================
-// EJECUTAR SERVICIO - CON CORREO AL SOLICITANTE ✅
+// EJECUTAR SERVICIO - CON LOGS DETALLADOS
 // ============================================
 exports.ejecutarServicio = async (req, res) => {
+  const inicio = Date.now();
   try {
     const { id } = req.params;
     const { observaciones, materiales, macEquipo, macRepetidor, snReceptor } = req.body;
 
-    console.log(`🔧 Ejecutando servicio ID: ${id}`);
-    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
-    console.log(`📦 Materiales recibidos (raw):`, JSON.stringify(materiales, null, 2));
+    console.log('========================================');
+    console.log(`🔧 [EJECUTAR SERVICIO] INICIO`);
+    console.log(`🔧 [EJECUTAR SERVICIO] Servicio ID: ${id}`);
+    console.log(`👤 [EJECUTAR SERVICIO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log(`📦 [EJECUTAR SERVICIO] Materiales raw:`, JSON.stringify(materiales, null, 2));
+    console.log('========================================');
 
     const servicio = await Servicio.findById(id)
       .populate('responsableId', 'nombre email');
 
     if (!servicio) {
+      console.log('❌ [EJECUTAR SERVICIO] Servicio no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Servicio no encontrado',
       });
     }
 
+    console.log(`📋 [EJECUTAR SERVICIO] Estado actual: ${servicio.estado}`);
+
     if (req.user.rol === 'Tecnico') {
       const tecnicoId = req.user._id || req.user.id;
       if (servicio.tecnico && servicio.tecnico._id.toString() !== tecnicoId.toString()) {
+        console.log('❌ [EJECUTAR SERVICIO] Técnico no asignado a este servicio');
         return res.status(403).json({
           success: false,
           message: 'No tienes permiso para ejecutar este servicio',
@@ -608,6 +690,7 @@ exports.ejecutarServicio = async (req, res) => {
     }
 
     if (servicio.estado !== 'TOMADO' && servicio.estado !== 'PENDIENTE') {
+      console.log(`❌ [EJECUTAR SERVICIO] Estado no válido: ${servicio.estado}`);
       return res.status(400).json({
         success: false,
         message: `El servicio está en estado ${servicio.estado} y no puede ser ejecutado`,
@@ -619,9 +702,14 @@ exports.ejecutarServicio = async (req, res) => {
     // ✅ Procesar materiales correctamente
     let materialesProcesados = [];
     
+    console.log(`📦 [EJECUTAR SERVICIO] Tipo de materiales: ${typeof materiales}`);
+    console.log(`📦 [EJECUTAR SERVICIO] ¿Es array? ${Array.isArray(materiales)}`);
+    
     if (materiales && Array.isArray(materiales)) {
-      console.log('📦 Procesando array de materiales...');
-      materialesProcesados = materiales.map(m => {
+      console.log('📦 [EJECUTAR SERVICIO] Procesando array de materiales...');
+      materialesProcesados = materiales.map((m, index) => {
+        console.log(`   📦 Material ${index}:`, JSON.stringify(m));
+        
         if (m.nombre) {
           return { nombre: m.nombre, cantidad: m.cantidad || 1 };
         }
@@ -633,14 +721,16 @@ exports.ejecutarServicio = async (req, res) => {
         }
         return { nombre: 'Material desconocido', cantidad: 1 };
       });
-      console.log('📦 Materiales procesados:', JSON.stringify(materialesProcesados, null, 2));
+      console.log('📦 [EJECUTAR SERVICIO] Materiales procesados:', JSON.stringify(materialesProcesados, null, 2));
     } else if (materiales && typeof materiales === 'object') {
-      console.log('📦 Procesando objeto de materiales...');
+      console.log('📦 [EJECUTAR SERVICIO] Procesando objeto de materiales...');
       materialesProcesados = Object.keys(materiales).map(nombre => ({
         nombre: nombre,
         cantidad: materiales[nombre] || 1
       }));
-      console.log('📦 Materiales procesados:', JSON.stringify(materialesProcesados, null, 2));
+      console.log('📦 [EJECUTAR SERVICIO] Materiales procesados:', JSON.stringify(materialesProcesados, null, 2));
+    } else {
+      console.log('⚠️ [EJECUTAR SERVICIO] No hay materiales para procesar');
     }
 
     servicio.ejecucion = {
@@ -657,21 +747,26 @@ exports.ejecutarServicio = async (req, res) => {
 
     await servicio.save();
 
-    console.log(`✅ Servicio ${id} ejecutado correctamente`);
+    const duracion = Date.now() - inicio;
+    console.log(`✅ [EJECUTAR SERVICIO] Servicio ejecutado correctamente`);
+    console.log(`⏱️ [EJECUTAR SERVICIO] Duración: ${duracion}ms`);
+    console.log(`📦 [EJECUTAR SERVICIO] Materiales guardados: ${JSON.stringify(servicio.ejecucion.materiales)}`);
 
     if (materialesProcesados && materialesProcesados.length > 0) {
       const tecnicoId = servicio.tecnico?._id || req.user._id;
+      console.log(`📦 [EJECUTAR SERVICIO] Actualizando bodega del técnico ${tecnicoId}...`);
       const resultadoBodega = await actualizarBodegaTecnico(tecnicoId, materialesProcesados, 'restar');
       
       if (resultadoBodega.success) {
-        console.log(`✅ Bodega actualizada: ${resultadoBodega.actualizados} materiales restados`);
+        console.log(`✅ [EJECUTAR SERVICIO] Bodega actualizada: ${resultadoBodega.actualizados} materiales`);
       }
     }
 
-    // ✅ 📧 CORREO AL SOLICITANTE
+    // Enviar correo al solicitante
     try {
       const usuarioSolicitante = servicio.responsableId;
       if (usuarioSolicitante && usuarioSolicitante.email) {
+        console.log(`📧 [EJECUTAR SERVICIO] Enviando correo al solicitante: ${usuarioSolicitante.email}`);
         await emailService.enviarNotificacionServicioEjecutado(
           {
             cliente: servicio.cliente,
@@ -682,10 +777,10 @@ exports.ejecutarServicio = async (req, res) => {
           },
           usuarioSolicitante
         );
-        console.log(`✅ Correo de ejecución enviado al solicitante`);
+        console.log(`✅ [EJECUTAR SERVICIO] Correo enviado al solicitante`);
       }
     } catch (error) {
-      console.error(`❌ Error enviando correo al solicitante:`, error.message);
+      console.error(`❌ [EJECUTAR SERVICIO] Error enviando correo:`, error.message);
     }
 
     try {
@@ -694,9 +789,12 @@ exports.ejecutarServicio = async (req, res) => {
         body: `El servicio "${servicio.nombreServicio}" del cliente ${servicio.cliente} fue ejecutado de manera exitosa`,
         data: { servicioId: servicio._id.toString(), tipo: 'servicio_ejecutado' },
       });
+      console.log(`✅ [EJECUTAR SERVICIO] Push enviado`);
     } catch (pushError) {
-      console.error('Error enviando push de ejecución:', pushError);
+      console.error('❌ [EJECUTAR SERVICIO] Error enviando push:', pushError);
     }
+
+    console.log('========================================');
 
     res.json({
       success: true,
@@ -704,7 +802,14 @@ exports.ejecutarServicio = async (req, res) => {
       data: servicio,
     });
   } catch (error) {
-    console.error('❌ Error en ejecutarServicio:', error);
+    const duracion = Date.now() - inicio;
+    console.error('========================================');
+    console.error('❌ [EJECUTAR SERVICIO] ERROR');
+    console.error(`❌ [EJECUTAR SERVICIO] Mensaje: ${error.message}`);
+    console.error(`❌ [EJECUTAR SERVICIO] Stack: ${error.stack}`);
+    console.error(`⏱️ [EJECUTAR SERVICIO] Duración: ${duracion}ms`);
+    console.error('========================================');
+    
     res.status(500).json({ 
       success: false,
       message: error.message 
@@ -720,10 +825,15 @@ exports.pendienteServicio = async (req, res) => {
     const { id } = req.params;
     const { observaciones } = req.body;
 
-    console.log(`⏳ Marcando servicio ${id} como pendiente`);
+    console.log('========================================');
+    console.log(`⏳ [PENDIENTE SERVICIO] Iniciando...`);
+    console.log(`⏳ [PENDIENTE SERVICIO] Servicio ID: ${id}`);
+    console.log(`👤 [PENDIENTE SERVICIO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
 
     const servicio = await Servicio.findById(id);
     if (!servicio) {
+      console.log('❌ [PENDIENTE SERVICIO] Servicio no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Servicio no encontrado',
@@ -753,6 +863,8 @@ exports.pendienteServicio = async (req, res) => {
 
     await servicio.save();
 
+    console.log(`✅ [PENDIENTE SERVICIO] Servicio marcado como pendiente`);
+
     const jefe = await User.findById(servicio.jefe?._id || servicio.jefe);
     const responsable = await User.findById(servicio.responsableId);
 
@@ -766,7 +878,7 @@ exports.pendienteServicio = async (req, res) => {
           data: { servicioId: servicio._id.toString(), tipo: 'servicio_pendiente' },
         });
       } catch (pushError) {
-        console.error('Error enviando push al jefe:', pushError);
+        console.error('❌ [PENDIENTE SERVICIO] Error push al jefe:', pushError);
       }
     }
 
@@ -778,7 +890,7 @@ exports.pendienteServicio = async (req, res) => {
           data: { servicioId: servicio._id.toString(), tipo: 'servicio_pendiente' },
         });
       } catch (pushError) {
-        console.error('Error enviando push al responsable:', pushError);
+        console.error('❌ [PENDIENTE SERVICIO] Error push al responsable:', pushError);
       }
     }
 
@@ -788,7 +900,7 @@ exports.pendienteServicio = async (req, res) => {
       data: servicio,
     });
   } catch (error) {
-    console.error('❌ Error en pendienteServicio:', error);
+    console.error('❌ [PENDIENTE SERVICIO] Error:', error);
     res.status(500).json({ 
       success: false,
       message: error.message 
@@ -797,19 +909,24 @@ exports.pendienteServicio = async (req, res) => {
 };
 
 // ============================================
-// RETROALIMENTAR SERVICIO - CON CORREO AL SOLICITANTE ✅
+// RETROALIMENTAR SERVICIO
 // ============================================
 exports.retroalimentarServicio = async (req, res) => {
   try {
     const { id } = req.params;
     const { observaciones } = req.body;
 
-    console.log(`🔄 Retroalimentando servicio ID: ${id}`);
+    console.log('========================================');
+    console.log(`🔄 [RETROALIMENTAR SERVICIO] Iniciando...`);
+    console.log(`🔄 [RETROALIMENTAR SERVICIO] Servicio ID: ${id}`);
+    console.log(`👤 [RETROALIMENTAR SERVICIO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
 
     const servicio = await Servicio.findById(id)
       .populate('responsableId', 'nombre email');
 
     if (!servicio) {
+      console.log('❌ [RETROALIMENTAR SERVICIO] Servicio no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Servicio no encontrado',
@@ -835,6 +952,8 @@ exports.retroalimentarServicio = async (req, res) => {
 
     await servicio.save();
 
+    console.log(`✅ [RETROALIMENTAR SERVICIO] Servicio retroalimentado`);
+
     try {
       const usuarioSolicitante = servicio.responsableId;
       if (usuarioSolicitante && usuarioSolicitante.email) {
@@ -849,10 +968,10 @@ exports.retroalimentarServicio = async (req, res) => {
           },
           usuarioSolicitante
         );
-        console.log(`✅ Correo de retroalimentación enviado al solicitante`);
+        console.log(`✅ [RETROALIMENTAR SERVICIO] Correo enviado`);
       }
     } catch (error) {
-      console.error(`❌ Error enviando correo de retroalimentación:`, error.message);
+      console.error(`❌ [RETROALIMENTAR SERVICIO] Error correo:`, error.message);
     }
 
     try {
@@ -862,7 +981,7 @@ exports.retroalimentarServicio = async (req, res) => {
         data: { servicioId: servicio._id.toString(), tipo: 'servicio_retroalimentado' },
       });
     } catch (pushError) {
-      console.error('Error enviando push de retroalimentación:', pushError);
+      console.error('❌ [RETROALIMENTAR SERVICIO] Error push:', pushError);
     }
 
     res.json({
@@ -871,7 +990,7 @@ exports.retroalimentarServicio = async (req, res) => {
       data: servicio,
     });
   } catch (error) {
-    console.error('❌ Error en retroalimentarServicio:', error);
+    console.error('❌ [RETROALIMENTAR SERVICIO] Error:', error);
     res.status(500).json({ 
       success: false,
       message: error.message 
@@ -880,20 +999,26 @@ exports.retroalimentarServicio = async (req, res) => {
 };
 
 // ============================================
-// BUSCAR SERVICIOS - CON allowDiskUse
+// BUSCAR SERVICIOS - CON LOGS DETALLADOS
 // ============================================
 exports.buscarServicios = async (req, res) => {
+  const inicio = Date.now();
   try {
     const { search } = req.query;
 
+    console.log('========================================');
+    console.log(`🔍 [BUSCAR SERVICIOS] Iniciando...`);
+    console.log(`🔍 [BUSCAR SERVICIOS] Término: "${search}"`);
+    console.log(`👤 [BUSCAR SERVICIOS] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
+
     if (!search) {
+      console.log('❌ [BUSCAR SERVICIOS] No se proporcionó término');
       return res.status(400).json({
         success: false,
         message: 'Se requiere un término de búsqueda',
       });
     }
-
-    console.log(`🔍 Buscando servicios: "${search}"`);
 
     const query = {
       $and: [
@@ -907,17 +1032,22 @@ exports.buscarServicios = async (req, res) => {
       ]
     };
 
-    // ✅ CORRECCIÓN: allowDiskUse + limit + lean
+    console.log(`📋 [BUSCAR SERVICIOS] Query: ${JSON.stringify(query, null, 2)}`);
+    console.log(`📋 [BUSCAR SERVICIOS] Ejecutando consulta...`);
+
+    // ✅ CAMBIO: sort por _id
     const servicios = await Servicio.find(query)
       .populate('tecnico', 'nombre email')
       .populate('jefe', 'nombre email')
       .populate('responsableId', 'nombre email')
-      .sort({ createdAt: -1 })
+      .sort({ _id: -1 })
       .limit(500)
-      .lean()
-      .allowDiskUse(true);
+      .lean();
 
-    console.log(`✅ Servicios encontrados: ${servicios.length}`);
+    const duracion = Date.now() - inicio;
+    console.log(`✅ [BUSCAR SERVICIOS] Servicios encontrados: ${servicios.length}`);
+    console.log(`⏱️ [BUSCAR SERVICIOS] Duración: ${duracion}ms`);
+    console.log('========================================');
 
     res.json({
       success: true,
@@ -925,7 +1055,16 @@ exports.buscarServicios = async (req, res) => {
       data: servicios,
     });
   } catch (error) {
-    console.error('❌ Error en buscarServicios:', error);
+    const duracion = Date.now() - inicio;
+    console.error('========================================');
+    console.error('❌ [BUSCAR SERVICIOS] ERROR');
+    console.error(`❌ [BUSCAR SERVICIOS] Mensaje: ${error.message}`);
+    console.error(`❌ [BUSCAR SERVICIOS] Código: ${error.code}`);
+    console.error(`❌ [BUSCAR SERVICIOS] Código Nombre: ${error.codeName}`);
+    console.error(`⏱️ [BUSCAR SERVICIOS] Duración: ${duracion}ms`);
+    console.error(`❌ [BUSCAR SERVICIOS] Stack: ${error.stack}`);
+    console.error('========================================');
+    
     res.status(500).json({ 
       success: false,
       message: error.message 
@@ -941,10 +1080,16 @@ exports.rechazarServicio = async (req, res) => {
     const { id } = req.params;
     const { motivo } = req.body;
 
-    console.log(`❌ Rechazando servicio ID: ${id}`);
+    console.log('========================================');
+    console.log(`❌ [RECHAZAR SERVICIO] Iniciando...`);
+    console.log(`❌ [RECHAZAR SERVICIO] Servicio ID: ${id}`);
+    console.log(`👤 [RECHAZAR SERVICIO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log(`📝 [RECHAZAR SERVICIO] Motivo: ${motivo || 'No especificado'}`);
+    console.log('========================================');
 
     const servicio = await Servicio.findById(id);
     if (!servicio) {
+      console.log('❌ [RECHAZAR SERVICIO] Servicio no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Servicio no encontrado'
@@ -962,6 +1107,8 @@ exports.rechazarServicio = async (req, res) => {
     servicio.motivoRechazo = motivo || 'Sin motivo especificado';
     await servicio.save();
 
+    console.log(`✅ [RECHAZAR SERVICIO] Servicio rechazado`);
+
     res.json({
       success: true,
       message: 'Servicio rechazado',
@@ -969,7 +1116,7 @@ exports.rechazarServicio = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error al rechazar servicio:', error);
+    console.error('❌ [RECHAZAR SERVICIO] Error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -978,16 +1125,21 @@ exports.rechazarServicio = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO - CON allowDiskUse
+// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO - CON LOGS DETALLADOS
 // ============================================
 exports.getServiciosTomadosByTecnico = async (req, res) => {
+  const inicio = Date.now();
   try {
     const { tecnicoId } = req.params;
     
-    console.log(`📋 Buscando servicios TOMADOS para técnico: ${tecnicoId}`);
+    console.log('========================================');
+    console.log(`📋 [GET SERVICIOS TOMADOS] Iniciando...`);
+    console.log(`📋 [GET SERVICIOS TOMADOS] Técnico ID: ${tecnicoId}`);
+    console.log(`👤 [GET SERVICIOS TOMADOS] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
     
     if (!tecnicoId || tecnicoId === 'undefined' || tecnicoId === 'null' || tecnicoId === '') {
-      console.error('❌ ID de técnico inválido:', tecnicoId);
+      console.error('❌ [GET SERVICIOS TOMADOS] ID de técnico inválido:', tecnicoId);
       return res.status(400).json({
         success: false,
         message: 'ID de técnico inválido'
@@ -996,14 +1148,16 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
     
     const tecnico = await User.findById(tecnicoId);
     if (!tecnico) {
-      console.error('❌ Técnico no encontrado:', tecnicoId);
+      console.error('❌ [GET SERVICIOS TOMADOS] Técnico no encontrado:', tecnicoId);
       return res.status(404).json({
         success: false,
         message: 'Técnico no encontrado'
       });
     }
+
+    console.log(`👤 [GET SERVICIOS TOMADOS] Técnico: ${tecnico.nombre} (${tecnico.email})`);
     
-    // ✅ CORRECCIÓN: allowDiskUse + limit + lean
+    // ✅ CAMBIO: sort por _id
     const servicios = await Servicio.find({
       'tecnico._id': tecnicoId,
       estado: 'TOMADO',
@@ -1012,12 +1166,14 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
     .populate('tecnico', 'nombre email')
     .populate('jefe', 'nombre email')
     .populate('responsableId', 'nombre email')
-    .sort({ createdAt: -1 })
+    .sort({ _id: -1 })
     .limit(500)
-    .lean()
-    .allowDiskUse(true);
+    .lean();
     
-    console.log(`✅ ${servicios.length} servicios encontrados para el técnico ${tecnico.nombre}`);
+    const duracion = Date.now() - inicio;
+    console.log(`✅ [GET SERVICIOS TOMADOS] Servicios encontrados: ${servicios.length}`);
+    console.log(`⏱️ [GET SERVICIOS TOMADOS] Duración: ${duracion}ms`);
+    console.log('========================================');
     
     res.json({
       success: true,
@@ -1026,7 +1182,16 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error al obtener servicios del técnico:', error);
+    const duracion = Date.now() - inicio;
+    console.error('========================================');
+    console.error('❌ [GET SERVICIOS TOMADOS] ERROR');
+    console.error(`❌ [GET SERVICIOS TOMADOS] Mensaje: ${error.message}`);
+    console.error(`❌ [GET SERVICIOS TOMADOS] Código: ${error.code}`);
+    console.error(`❌ [GET SERVICIOS TOMADOS] Código Nombre: ${error.codeName}`);
+    console.error(`⏱️ [GET SERVICIOS TOMADOS] Duración: ${duracion}ms`);
+    console.error(`❌ [GET SERVICIOS TOMADOS] Stack: ${error.stack}`);
+    console.error('========================================');
+    
     res.status(500).json({
       success: false,
       message: 'Error al obtener servicios del técnico',
@@ -1036,25 +1201,35 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
 };
 
 // ============================================
-// 👤 OBTENER MIS SERVICIOS ASIGNADOS (TÉCNICO) - CON allowDiskUse
+// 👤 OBTENER MIS SERVICIOS ASIGNADOS (TÉCNICO) - CON LOGS DETALLADOS
 // ============================================
 exports.getMisServicios = async (req, res) => {
+  const inicio = Date.now();
   try {
-    console.log(`👤 Obteniendo servicios asignados a técnico: ${req.user.email}`);
+    console.log('========================================');
+    console.log(`👤 [GET MIS SERVICIOS] Iniciando...`);
+    console.log(`👤 [GET MIS SERVICIOS] Usuario: ${req.user.email}`);
+    console.log(`🆔 [GET MIS SERVICIOS] User ID: ${req.user._id}`);
+    console.log('========================================');
 
     const query = {
       activo: true,
       'tecnico._id': req.user._id
     };
 
-    // ✅ CORRECCIÓN: allowDiskUse
-    const servicios = await Servicio.find(query)
-      .sort({ createdAt: -1 })
-      .limit(500)
-      .lean()
-      .allowDiskUse(true);
+    console.log(`📋 [GET MIS SERVICIOS] Query: ${JSON.stringify(query, null, 2)}`);
+    console.log(`📋 [GET MIS SERVICIOS] Ejecutando consulta...`);
 
-    console.log(`✅ ${servicios.length} servicios encontrados para técnico ${req.user.email}`);
+    // ✅ CAMBIO: sort por _id
+    const servicios = await Servicio.find(query)
+      .sort({ _id: -1 })
+      .limit(500)
+      .lean();
+
+    const duracion = Date.now() - inicio;
+    console.log(`✅ [GET MIS SERVICIOS] Servicios encontrados: ${servicios.length}`);
+    console.log(`⏱️ [GET MIS SERVICIOS] Duración: ${duracion}ms`);
+    console.log('========================================');
 
     res.json({
       success: true,
@@ -1063,7 +1238,16 @@ exports.getMisServicios = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error en getMisServicios:', error);
+    const duracion = Date.now() - inicio;
+    console.error('========================================');
+    console.error('❌ [GET MIS SERVICIOS] ERROR');
+    console.error(`❌ [GET MIS SERVICIOS] Mensaje: ${error.message}`);
+    console.error(`❌ [GET MIS SERVICIOS] Código: ${error.code}`);
+    console.error(`❌ [GET MIS SERVICIOS] Código Nombre: ${error.codeName}`);
+    console.error(`⏱️ [GET MIS SERVICIOS] Duración: ${duracion}ms`);
+    console.error(`❌ [GET MIS SERVICIOS] Stack: ${error.stack}`);
+    console.error('========================================');
+    
     res.status(500).json({
       success: false,
       message: error.message
@@ -1077,10 +1261,16 @@ exports.getMisServicios = async (req, res) => {
 exports.eliminarServicio = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🗑️ Eliminando servicio ${id}`);
+    
+    console.log('========================================');
+    console.log(`🗑️ [ELIMINAR SERVICIO] Iniciando...`);
+    console.log(`🗑️ [ELIMINAR SERVICIO] Servicio ID: ${id}`);
+    console.log(`👤 [ELIMINAR SERVICIO] Usuario: ${req.user.email} (${req.user.rol})`);
+    console.log('========================================');
 
     const servicio = await Servicio.findOne({ _id: id, activo: true });
     if (!servicio) {
+      console.log('❌ [ELIMINAR SERVICIO] Servicio no encontrado');
       return res.status(404).json({
         success: false,
         message: 'Servicio no encontrado'
@@ -1090,7 +1280,7 @@ exports.eliminarServicio = async (req, res) => {
     // Soft delete
     await servicio.softDelete();
 
-    console.log(`✅ Servicio ${id} eliminado (soft delete)`);
+    console.log(`✅ [ELIMINAR SERVICIO] Servicio eliminado (soft delete)`);
 
     res.json({
       success: true,
@@ -1098,7 +1288,7 @@ exports.eliminarServicio = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error en eliminarServicio:', error);
+    console.error('❌ [ELIMINAR SERVICIO] Error:', error);
     res.status(500).json({
       success: false,
       message: error.message
