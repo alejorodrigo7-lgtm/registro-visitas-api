@@ -27,9 +27,9 @@ const DashboardScreen = ({ navigation }) => {
   const [datePickerMode, setDatePickerMode] = useState('start');
   const [fechaInicio, setFechaInicio] = useState(new Date());
   const [fechaFin, setFechaFin] = useState(new Date());
-  
+
   const [subMenuActual, setSubMenuActual] = useState('resumen');
-  
+
   const [modalCorreoVisible, setModalCorreoVisible] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
@@ -167,19 +167,27 @@ const DashboardScreen = ({ navigation }) => {
   const cargarDashboard = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       const hoy = new Date().toISOString().split('T')[0];
       const mes = new Date().getMonth();
+      const fechaInicioStr = formatDateAPI(fechaInicio);
+      const fechaFinStr = formatDateAPI(fechaFin);
+
+      console.log('═══════════════════════════════════════');
+      console.log(`📅 CARGANDO DASHBOARD`);
+      console.log(`📅 Fecha inicio: ${fechaInicioStr}`);
+      console.log(`📅 Fecha fin: ${fechaFinStr}`);
+      console.log('═══════════════════════════════════════');
 
       // ============================================
-      // 1. RECUPERACIÓN DE EQUIPOS
+      // 1. RECUPERACIÓN DE EQUIPOS - CON FECHAS
       // ============================================
       const [asignadas, noRetirado, retirado, anulado, reconectado] = await Promise.all([
-        api.get('/recuperacion/ordenes/estado/asignada'),
-        api.get('/recuperacion/ordenes/estado/no_retirado'),
-        api.get('/recuperacion/ordenes/estado/retirado'),
-        api.get('/recuperacion/ordenes/estado/anulado'),
-        api.get('/recuperacion/ordenes/estado/reconectado'),
+        api.get(`/recuperacion/ordenes/estado/asignada?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/no_retirado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/retirado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/anulado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/reconectado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
       ]);
 
       const totalOrdenes = 
@@ -189,12 +197,9 @@ const DashboardScreen = ({ navigation }) => {
         (anulado.data.data?.length || 0) +
         (reconectado.data.data?.length || 0);
 
-      const response = await api.get('/recuperacion/ordenes');
+      const response = await api.get(`/recuperacion/ordenes?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } }));
       const todasOrdenes = response.data.data || [];
 
-      const fechaInicioStr = formatDateAPI(fechaInicio);
-      const fechaFinStr = formatDateAPI(fechaFin);
-      
       const ordenesFiltradas = todasOrdenes.filter(o => {
         const fechaCreacion = new Date(o.fechaSubida || o.createdAt);
         const fechaCreacionStr = formatDateAPI(fechaCreacion);
@@ -221,13 +226,13 @@ const DashboardScreen = ({ navigation }) => {
       const promedioVisitas = totalOrdenes > 0 ? Number((totalVisitas / totalOrdenes).toFixed(1)) : 0;
 
       // ============================================
-      // 2. CAJA / DEPÓSITOS
+      // 2. CAJA / DEPÓSITOS - CON FECHAS
       // ============================================
       let totalDepositos = 0, depositosPendientes = 0, depositosAprobados = 0, depositosRechazados = 0;
       let totalCaja = 0, cajaAbierta = 0, cajaCerrada = 0, saldoTotalCaja = 0;
 
       try {
-        const depositosRes = await api.get('/depositos');
+        const depositosRes = await api.get(`/depositos?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (depositosRes.data.success) {
           const depositos = depositosRes.data.data || [];
           totalDepositos = depositos.length;
@@ -238,7 +243,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       try {
-        const cajaRes = await api.get('/caja/cuadres');
+        const cajaRes = await api.get(`/caja/cuadres?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (cajaRes.data.success) {
           const cajaData = cajaRes.data.data || [];
           totalCaja = cajaData.length;
@@ -249,7 +254,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 3. TRANSFERENCIAS - ESTADÍSTICAS POR BANCO Y ZONA
+      // 3. TRANSFERENCIAS - CON FECHAS
       // ============================================
       let totalTransferencias = 0, transferenciasPendientes = 0, transferenciasAprobadas = 0, transferenciasDenegadas = 0;
       let totalValorTransferencias = 0;
@@ -263,21 +268,21 @@ const DashboardScreen = ({ navigation }) => {
       let maxValorZona = 0;
 
       try {
-        console.log('📡 Cargando transferencias con estadísticas...');
-        const transferenciasRes = await api.get('/transferencias');
-        
+        console.log('📡 Cargando transferencias...');
+        const transferenciasRes = await api.get(`/transferencias?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
+
         if (transferenciasRes.data.success) {
           const transferencias = transferenciasRes.data.data || [];
           totalTransferencias = transferencias.length;
           transferenciasPendientes = transferencias.filter(t => t.estado === 'pendiente').length;
           transferenciasAprobadas = transferencias.filter(t => t.estado === 'aprobado').length;
           transferenciasDenegadas = transferencias.filter(t => t.estado === 'denegado').length;
-          
+
           const hoyStr = new Date().toISOString().split('T')[0];
           const mesActual = new Date().getMonth();
           const semanaAtras = new Date();
           semanaAtras.setDate(semanaAtras.getDate() - 7);
-          
+
           transferencias.forEach(t => {
             let banco = 'OTRO';
             if (t.bancoCuenta) {
@@ -288,26 +293,26 @@ const DashboardScreen = ({ navigation }) => {
                 banco = t.bancoCuenta.length > 30 ? t.bancoCuenta.substring(0, 30) + '...' : t.bancoCuenta;
               }
             }
-            
+
             const zona = t.zonaSector || 'SIN ZONA';
             const valor = t.valor || 0;
             const fecha = new Date(t.fechaTransferencia || t.createdAt);
             const fechaStr = fecha.toISOString().split('T')[0];
-            
+
             totalValorTransferencias += valor;
-            
+
             if (!transferenciasPorBanco[banco]) {
               transferenciasPorBanco[banco] = { total: 0, totalValor: 0 };
             }
             transferenciasPorBanco[banco].total += 1;
             transferenciasPorBanco[banco].totalValor += valor;
-            
+
             if (!transferenciasPorZona[zona]) {
               transferenciasPorZona[zona] = { total: 0, totalValor: 0 };
             }
             transferenciasPorZona[zona].total += 1;
             transferenciasPorZona[zona].totalValor += valor;
-            
+
             if (fechaStr === hoyStr) {
               transferenciasHoy++;
               valorTransferenciasHoy += valor;
@@ -321,57 +326,60 @@ const DashboardScreen = ({ navigation }) => {
               valorTransferenciasMes += valor;
             }
           });
-          
+
           const valoresBanco = Object.values(transferenciasPorBanco).map(d => d.totalValor);
           maxValorBanco = valoresBanco.length > 0 ? Math.max(...valoresBanco) : 0;
-          
+
           const valoresZona = Object.values(transferenciasPorZona).map(d => d.totalValor);
           maxValorZona = valoresZona.length > 0 ? Math.max(...valoresZona) : 0;
-          
+
           const evolucionMap = {};
           transferencias.forEach(t => {
             const fecha = new Date(t.fechaTransferencia || t.createdAt);
             const fechaStr = fecha.toISOString().split('T')[0];
             const valor = t.valor || 0;
-            
+
             if (!evolucionMap[fechaStr]) {
               evolucionMap[fechaStr] = { transferencias: 0, valor: 0 };
             }
             evolucionMap[fechaStr].transferencias += 1;
             evolucionMap[fechaStr].valor += valor;
           });
-          
+
           evolucionTransferencias = Object.entries(evolucionMap)
             .map(([fecha, datos]) => ({ fecha: new Date(fecha), ...datos }))
             .sort((a, b) => a.fecha - b.fecha);
-          
-          console.log(`✅ Transferencias procesadas: ${totalTransferencias}, Bancos: ${Object.keys(transferenciasPorBanco).length}, Zonas: ${Object.keys(transferenciasPorZona).length}`);
+
+          console.log(`✅ Transferencias: ${totalTransferencias}, Bancos: ${Object.keys(transferenciasPorBanco).length}`);
         }
       } catch (error) {
         console.error('❌ Error al cargar transferencias:', error);
       }
 
       // ============================================
-      // 4. SERVICIOS
+      // 4. SERVICIOS - CON FECHAS ✅
       // ============================================
       let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
       let serviciosHoy = 0, serviciosSemana = 0, serviciosMes = 0;
       let serviciosPorNombre = {};
 
       try {
-        console.log('🔍 Cargando servicios por estado...');
-        
+        console.log('🔍 Cargando servicios con fechas...');
+        console.log(`📅 Fechas: ${fechaInicioStr} a ${fechaFinStr}`);
+
         const [tomadosRes, ejecutadosRes, pendientesRes, retroalimentadosRes] = await Promise.all([
-          api.get('/servicios/estado/TOMADO'),
-          api.get('/servicios/estado/EJECUTADO').catch(() => ({ data: { data: [] } })),
-          api.get('/servicios/estado/PENDIENTE'),
-          api.get('/servicios/estado/RETROALIMENTADO').catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/TOMADO?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/EJECUTADO?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/PENDIENTE?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/RETROALIMENTADO?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
         ]);
 
         const tomados = tomadosRes.data?.data || [];
         const ejecutados = ejecutadosRes.data?.data || [];
         const pendientes = pendientesRes.data?.data || [];
         const retroalimentados = retroalimentadosRes.data?.data || [];
+
+        console.log(`✅ Servicios: TOMADO=${tomados.length}, EJECUTADO=${ejecutados.length}, PENDIENTE=${pendientes.length}, RETROALIMENTADO=${retroalimentados.length}`);
 
         totalServicios = tomados.length + ejecutados.length + pendientes.length + retroalimentados.length;
         serviciosActivos = tomados.length;
@@ -413,12 +421,12 @@ const DashboardScreen = ({ navigation }) => {
       }
 
       // ============================================
-      // 5. DESCONEXIONES
+      // 5. DESCONEXIONES - CON FECHAS
       // ============================================
       let totalDesconexiones = 0, desconexionesPendientes = 0, desconexionesEjecutadas = 0, reconexionesRealizadas = 0;
 
       try {
-        const desconexionesRes = await api.get('/desconexiones');
+        const desconexionesRes = await api.get(`/desconexiones?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (desconexionesRes.data.success) {
           const desconexiones = desconexionesRes.data.data || [];
           totalDesconexiones = desconexiones.length;
@@ -429,12 +437,12 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 6. RECIBOS
+      // 6. RECIBOS - CON FECHAS
       // ============================================
       let totalRecibos = 0, recibosPendientes = 0, recibosSubidos = 0;
 
       try {
-        const recibosRes = await api.get('/recibos');
+        const recibosRes = await api.get(`/recibos?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (recibosRes.data.success) {
           const recibos = recibosRes.data.data || [];
           totalRecibos = recibos.length;
@@ -444,7 +452,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 7. USUARIOS
+      // 7. USUARIOS - SIN FILTRO DE FECHAS (no aplica)
       // ============================================
       let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
 
@@ -463,12 +471,12 @@ const DashboardScreen = ({ navigation }) => {
       }
 
       // ============================================
-      // 8. ASISTENCIA
+      // 8. ASISTENCIA - CON FECHAS
       // ============================================
       let totalAsistencias = 0, asistenciasHoy = 0, ausenciasRegistradas = 0;
 
       try {
-        const asistenciaRes = await api.get('/asistencia');
+        const asistenciaRes = await api.get(`/asistencia?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (asistenciaRes.data.success) {
           const asistencias = asistenciaRes.data.data || [];
           totalAsistencias = asistencias.length;
@@ -481,12 +489,12 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 9. UBICACIONES
+      // 9. UBICACIONES - CON FECHAS
       // ============================================
       let totalUbicaciones = 0, ubicacionesHoy = 0;
 
       try {
-        const ubicacionesRes = await api.get('/ubicaciones');
+        const ubicacionesRes = await api.get(`/ubicaciones?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (ubicacionesRes.data.success) {
           const ubicaciones = ubicacionesRes.data.data || [];
           totalUbicaciones = ubicaciones.length;
@@ -498,7 +506,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 10. BODEGAS
+      // 10. BODEGAS - SIN FILTRO (no aplica)
       // ============================================
       let totalBodegas = 0, totalMateriales = 0, materialesAsignados = 0;
 
@@ -513,12 +521,12 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 11. REPORTES
+      // 11. REPORTES - CON FECHAS
       // ============================================
       let totalReportes = 0, reportesPendientes = 0, reportesGenerados = 0;
 
       try {
-        const reportesRes = await api.get('/reportes');
+        const reportesRes = await api.get(`/reportes?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (reportesRes.data.success) {
           const reportes = reportesRes.data.data || [];
           totalReportes = reportes.length;
@@ -528,7 +536,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 12. VISITAS COMPLETAS - SOLO COORDINADORES
+      // 12. VISITAS - CON FECHAS
       // ============================================
       let totalVisitasData = 0, totalCobradoData = 0;
       let visitasMesCount = 0, cobradoMesCount = 0;
@@ -538,19 +546,19 @@ const DashboardScreen = ({ navigation }) => {
       let visitasPorUsuario = {};
 
       try {
-        console.log('📡 Cargando visitas...');
-        const visitasRes = await api.get('/visitas');
+        console.log('📡 Cargando visitas con fechas...');
+        const visitasRes = await api.get(`/visitas?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         console.log('📡 Visitas recibidas:', visitasRes.data?.data?.length || 0);
-        
+
         if (visitasRes.data.success) {
           const visitas = visitasRes.data.data || [];
           totalVisitasData = visitas.length;
-          
+
           const hoyStr = new Date().toISOString().split('T')[0];
           const mesActual = new Date().getMonth();
           const semanaAtras = new Date();
           semanaAtras.setDate(semanaAtras.getDate() - 7);
-          
+
           let coordinadores = [];
           try {
             const usersRes = await api.get('/usuarios');
@@ -563,42 +571,38 @@ const DashboardScreen = ({ navigation }) => {
           } catch (error) {
             console.error('❌ Error cargando coordinadores:', error);
           }
-          
+
           visitas.forEach((v, index) => {
             const fecha = new Date(v.fecha);
             const fechaStr = fecha.toISOString().split('T')[0];
             const esCobro = v.tipo === 'Cobro';
             const monto = v.monto || 0;
-            
+
             const usuario = v.usuario?.nombre || v.tecnico?.nombre || v.creadoPor?.nombre || 'Sin asignar';
-            
-            const esCoordinador = coordinadores.some(c => 
-              usuario.toLowerCase().includes(c.toLowerCase()) || 
+
+            const esCoordinador = coordinadores.some(c =>
+              usuario.toLowerCase().includes(c.toLowerCase()) ||
               c.toLowerCase().includes(usuario.toLowerCase())
             );
-            
+
             if (!esCoordinador && coordinadores.length > 0) {
               return;
             }
-            
-            if (index < 5) {
-              console.log(`👤 Visita ${index}: Usuario=${usuario}, EsCoordinador=${esCoordinador}`);
-            }
-            
+
             if (!visitasPorUsuario[usuario]) {
               visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0, cobradoSemana: 0, cobradoMes: 0 };
             }
-            
+
             let tipo = v.tipo || 'OTROS';
             let tipoMapeado = 'OTROS';
             if (tipo === 'Cobro') tipoMapeado = 'COBRO';
             else if (tipo === 'Instalación') tipoMapeado = 'INSTALACION';
             else if (tipo === 'Mantenimiento') tipoMapeado = 'MANTENIMIENTO';
-            
+
             visitasPorTipo[tipoMapeado] = (visitasPorTipo[tipoMapeado] || 0) + 1;
-            
+
             if (esCobro) totalCobradoData += monto;
-            
+
             if (fecha.getMonth() === mesActual) {
               visitasMesCount++;
               visitasPorUsuario[usuario].mes++;
@@ -607,7 +611,7 @@ const DashboardScreen = ({ navigation }) => {
                 visitasPorUsuario[usuario].cobradoMes = (visitasPorUsuario[usuario].cobradoMes || 0) + monto;
               }
             }
-            
+
             if (fecha >= semanaAtras) {
               visitasSemanaCount++;
               visitasPorUsuario[usuario].semana++;
@@ -616,21 +620,21 @@ const DashboardScreen = ({ navigation }) => {
                 visitasPorUsuario[usuario].cobradoSemana = (visitasPorUsuario[usuario].cobradoSemana || 0) + monto;
               }
             }
-            
+
             if (fechaStr === hoyStr) {
               visitasHoyCount++;
               visitasPorUsuario[usuario].hoy++;
               if (esCobro) cobradoHoyCount += monto;
             }
-            
+
             visitasPorUsuario[usuario].total++;
           });
-          
+
           const usuariosOrdenados = Object.entries(visitasPorUsuario)
             .sort((a, b) => b[1].total - a[1].total);
           visitasPorUsuario = Object.fromEntries(usuariosOrdenados);
-          
-          console.log('📊 visitasPorUsuario FINAL (solo coordinadores):', Object.keys(visitasPorUsuario).length, 'usuarios');
+
+          console.log('📊 visitasPorUsuario FINAL:', Object.keys(visitasPorUsuario).length, 'usuarios');
         }
       } catch (error) {
         console.error('Error al cargar visitas:', error);
@@ -639,7 +643,7 @@ const DashboardScreen = ({ navigation }) => {
       // ============================================
       // 13. ACTIVIDAD RECIENTE
       // ============================================
-      const sorted = [...ordenesFiltradas].sort((a, b) => 
+      const sorted = [...ordenesFiltradas].sort((a, b) =>
         new Date(b.fechaSubida || b.createdAt) - new Date(a.fechaSubida || a.createdAt)
       );
       setRecentActivity(sorted.slice(0, 5));
@@ -726,8 +730,10 @@ const DashboardScreen = ({ navigation }) => {
         visitasPorUsuario,
       });
 
+      console.log('✅ Dashboard cargado correctamente');
+
     } catch (error) {
-      console.error('Error cargando dashboard:', error);
+      console.error('❌ Error cargando dashboard:', error);
       Alert.alert('Error', 'No se pudieron cargar los datos del dashboard');
     } finally {
       setLoading(false);
@@ -774,7 +780,7 @@ const DashboardScreen = ({ navigation }) => {
     if (texto.trim() === '') {
       setUsuariosFiltrados(usuarios);
     } else {
-      const filtrados = usuarios.filter(u => 
+      const filtrados = usuarios.filter(u =>
         u.nombre?.toLowerCase().includes(texto.toLowerCase()) ||
         u.email?.toLowerCase().includes(texto.toLowerCase())
       );
@@ -815,7 +821,7 @@ const DashboardScreen = ({ navigation }) => {
 
     try {
       const reporte = generarReporte(tipoReporte);
-      
+
       const response = await api.post('/email/enviar-reporte', {
         to: emails,
         subject: `📊 Reporte de ${getTituloReporte(tipoReporte)} - ${new Date().toLocaleDateString('es-EC')}`,
@@ -863,7 +869,7 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- INSTALACIÓN: ${stats.visitasPorTipo?.INSTALACION || 0}\n`;
         reporte += `- MANTENIMIENTO: ${stats.visitasPorTipo?.MANTENIMIENTO || 0}\n`;
         reporte += `- OTROS: ${stats.visitasPorTipo?.OTROS || 0}\n\n`;
-        
+
         reporte += `👤 VISITAS POR COORDINADOR\n`;
         reporte += `====================================\n`;
         const usuarios = stats.visitasPorUsuario || {};
@@ -902,12 +908,12 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Pendientes: ${stats.transferenciasPendientes}\n`;
         reporte += `- Aprobadas: ${stats.transferenciasAprobadas}\n`;
         reporte += `- Denegadas: ${stats.transferenciasDenegadas}\n\n`;
-        
+
         reporte += `📌 POR PERÍODO\n`;
         reporte += `- Semana: ${stats.transferenciasSemana || 0} transf - $${(stats.valorTransferenciasSemana || 0).toFixed(2)}\n`;
         reporte += `- Mes: ${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}\n`;
         reporte += `- Hoy: ${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}\n\n`;
-        
+
         reporte += `🏦 POR BANCO\n`;
         const bancos = stats.transferenciasPorBanco || {};
         if (Object.keys(bancos).length === 0) {
@@ -918,7 +924,7 @@ const DashboardScreen = ({ navigation }) => {
             reporte += `- ${banco}: ${datos.total} transf - $${datos.totalValor.toFixed(2)}\n`;
           }
         }
-        
+
         reporte += `\n📍 POR ZONA/SECTOR\n`;
         const zonas = stats.transferenciasPorZona || {};
         if (Object.keys(zonas).length === 0) {
@@ -938,14 +944,14 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Servicios de Hoy: ${stats.serviciosHoy}\n`;
         reporte += `- Servicios de la Semana: ${stats.serviciosSemana}\n`;
         reporte += `- Servicios del Mes: ${stats.serviciosMes}\n\n`;
-        
+
         reporte += `📋 POR ESTADO\n`;
         reporte += `- 🟡 Activos (TOMADO): ${stats.serviciosActivos}\n`;
         reporte += `- 🟢 Finalizados (EJECUTADO): ${stats.serviciosFinalizados}\n`;
         reporte += `- 🔴 Pendientes: ${stats.serviciosPendientes}\n`;
         const retroalimentados = stats.totalServicios - stats.serviciosActivos - stats.serviciosFinalizados - stats.serviciosPendientes;
         reporte += `- 🔵 Retroalimentados: ${retroalimentados}\n\n`;
-        
+
         reporte += `📋 POR TIPO DE SERVICIO\n`;
         const tipos = stats.serviciosPorNombre || {};
         if (Object.keys(tipos).length === 0) {
@@ -1070,31 +1076,31 @@ const DashboardScreen = ({ navigation }) => {
                 ))
               )}
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📌 Totales Generales</Text>
               <StatRow label="Total Visitas" value={stats.totalVisitas} icon="eye-outline" color="#6C5CE7" />
               <StatRow label="Total Cobrado" value={`$${stats.totalCobrado.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📆 Este Mes</Text>
               <StatRow label="Visitas del Mes" value={stats.visitasMes} icon="calendar-outline" color="#6C5CE7" />
               <StatRow label="Cobrado del Mes" value={`$${stats.cobradoMes.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📅 Última Semana</Text>
               <StatRow label="Visitas de la Semana" value={stats.visitasSemana} icon="calendar-outline" color="#6C5CE7" />
               <StatRow label="Cobrado de la Semana" value={`$${stats.cobradoSemana.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📌 Hoy</Text>
               <StatRow label="Visitas de Hoy" value={stats.visitasHoy} icon="today-outline" color="#6C5CE7" />
               <StatRow label="Cobrado de Hoy" value={`$${stats.cobradoHoy.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📋 Por Tipo de Visita</Text>
               <StatRow label="💲 COBRO" value={stats.visitasPorTipo?.COBRO || 0} icon="cash-outline" color="#00B894" />
@@ -1137,7 +1143,6 @@ const DashboardScreen = ({ navigation }) => {
               <EmailButton tipo="transferencias" />
             </View>
 
-            {/* Resumen General */}
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📊 Resumen General</Text>
               <StatRow label="Total Transferencias" value={stats.totalTransferencias} icon="swap-horizontal-outline" color="#6C5CE7" />
@@ -1147,7 +1152,6 @@ const DashboardScreen = ({ navigation }) => {
               <StatRow label="Denegadas" value={stats.transferenciasDenegadas} icon="close-circle-outline" color="#E74C3C" />
             </View>
 
-            {/* Transferencias por Banco */}
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>🏦 Transferencias por Banco</Text>
               {Object.keys(stats.transferenciasPorBanco || {}).length === 0 ? (
@@ -1174,14 +1178,14 @@ const DashboardScreen = ({ navigation }) => {
                         </Text>
                       </View>
                       <View style={styles.barraProgresoContainer}>
-                        <View 
+                        <View
                           style={[
-                            styles.barraProgresoFill, 
-                            { 
+                            styles.barraProgresoFill,
+                            {
                               width: `${Math.min((datos.totalValor / (stats.maxValorBanco || 1)) * 100, 100)}%`,
                               backgroundColor: ['#6C5CE7', '#00B894', '#FDCB6E', '#E17055', '#0984E3', '#6C5CE7'][Object.keys(stats.transferenciasPorBanco || {}).indexOf(banco) % 6]
                             }
-                          ]} 
+                          ]}
                         />
                       </View>
                     </View>
@@ -1189,7 +1193,6 @@ const DashboardScreen = ({ navigation }) => {
               )}
             </View>
 
-            {/* Transferencias por Zona/Sector */}
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📍 Transferencias por Zona/Sector</Text>
               {Object.keys(stats.transferenciasPorZona || {}).length === 0 ? (
@@ -1214,14 +1217,14 @@ const DashboardScreen = ({ navigation }) => {
                         </Text>
                       </View>
                       <View style={styles.barraProgresoContainer}>
-                        <View 
+                        <View
                           style={[
-                            styles.barraProgresoFill, 
-                            { 
+                            styles.barraProgresoFill,
+                            {
                               width: `${Math.min((datos.totalValor / (stats.maxValorZona || 1)) * 100, 100)}%`,
                               backgroundColor: ['#E17055', '#0984E3', '#00B894', '#FDCB6E', '#6C5CE7', '#E17055'][Object.keys(stats.transferenciasPorZona || {}).indexOf(zona) % 6]
                             }
-                          ]} 
+                          ]}
                         />
                       </View>
                     </View>
@@ -1229,7 +1232,6 @@ const DashboardScreen = ({ navigation }) => {
               )}
             </View>
 
-            {/* Transferencias por Período */}
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📅 Por Período</Text>
               <StatRow label="📌 Esta Semana" value={`${stats.transferenciasSemana || 0} transf - $${(stats.valorTransferenciasSemana || 0).toFixed(2)}`} icon="calendar-outline" color="#0984E3" />
@@ -1237,7 +1239,6 @@ const DashboardScreen = ({ navigation }) => {
               <StatRow label="📌 Hoy" value={`${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}`} icon="today-outline" color="#00B894" />
             </View>
 
-            {/* Evolución Diaria */}
             {stats.evolucionTransferencias && stats.evolucionTransferencias.length > 0 && (
               <View style={styles.subSection}>
                 <Text style={styles.subSectionTitle}>📈 Evolución Diaria</Text>
@@ -1508,7 +1509,7 @@ const DashboardScreen = ({ navigation }) => {
       <View style={styles.filterContainer}>
         <Text style={styles.filterLabel}>📅 Rango de fechas:</Text>
         <View style={styles.filterRow}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterButton}
             onPress={() => { setDatePickerMode('start'); setShowDatePicker(true); }}
           >
@@ -1516,7 +1517,7 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={styles.filterButtonText}>{formatDate(fechaInicio)}</Text>
           </TouchableOpacity>
           <Text style={styles.filterSeparator}>→</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterButton}
             onPress={() => { setDatePickerMode('end'); setShowDatePicker(true); }}
           >
