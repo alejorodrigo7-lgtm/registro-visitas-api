@@ -135,6 +135,29 @@ const DashboardScreen = ({ navigation }) => {
     return d.toISOString().split('T')[0];
   };
 
+  // ✅ FUNCIÓN AUXILIAR: PARSEAR FECHA SEGURA
+  const parseFechaSegura = (fecha) => {
+    try {
+      if (!fecha) return new Date();
+      const d = new Date(fecha);
+      if (isNaN(d.getTime())) return new Date();
+      return d;
+    } catch (error) {
+      console.error('Error parseando fecha:', fecha, error);
+      return new Date();
+    }
+  };
+
+  // ✅ FUNCIÓN AUXILIAR: FORMATEAR FECHA SEGURA
+  const formatFechaSegura = (fecha) => {
+    try {
+      const d = parseFechaSegura(fecha);
+      return d.toISOString().split('T')[0];
+    } catch (error) {
+      return new Date().toISOString().split('T')[0];
+    }
+  };
+
   // ✅ Cargar TODOS los usuarios para el selector de correos
   const cargarUsuarios = async () => {
     try {
@@ -201,8 +224,8 @@ const DashboardScreen = ({ navigation }) => {
       const todasOrdenes = response.data.data || [];
 
       const ordenesFiltradas = todasOrdenes.filter(o => {
-        const fechaCreacion = new Date(o.fechaSubida || o.createdAt);
-        const fechaCreacionStr = formatDateAPI(fechaCreacion);
+        const fechaCreacion = parseFechaSegura(o.fechaSubida || o.createdAt);
+        const fechaCreacionStr = formatFechaSegura(fechaCreacion);
         return fechaCreacionStr >= fechaInicioStr && fechaCreacionStr <= fechaFinStr;
       });
 
@@ -210,14 +233,14 @@ const DashboardScreen = ({ navigation }) => {
       const visitasHoy = ordenesFiltradas.filter(o => {
         const ultimaVisita = o.visitas?.[o.visitas.length - 1];
         if (!ultimaVisita) return false;
-        const fechaVisita = new Date(ultimaVisita.fechaVisita).toISOString().split('T')[0];
+        const fechaVisita = formatFechaSegura(ultimaVisita.fechaVisita);
         return fechaVisita === hoy;
       }).length;
 
       const visitasMes = ordenesFiltradas.filter(o => {
         const ultimaVisita = o.visitas?.[o.visitas.length - 1];
         if (!ultimaVisita) return false;
-        const fechaVisita = new Date(ultimaVisita.fechaVisita);
+        const fechaVisita = parseFechaSegura(ultimaVisita.fechaVisita);
         return fechaVisita.getMonth() === mes;
       }).length;
 
@@ -296,8 +319,8 @@ const DashboardScreen = ({ navigation }) => {
 
             const zona = t.zonaSector || 'SIN ZONA';
             const valor = t.valor || 0;
-            const fecha = new Date(t.fechaTransferencia || t.createdAt);
-            const fechaStr = fecha.toISOString().split('T')[0];
+            const fecha = parseFechaSegura(t.fechaTransferencia || t.createdAt);
+            const fechaStr = formatFechaSegura(fecha);
 
             totalValorTransferencias += valor;
 
@@ -335,8 +358,8 @@ const DashboardScreen = ({ navigation }) => {
 
           const evolucionMap = {};
           transferencias.forEach(t => {
-            const fecha = new Date(t.fechaTransferencia || t.createdAt);
-            const fechaStr = fecha.toISOString().split('T')[0];
+            const fecha = parseFechaSegura(t.fechaTransferencia || t.createdAt);
+            const fechaStr = formatFechaSegura(fecha);
             const valor = t.valor || 0;
 
             if (!evolucionMap[fechaStr]) {
@@ -394,8 +417,8 @@ const DashboardScreen = ({ navigation }) => {
         const mesActual = new Date().getMonth();
 
         todosLosServicios.forEach(s => {
-          const fecha = new Date(s.createdAt || s.fechaCreacion || Date.now());
-          const fechaStr = fecha.toISOString().split('T')[0];
+          const fecha = parseFechaSegura(s.createdAt || s.fechaCreacion);
+          const fechaStr = formatFechaSegura(fecha);
           const nombreServicio = s.nombreServicio || 'Sin especificar';
 
           if (!serviciosPorNombre[nombreServicio]) {
@@ -452,7 +475,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 7. USUARIOS - SIN FILTRO DE FECHAS (no aplica)
+      // 7. USUARIOS - SIN FILTRO DE FECHAS
       // ============================================
       let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
 
@@ -481,7 +504,7 @@ const DashboardScreen = ({ navigation }) => {
           const asistencias = asistenciaRes.data.data || [];
           totalAsistencias = asistencias.length;
           asistenciasHoy = asistencias.filter(a => {
-            const fecha = new Date(a.fecha).toISOString().split('T')[0];
+            const fecha = formatFechaSegura(a.fecha);
             return fecha === hoy;
           }).length;
           ausenciasRegistradas = asistencias.filter(a => a.estado === 'ausente').length;
@@ -499,14 +522,14 @@ const DashboardScreen = ({ navigation }) => {
           const ubicaciones = ubicacionesRes.data.data || [];
           totalUbicaciones = ubicaciones.length;
           ubicacionesHoy = ubicaciones.filter(u => {
-            const fecha = new Date(u.createdAt || u.fecha).toISOString().split('T')[0];
+            const fecha = formatFechaSegura(u.createdAt || u.fecha);
             return fecha === hoy;
           }).length;
         }
       } catch (error) {}
 
       // ============================================
-      // 10. BODEGAS - SIN FILTRO (no aplica)
+      // 10. BODEGAS - SIN FILTRO
       // ============================================
       let totalBodegas = 0, totalMateriales = 0, materialesAsignados = 0;
 
@@ -573,8 +596,8 @@ const DashboardScreen = ({ navigation }) => {
           }
 
           visitas.forEach((v, index) => {
-            const fecha = new Date(v.fecha);
-            const fechaStr = fecha.toISOString().split('T')[0];
+            const fecha = parseFechaSegura(v.fecha);
+            const fechaStr = formatFechaSegura(fecha);
             const esCobro = v.tipo === 'Cobro';
             const monto = v.monto || 0;
 
@@ -644,7 +667,7 @@ const DashboardScreen = ({ navigation }) => {
       // 13. ACTIVIDAD RECIENTE
       // ============================================
       const sorted = [...ordenesFiltradas].sort((a, b) =>
-        new Date(b.fechaSubida || b.createdAt) - new Date(a.fechaSubida || a.createdAt)
+        parseFechaSegura(b.fechaSubida || b.createdAt) - parseFechaSegura(a.fechaSubida || a.createdAt)
       );
       setRecentActivity(sorted.slice(0, 5));
 
