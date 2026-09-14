@@ -307,14 +307,38 @@ const DashboardScreen = ({ navigation }) => {
           semanaAtras.setDate(semanaAtras.getDate() - 7);
 
           transferencias.forEach(t => {
-            let banco = 'OTRO';
+            // ✅ EXTRAER BANCO Y NÚMERO DE CUENTA COMPLETO
+            let bancoNombre = 'OTRO';
+            let numeroCuenta = '';
+            let bancoCompleto = '';
+            
             if (t.bancoCuenta) {
-              const match = t.bancoCuenta.match(/Banco\s+([A-Za-zÁÉÍÓÚñÑ]+)/i);
-              if (match) {
-                banco = match[1].toUpperCase();
-              } else {
-                banco = t.bancoCuenta.length > 30 ? t.bancoCuenta.substring(0, 30) + '...' : t.bancoCuenta;
+              // Extraer número de cuenta
+              const numMatch = t.bancoCuenta.match(/N[º°]\s*(\d+)/i) || t.bancoCuenta.match(/(\d{8,})/);
+              if (numMatch) {
+                numeroCuenta = numMatch[1];
               }
+              
+              // Extraer nombre del banco
+              const bancoMatch = t.bancoCuenta.match(/Banco\s+([A-Za-zÁÉÍÓÚñÑ\s]+)/i);
+              if (bancoMatch) {
+                bancoNombre = bancoMatch[1].trim().toUpperCase();
+              } else if (t.bancoCuenta.toLowerCase().includes('pichincha')) {
+                bancoNombre = 'PICHINCHA';
+              } else if (t.bancoCuenta.toLowerCase().includes('guayaquil')) {
+                bancoNombre = 'GUAYAQUIL';
+              } else if (t.bancoCuenta.toLowerCase().includes('internacional')) {
+                bancoNombre = 'INTERNACIONAL';
+              } else if (t.bancoCuenta.toLowerCase().includes('produbanco')) {
+                bancoNombre = 'PRODUBANCO';
+              } else if (t.bancoCuenta.toLowerCase().includes('bolivariano')) {
+                bancoNombre = 'BOLIVARIANO';
+              } else {
+                bancoNombre = t.bancoCuenta.substring(0, 30).toUpperCase();
+              }
+              
+              // Construir clave única
+              bancoCompleto = numeroCuenta ? `${bancoNombre} (${numeroCuenta})` : bancoNombre;
             }
 
             const zona = t.zonaSector || 'SIN ZONA';
@@ -324,11 +348,19 @@ const DashboardScreen = ({ navigation }) => {
 
             totalValorTransferencias += valor;
 
-            if (!transferenciasPorBanco[banco]) {
-              transferenciasPorBanco[banco] = { total: 0, totalValor: 0 };
+            // ✅ GUARDAR BANCO CON NÚMERO DE CUENTA
+            if (!transferenciasPorBanco[bancoCompleto]) {
+              transferenciasPorBanco[bancoCompleto] = { 
+                total: 0, 
+                totalValor: 0,
+                bancoNombre: bancoNombre,
+                numeroCuenta: numeroCuenta
+              };
             }
-            transferenciasPorBanco[banco].total += 1;
-            transferenciasPorBanco[banco].totalValor += valor;
+            transferenciasPorBanco[bancoCompleto].total += 1;
+            transferenciasPorBanco[bancoCompleto].totalValor += valor;
+
+            // ... resto del código igual
 
             if (!transferenciasPorZona[zona]) {
               transferenciasPorZona[zona] = { total: 0, totalValor: 0 };
@@ -928,7 +960,6 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Caja Cerrada: ${stats.cajaCerrada}\n`;
         reporte += `- Saldo Total: $${stats.saldoTotalCaja.toFixed(2)}\n`;
         break;
-
       case 'transferencias':
         reporte += `🔄 TRANSFERENCIAS\n`;
         reporte += `====================================\n`;
@@ -944,18 +975,25 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Mes: ${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}\n`;
         reporte += `- Hoy: ${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}\n\n`;
 
-        reporte += `🏦 POR BANCO\n`;
+        reporte += `🏦 POR BANCO + CUENTA\n`;
+        reporte += `====================================\n`;
         const bancos = stats.transferenciasPorBanco || {};
         if (Object.keys(bancos).length === 0) {
           reporte += `- No hay transferencias registradas\n`;
         } else {
           const bancosOrdenados = Object.entries(bancos).sort((a, b) => b[1].totalValor - a[1].totalValor);
-          for (const [banco, datos] of bancosOrdenados) {
-            reporte += `- ${banco}: ${datos.total} transf - $${datos.totalValor.toFixed(2)}\n`;
+          for (const [clave, datos] of bancosOrdenados) {
+            // ✅ Mostrar banco completo con número de cuenta
+            const bancoNombre = datos.bancoNombre || clave;
+            const cuentaInfo = datos.numeroCuenta ? ` | 💳 Cuenta: ${datos.numeroCuenta}` : '';
+            reporte += `- 🏦 ${bancoNombre}${cuentaInfo}\n`;
+            reporte += `  📄 ${datos.total} transferencias | 💰 Total: $${datos.totalValor.toFixed(2)}\n`;
+            reporte += `  📊 Promedio: $${(datos.totalValor / datos.total).toFixed(2)}\n`;
           }
         }
 
         reporte += `\n📍 POR ZONA/SECTOR\n`;
+        reporte += `====================================\n`;
         const zonas = stats.transferenciasPorZona || {};
         if (Object.keys(zonas).length === 0) {
           reporte += `- No hay transferencias registradas\n`;
