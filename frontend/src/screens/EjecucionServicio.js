@@ -230,7 +230,7 @@ const EjecucionServicio = ({ navigation }) => {
       console.log('📦 Email:', user?.email);
       console.log('📦 Rol:', user?.rol);
       
-      const response = await api.get('/api/mis-materiales');
+      const response = await api.get('/mis-materiales');
       
       console.log('📦 Response status:', response.status);
       console.log('📦 Response data:', JSON.stringify(response.data, null, 2));
@@ -381,7 +381,7 @@ const EjecucionServicio = ({ navigation }) => {
         }));
         
         // Llamar al endpoint para restar materiales
-        await api.post('/api/restar-materiales-bodega', {
+        await api.post('/restar-materiales-bodega', {
           materiales: materialesARestar
         });
         
