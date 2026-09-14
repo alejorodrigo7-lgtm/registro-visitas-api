@@ -1,4 +1,5 @@
-// ✅ CONTROLADOR CORREGIDO - VERSIÓN COMPLETA CON TODAS LAS FUNCIONES
+// ✅ CONTROLADOR CORREGIDO - VERSIÓN FINAL
+// ✅ CON allowDiskUse EN TODAS LAS CONSULTAS CON SORT
 // ✅ CON CORREO AL TÉCNICO EN TOMAR SERVICIO
 // ✅ CON CORREO AL SOLICITANTE EN RETROALIMENTAR SERVICIO
 // ✅ GUARDA URL DE CLOUDINARY EN LUGAR DE BASE64
@@ -276,23 +277,19 @@ exports.tomarServicio = async (req, res) => {
     // ✅ CORRECCIÓN: Guardar la imagen correctamente
     let imagenGuardar = '';
     if (imagen) {
-      // ✅ Si es URL de Cloudinary (empieza con http)
       if (imagen.startsWith('http://') || imagen.startsWith('https://')) {
         imagenGuardar = imagen;
         console.log(`✅ Guardando URL de Cloudinary: ${imagenGuardar.substring(0, 80)}...`);
       } 
-      // ✅ Si es Base64 con prefijo
       else if (imagen.startsWith('data:image')) {
         console.log(`⚠️ Recibido Base64, convirtiendo a URL...`);
         imagenGuardar = imagen;
       }
-      // ✅ Si es solo el ID o nombre de Cloudinary
       else if (imagen.includes('cloudinary.com')) {
         const urlCompleta = imagen.startsWith('http') ? imagen : `https://${imagen}`;
         imagenGuardar = urlCompleta;
         console.log(`✅ URL corregida: ${imagenGuardar.substring(0, 80)}...`);
       }
-      // ✅ Cualquier otra cosa
       else {
         console.log(`⚠️ Formato de imagen no reconocido: ${typeof imagen}`);
         imagenGuardar = '';
@@ -400,7 +397,7 @@ exports.tomarServicio = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER SERVICIOS POR ESTADO
+// ✅ OBTENER SERVICIOS POR ESTADO - CORREGIDO CON allowDiskUse
 // ============================================
 exports.getServiciosByEstado = async (req, res) => {
   try {
@@ -445,11 +442,15 @@ exports.getServiciosByEstado = async (req, res) => {
 
     console.log(`📋 Query final: ${JSON.stringify(query, null, 2)}`);
     
+    // ✅ CORRECCIÓN: allowDiskUse + limit + lean
     const servicios = await Servicio.find(query)
       .populate('tecnico', 'nombre email')
       .populate('jefe', 'nombre email')
       .populate('responsableId', 'nombre email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(500)
+      .lean()
+      .allowDiskUse(true);
 
     console.log(`✅ Servicios encontrados: ${servicios.length}`);
     
@@ -475,7 +476,7 @@ exports.getServiciosByEstado = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER TODOS LOS SERVICIOS
+// ✅ OBTENER TODOS LOS SERVICIOS - CON allowDiskUse
 // ============================================
 exports.getServicios = async (req, res) => {
   try {
@@ -517,14 +518,15 @@ exports.getServicios = async (req, res) => {
 
     console.log(`📋 Query final: ${JSON.stringify(query, null, 2)}`);
 
-    // ✅ CORRECCIÓN: Agregar limit(500) y lean() para evitar error de memoria
+    // ✅ CORRECCIÓN: allowDiskUse + limit + lean
     const servicios = await Servicio.find(query)
       .populate('tecnico', 'nombre email')
       .populate('jefe', 'nombre email')
       .populate('responsableId', 'nombre email')
       .sort({ createdAt: -1 })
-      .limit(500)   // ✅ Limitar a 500 registros
-      .lean();      // ✅ Usar lean() para mejor rendimiento
+      .limit(500)
+      .lean()
+      .allowDiskUse(true);
 
     console.log(`✅ Servicios encontrados: ${servicios.length}`);
 
@@ -614,43 +616,25 @@ exports.ejecutarServicio = async (req, res) => {
 
     const usuario = await User.findById(req.user._id);
 
-    // ✅ CORREGIDO: Procesar materiales correctamente
+    // ✅ Procesar materiales correctamente
     let materialesProcesados = [];
     
     if (materiales && Array.isArray(materiales)) {
       console.log('📦 Procesando array de materiales...');
       materialesProcesados = materiales.map(m => {
-        // Si el material es un objeto con nombre y cantidad
         if (m.nombre) {
-          return {
-            nombre: m.nombre,
-            cantidad: m.cantidad || 1
-          };
+          return { nombre: m.nombre, cantidad: m.cantidad || 1 };
         }
-        // Si el material es solo un nombre (string)
         if (typeof m === 'string') {
-          return {
-            nombre: m,
-            cantidad: 1
-          };
+          return { nombre: m, cantidad: 1 };
         }
-        // Si el material es un objeto con _id (de la bodega)
         if (m._id || m.id) {
-          return {
-            nombre: m.nombre || 'Material',
-            cantidad: m.cantidad || 1
-          };
+          return { nombre: m.nombre || 'Material', cantidad: m.cantidad || 1 };
         }
-        // Fallback
-        return {
-          nombre: 'Material desconocido',
-          cantidad: 1
-        };
+        return { nombre: 'Material desconocido', cantidad: 1 };
       });
-      
       console.log('📦 Materiales procesados:', JSON.stringify(materialesProcesados, null, 2));
     } else if (materiales && typeof materiales === 'object') {
-      // Si es un objeto { "nombre": cantidad, ... }
       console.log('📦 Procesando objeto de materiales...');
       materialesProcesados = Object.keys(materiales).map(nombre => ({
         nombre: nombre,
@@ -661,7 +645,7 @@ exports.ejecutarServicio = async (req, res) => {
 
     servicio.ejecucion = {
       observaciones: observaciones || '',
-      materiales: materialesProcesados,  // ✅ Guardar con nombre y cantidad
+      materiales: materialesProcesados,
       macEquipo: macEquipo || '',
       macRepetidor: macRepetidor || '',
       snReceptor: snReceptor || '',
@@ -674,28 +658,20 @@ exports.ejecutarServicio = async (req, res) => {
     await servicio.save();
 
     console.log(`✅ Servicio ${id} ejecutado correctamente`);
-    console.log(`📦 Materiales guardados:`, JSON.stringify(servicio.ejecucion.materiales, null, 2));
 
-    // 📦 ACTUALIZAR BODEGA
     if (materialesProcesados && materialesProcesados.length > 0) {
-      console.log(`📦 Actualizando bodega del técnico (RESTANDO)...`);
       const tecnicoId = servicio.tecnico?._id || req.user._id;
       const resultadoBodega = await actualizarBodegaTecnico(tecnicoId, materialesProcesados, 'restar');
       
       if (resultadoBodega.success) {
         console.log(`✅ Bodega actualizada: ${resultadoBodega.actualizados} materiales restados`);
-      } else {
-        console.error('❌ Error actualizando bodega:', resultadoBodega.error);
       }
-    } else {
-      console.log('⚠️ No hay materiales para actualizar la bodega');
     }
 
     // ✅ 📧 CORREO AL SOLICITANTE
     try {
       const usuarioSolicitante = servicio.responsableId;
       if (usuarioSolicitante && usuarioSolicitante.email) {
-        console.log(`📧 Enviando correo de ejecución al solicitante: ${usuarioSolicitante.email}`);
         await emailService.enviarNotificacionServicioEjecutado(
           {
             cliente: servicio.cliente,
@@ -706,15 +682,12 @@ exports.ejecutarServicio = async (req, res) => {
           },
           usuarioSolicitante
         );
-        console.log(`✅ Correo de ejecución enviado al solicitante: ${usuarioSolicitante.email}`);
-      } else {
-        console.warn(`⚠️ No se encontró usuario solicitante para el servicio ${id}`);
+        console.log(`✅ Correo de ejecución enviado al solicitante`);
       }
     } catch (error) {
       console.error(`❌ Error enviando correo al solicitante:`, error.message);
     }
 
-    // NOTIFICACIONES PUSH
     try {
       await enviarNotificacionPush(servicio.responsableId, {
         title: '✅ Servicio Ejecutado',
@@ -748,7 +721,6 @@ exports.pendienteServicio = async (req, res) => {
     const { observaciones } = req.body;
 
     console.log(`⏳ Marcando servicio ${id} como pendiente`);
-    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
 
     const servicio = await Servicio.findById(id);
     if (!servicio) {
@@ -780,8 +752,6 @@ exports.pendienteServicio = async (req, res) => {
     servicio.updatedAt = new Date();
 
     await servicio.save();
-
-    console.log(`✅ Servicio ${id} marcado como pendiente`);
 
     const jefe = await User.findById(servicio.jefe?._id || servicio.jefe);
     const responsable = await User.findById(servicio.responsableId);
@@ -835,7 +805,6 @@ exports.retroalimentarServicio = async (req, res) => {
     const { observaciones } = req.body;
 
     console.log(`🔄 Retroalimentando servicio ID: ${id}`);
-    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
 
     const servicio = await Servicio.findById(id)
       .populate('responsableId', 'nombre email');
@@ -866,14 +835,9 @@ exports.retroalimentarServicio = async (req, res) => {
 
     await servicio.save();
 
-    console.log(`✅ Servicio ${id} retroalimentado correctamente`);
-
-    // ✅ 📧 ENVIAR CORREO AL SOLICITANTE
     try {
       const usuarioSolicitante = servicio.responsableId;
       if (usuarioSolicitante && usuarioSolicitante.email) {
-        console.log(`📧 Enviando correo de retroalimentación al solicitante: ${usuarioSolicitante.email}`);
-        
         await emailService.enviarNotificacionServicioRetroalimentado(
           {
             cliente: servicio.cliente,
@@ -885,15 +849,12 @@ exports.retroalimentarServicio = async (req, res) => {
           },
           usuarioSolicitante
         );
-        console.log(`✅ Correo de retroalimentación enviado al solicitante: ${usuarioSolicitante.email}`);
-      } else {
-        console.warn(`⚠️ No se encontró usuario solicitante para el servicio ${id}`);
+        console.log(`✅ Correo de retroalimentación enviado al solicitante`);
       }
     } catch (error) {
       console.error(`❌ Error enviando correo de retroalimentación:`, error.message);
     }
 
-    // NOTIFICACIONES PUSH
     try {
       await enviarNotificacionPush(servicio.responsableId, {
         title: '✅ Servicio Retroalimentado',
@@ -919,7 +880,7 @@ exports.retroalimentarServicio = async (req, res) => {
 };
 
 // ============================================
-// BUSCAR SERVICIOS
+// BUSCAR SERVICIOS - CON allowDiskUse
 // ============================================
 exports.buscarServicios = async (req, res) => {
   try {
@@ -933,7 +894,6 @@ exports.buscarServicios = async (req, res) => {
     }
 
     console.log(`🔍 Buscando servicios: "${search}"`);
-    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
 
     const query = {
       $and: [
@@ -947,11 +907,15 @@ exports.buscarServicios = async (req, res) => {
       ]
     };
 
+    // ✅ CORRECCIÓN: allowDiskUse + limit + lean
     const servicios = await Servicio.find(query)
       .populate('tecnico', 'nombre email')
       .populate('jefe', 'nombre email')
       .populate('responsableId', 'nombre email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(500)
+      .lean()
+      .allowDiskUse(true);
 
     console.log(`✅ Servicios encontrados: ${servicios.length}`);
 
@@ -978,7 +942,6 @@ exports.rechazarServicio = async (req, res) => {
     const { motivo } = req.body;
 
     console.log(`❌ Rechazando servicio ID: ${id}`);
-    console.log(`👤 Usuario: ${req.user.email} (${req.user.rol})`);
 
     const servicio = await Servicio.findById(id);
     if (!servicio) {
@@ -1015,14 +978,13 @@ exports.rechazarServicio = async (req, res) => {
 };
 
 // ============================================
-// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO
+// ✅ OBTENER SERVICIOS TOMADOS POR TÉCNICO - CON allowDiskUse
 // ============================================
 exports.getServiciosTomadosByTecnico = async (req, res) => {
   try {
     const { tecnicoId } = req.params;
     
     console.log(`📋 Buscando servicios TOMADOS para técnico: ${tecnicoId}`);
-    console.log(`👤 Usuario que consulta: ${req.user.email} (${req.user.rol})`);
     
     if (!tecnicoId || tecnicoId === 'undefined' || tecnicoId === 'null' || tecnicoId === '') {
       console.error('❌ ID de técnico inválido:', tecnicoId);
@@ -1041,6 +1003,7 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       });
     }
     
+    // ✅ CORRECCIÓN: allowDiskUse + limit + lean
     const servicios = await Servicio.find({
       'tecnico._id': tecnicoId,
       estado: 'TOMADO',
@@ -1049,7 +1012,10 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
     .populate('tecnico', 'nombre email')
     .populate('jefe', 'nombre email')
     .populate('responsableId', 'nombre email')
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .limit(500)
+    .lean()
+    .allowDiskUse(true);
     
     console.log(`✅ ${servicios.length} servicios encontrados para el técnico ${tecnico.nombre}`);
     
@@ -1070,7 +1036,7 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
 };
 
 // ============================================
-// 👤 OBTENER MIS SERVICIOS ASIGNADOS (TÉCNICO)
+// 👤 OBTENER MIS SERVICIOS ASIGNADOS (TÉCNICO) - CON allowDiskUse
 // ============================================
 exports.getMisServicios = async (req, res) => {
   try {
@@ -1081,10 +1047,12 @@ exports.getMisServicios = async (req, res) => {
       'tecnico._id': req.user._id
     };
 
+    // ✅ CORRECCIÓN: allowDiskUse
     const servicios = await Servicio.find(query)
       .sort({ createdAt: -1 })
       .limit(500)
-      .lean();
+      .lean()
+      .allowDiskUse(true);
 
     console.log(`✅ ${servicios.length} servicios encontrados para técnico ${req.user.email}`);
 
