@@ -475,10 +475,10 @@ exports.getServiciosByEstado = async (req, res) => {
     
     // ✅ CAMBIO: sort por _id en lugar de createdAt
     const servicios = await Servicio.find(query)
-      .populate('tecnico', 'nombre email')
-      .populate('jefe', 'nombre email')
-      .populate('responsableId', 'nombre email')
-      .sort({ _id: -1 })
+
+
+
+
       .limit(500)
       .lean();
 
@@ -574,10 +574,10 @@ exports.getServicios = async (req, res) => {
 
     // ✅ CAMBIO: sort por _id
     const servicios = await Servicio.find(query)
-      .populate('tecnico', 'nombre email')
-      .populate('jefe', 'nombre email')
-      .populate('responsableId', 'nombre email')
-      .sort({ _id: -1 })
+
+
+
+
       .limit(500)
       .lean();
 
@@ -622,9 +622,9 @@ exports.getServicio = async (req, res) => {
     console.log('========================================');
     
     const servicio = await Servicio.findById(id)
-      .populate('tecnico', 'nombre email')
-      .populate('jefe', 'nombre email')
-      .populate('responsableId', 'nombre email');
+
+
+;
 
     if (!servicio) {
       console.log('❌ [GET SERVICIO] Servicio no encontrado');
@@ -666,7 +666,7 @@ exports.ejecutarServicio = async (req, res) => {
     console.log('========================================');
 
     const servicio = await Servicio.findById(id)
-      .populate('responsableId', 'nombre email');
+;
 
     if (!servicio) {
       console.log('❌ [EJECUTAR SERVICIO] Servicio no encontrado');
@@ -923,7 +923,7 @@ exports.retroalimentarServicio = async (req, res) => {
     console.log('========================================');
 
     const servicio = await Servicio.findById(id)
-      .populate('responsableId', 'nombre email');
+;
 
     if (!servicio) {
       console.log('❌ [RETROALIMENTAR SERVICIO] Servicio no encontrado');
@@ -1037,10 +1037,10 @@ exports.buscarServicios = async (req, res) => {
 
     // ✅ CAMBIO: sort por _id
     const servicios = await Servicio.find(query)
-      .populate('tecnico', 'nombre email')
-      .populate('jefe', 'nombre email')
-      .populate('responsableId', 'nombre email')
-      .sort({ _id: -1 })
+
+
+
+
       .limit(500)
       .lean();
 
@@ -1163,10 +1163,10 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       estado: 'TOMADO',
       activo: true
     })
-    .populate('tecnico', 'nombre email')
-    .populate('jefe', 'nombre email')
-    .populate('responsableId', 'nombre email')
-    .sort({ _id: -1 })
+
+
+
+
     .limit(500)
     .lean();
     
@@ -1222,7 +1222,7 @@ exports.getMisServicios = async (req, res) => {
 
     // ✅ CAMBIO: sort por _id
     const servicios = await Servicio.find(query)
-      .sort({ _id: -1 })
+
       .limit(500)
       .lean();
 

@@ -4,11 +4,11 @@
   "description": "API para registro de visitas con sistema de logs en producción",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "analyze-logs": "node scripts/analyze-logs.js",
-    "monitor": "node scripts/monitor-logs.js"
-  },
+  "start": "node --max-old-space-size=400 src/server.js",
+  "dev": "nodemon src/server.js",
+  "analyze-logs": "node scripts/analyze-logs.js",
+  "monitor": "node scripts/monitor-logs.js"
+},
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
     "@sendgrid/mail": "^8.1.6",
