@@ -28,7 +28,13 @@ const EjecucionServicio = ({ navigation }) => {
   const [macEquipo, setMacEquipo] = useState('');
   const [numeroSerie, setNumeroSerie] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
-  
+
+  // ✅ NUEVOS ESTADOS PARA EL MODAL DE DETALLE
+  const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
+  const [servicioDetalle, setServicioDetalle] = useState(null);
+  const [imagenAmpliadaVisible, setImagenAmpliadaVisible] = useState(false);
+  const [imagenAmpliadaUri, setImagenAmpliadaUri] = useState('');
+
   // 📦 Estado para el Picker de materiales
   const [materialSeleccionado, setMaterialSeleccionado] = useState('');
   const [cantidadMaterial, setCantidadMaterial] = useState('1');
@@ -59,17 +65,15 @@ const EjecucionServicio = ({ navigation }) => {
   const isTecnico = user?.rol === 'Tecnico';
 
   // ============================================
-  // 📱 ENVIAR NOTIFICACIONES PUSH A TODOS LOS INVOLUCRADOS
+  // 📱 ENVIAR NOTIFICACIONES PUSH
   // ============================================
   const enviarNotificaciones = async (tipo, servicio, usuarioActual) => {
     try {
       console.log(`📱 Enviando notificación ${tipo}...`);
-      console.log('📱 Servicio:', servicio);
-      
-      // Determinar el mensaje según el tipo
+
       let titulo = '';
       let mensaje = '';
-      
+
       if (tipo === 'EJECUTADO') {
         titulo = '✅ Servicio Ejecutado';
         mensaje = `✅ Se ha ejecutado el servicio de ${servicio.cliente} por ${usuarioActual?.nombre || 'Técnico'}`;
@@ -80,73 +84,46 @@ const EjecucionServicio = ({ navigation }) => {
         titulo = '📋 Servicio Tomado';
         mensaje = `📋 El servicio de ${servicio.cliente} ha sido tomado por ${usuarioActual?.nombre || 'Técnico'}`;
       }
-      
-      // Obtener todos los usuarios involucrados
+
       const usuarioTomadorId = servicio.usuarioTomador?._id || servicio.usuarioTomador;
       const jefeId = servicio.jefeAsignado?._id || servicio.jefeAsignado;
       const tecnicoId = servicio.tecnicoAsignado?._id || servicio.tecnicoAsignado;
-      
-      // Preparar los destinatarios (evitar duplicados)
+
       const destinatariosSet = new Set();
       const destinatarios = [];
-      
-      // 1. Usuario que TOMÓ el servicio (Coordinador, Admin, etc.)
+
       if (usuarioTomadorId) {
         const idStr = usuarioTomadorId.toString();
         if (!destinatariosSet.has(idStr)) {
           destinatariosSet.add(idStr);
-          destinatarios.push({
-            userId: usuarioTomadorId,
-            rol: 'Tomador'
-          });
-          console.log(`📱 Agregado Tomador: ${usuarioTomadorId}`);
+          destinatarios.push({ userId: usuarioTomadorId, rol: 'Tomador' });
         }
       }
-      
-      // 2. Jefe asignado
+
       if (jefeId) {
         const idStr = jefeId.toString();
         if (!destinatariosSet.has(idStr)) {
           destinatariosSet.add(idStr);
-          destinatarios.push({
-            userId: jefeId,
-            rol: 'Jefe'
-          });
-          console.log(`📱 Agregado Jefe: ${jefeId}`);
+          destinatarios.push({ userId: jefeId, rol: 'Jefe' });
         }
       }
-      
-      // 3. Técnico asignado (si es diferente al usuario actual)
+
       if (tecnicoId) {
         const idStr = tecnicoId.toString();
         if (!destinatariosSet.has(idStr) && tecnicoId !== usuarioActual?._id) {
           destinatariosSet.add(idStr);
-          destinatarios.push({
-            userId: tecnicoId,
-            rol: 'Técnico'
-          });
-          console.log(`📱 Agregado Técnico: ${tecnicoId}`);
+          destinatarios.push({ userId: tecnicoId, rol: 'Técnico' });
         }
       }
-      
-      // 4. El usuario que ejecutó el servicio (si no está en la lista)
+
       if (usuarioActual?._id) {
         const idStr = usuarioActual._id.toString();
         if (!destinatariosSet.has(idStr)) {
           destinatariosSet.add(idStr);
-          destinatarios.push({
-            userId: usuarioActual._id,
-            rol: 'Ejecutor'
-          });
-          console.log(`📱 Agregado Ejecutor: ${usuarioActual._id}`);
+          destinatarios.push({ userId: usuarioActual._id, rol: 'Ejecutor' });
         }
       }
-      
-      console.log(`📱 Total destinatarios: ${destinatarios.length}`);
-      console.log('📱 Destinatarios:', JSON.stringify(destinatarios, null, 2));
-      
-      // Enviar notificación a cada destinatario
-      let notificacionesEnviadas = 0;
+
       for (const destinatario of destinatarios) {
         try {
           await api.post('/notificaciones/enviar', {
@@ -161,14 +138,11 @@ const EjecucionServicio = ({ navigation }) => {
               tipo: tipo === 'EJECUTADO' ? 'EJECUTADO' : tipo === 'PENDIENTE' ? 'PENDIENTE' : 'TOMADO'
             }
           });
-          notificacionesEnviadas++;
-          console.log(`✅ Notificación enviada a ${destinatario.rol}: ${destinatario.userId}`);
+          console.log(`✅ Notificación enviada a ${destinatario.rol}`);
         } catch (error) {
           console.error(`❌ Error enviando notificación a ${destinatario.rol}:`, error);
         }
       }
-      
-      console.log(`✅ ${notificacionesEnviadas} notificaciones enviadas correctamente`);
     } catch (error) {
       console.error('❌ Error enviando notificaciones:', error);
     }
@@ -182,8 +156,6 @@ const EjecucionServicio = ({ navigation }) => {
     setDebugInfo('Cargando...');
     try {
       console.log('📱 === CARGANDO SERVICIOS ===');
-      console.log('📱 Usuario:', user?.email);
-      console.log('📱 Rol:', user?.rol);
 
       const response = await api.get('/servicios/estado/TOMADO', {
         headers: {
@@ -196,10 +168,8 @@ const EjecucionServicio = ({ navigation }) => {
 
       if (response.data?.data && Array.isArray(response.data.data)) {
         serviciosData = response.data.data;
-        console.log(`📱 Servicios recibidos: ${serviciosData.length}`);
       } else if (Array.isArray(response.data)) {
         serviciosData = response.data;
-        console.log(`📱 Servicios recibidos (array): ${serviciosData.length}`);
       }
 
       setServicios(serviciosData);
@@ -226,45 +196,26 @@ const EjecucionServicio = ({ navigation }) => {
     setCargandoBodega(true);
     try {
       console.log('📦 === CARGANDO BODEGA DEL TÉCNICO ===');
-      console.log('📦 Usuario ID:', user?._id);
-      console.log('📦 Email:', user?.email);
-      console.log('📦 Rol:', user?.rol);
-      
+
       const response = await api.get('/bodegas/mis-materiales');
-      
-      console.log('📦 Response status:', response.status);
-      console.log('📦 Response data:', JSON.stringify(response.data, null, 2));
-      
+
       if (response.data.success && response.data.data) {
         const bodegaData = response.data.data;
         const materiales = bodegaData.materiales || [];
-        
-        console.log(`📦 Materiales extraídos: ${materiales.length}`);
-        
-        if (materiales.length > 0) {
-          console.log('📋 Materiales en bodega:');
-          materiales.forEach((m, i) => {
-            console.log(`  ${i+1}. ${m.nombre}: ${m.cantidad} ${m.unidad || 'uds'}`);
-          });
-        } else {
-          console.log('⚠️ La bodega no tiene materiales asignados');
-        }
-        
+
         setBodega({
           _id: bodegaData._id,
           nombre: bodegaData.nombre || 'Bodega Técnico',
           materiales: materiales,
           usuarioNombre: bodegaData.usuarioNombre,
         });
-        
-        console.log('✅ Bodega cargada correctamente:', bodegaData.nombre);
+
+        console.log('✅ Bodega cargada:', bodegaData.nombre);
       } else {
-        console.log('⚠️ No se pudo obtener la bodega');
         setBodega(null);
       }
     } catch (error) {
       console.error('❌ Error al cargar bodega:', error);
-      console.error('❌ Detalles:', error.response?.data);
       setBodega(null);
     } finally {
       setCargandoBodega(false);
@@ -277,7 +228,7 @@ const EjecucionServicio = ({ navigation }) => {
   }, []);
 
   // ============================================
-  // ➕ AGREGAR MATERIAL DESDE EL PICKER
+  // ➕ AGREGAR MATERIAL
   // ============================================
   const agregarMaterial = () => {
     if (!materialSeleccionado) {
@@ -290,14 +241,11 @@ const EjecucionServicio = ({ navigation }) => {
       return;
     }
 
-    console.log('➕ Agregando material:', materialSeleccionado, 'Cantidad:', cantidad);
-
-    // Verificar stock en bodega si existe
     if (bodega) {
       const materialEnBodega = bodega.materiales?.find(
         m => m.nombre === materialSeleccionado
       );
-      
+
       if (materialEnBodega && materialEnBodega.cantidad < cantidad) {
         Alert.alert(
           '⚠️ Stock insuficiente',
@@ -316,7 +264,6 @@ const EjecucionServicio = ({ navigation }) => {
     }));
     setMaterialSeleccionado('');
     setCantidadMaterial('1');
-    console.log('✅ Material agregado a la lista');
   };
 
   // ============================================
@@ -346,15 +293,14 @@ const EjecucionServicio = ({ navigation }) => {
       key => materialesDelServicio[key] > 0
     );
 
-    // ⚠️ OPCIONAL: Mostrar advertencia si no reporta materiales
     if (materialesReportados.length === 0) {
       Alert.alert(
         '⚠️ Sin materiales',
         'No has reportado ningún material. ¿Deseas continuar?',
         [
           { text: 'Cancelar', style: 'cancel' },
-          { 
-            text: 'Continuar sin materiales', 
+          {
+            text: 'Continuar sin materiales',
             onPress: () => ejecutarServicio(materialesDelServicio)
           }
         ]
@@ -368,27 +314,23 @@ const EjecucionServicio = ({ navigation }) => {
   const ejecutarServicio = async (materialesDelServicio) => {
     setLoading(true);
     try {
-      // 📦 1. RESTAR MATERIALES DE LA BODEGA
       const materialesReportados = Object.keys(materialesDelServicio);
-      
+
       if (materialesReportados.length > 0) {
         console.log('📦 Restando materiales de bodega...');
-        
-        // Crear array de materiales a restar
+
         const materialesARestar = materialesReportados.map(nombre => ({
           nombre: nombre,
           cantidad: materialesDelServicio[nombre]
         }));
-        
-        // Llamar al endpoint para restar materiales
+
         await api.post('/bodegas/restar-materiales-bodega', {
           materiales: materialesARestar
         });
-        
+
         console.log('✅ Materiales restados correctamente');
       }
 
-      // 2. EJECUTAR EL SERVICIO
       const dataToSend = {
         materiales: materialesDelServicio,
         observaciones: observaciones || 'Servicio ejecutado',
@@ -397,16 +339,9 @@ const EjecucionServicio = ({ navigation }) => {
         estado: 'EJECUTADO',
       };
 
-      console.log('📤 Ejecutando servicio con:', dataToSend);
-
       await api.put(`/servicios/${servicioSeleccionado._id}/ejecutar`, dataToSend);
 
-      // 3. ENVIAR NOTIFICACIONES PUSH A TODOS LOS INVOLUCRADOS
-      await enviarNotificaciones(
-        'EJECUTADO',
-        servicioSeleccionado,
-        user
-      );
+      await enviarNotificaciones('EJECUTADO', servicioSeleccionado, user);
 
       Alert.alert(
         '✅ Éxito',
@@ -458,12 +393,7 @@ const EjecucionServicio = ({ navigation }) => {
                 observaciones: observaciones || 'Servicio pendiente por ejecutar'
               });
 
-              // 📱 ENVIAR NOTIFICACIÓN DE PENDIENTE A TODOS
-              await enviarNotificaciones(
-                'PENDIENTE',
-                servicioSeleccionado,
-                user
-              );
+              await enviarNotificaciones('PENDIENTE', servicioSeleccionado, user);
 
               Alert.alert(
                 '⚠️ Servicio Pendiente',
@@ -545,14 +475,9 @@ const EjecucionServicio = ({ navigation }) => {
               key={servicio._id}
               style={styles.servicioCard}
               onPress={() => {
-                setServicioSeleccionado(servicio);
-                setMaterialesSeleccionados({});
-                setObservaciones('');
-                setMacEquipo('');
-                setNumeroSerie('');
-                setMaterialSeleccionado('');
-                setCantidadMaterial('1');
-                setModalVisible(true);
+                // ✅ ABRIR MODAL DE DETALLE PRIMERO
+                setServicioDetalle(servicio);
+                setModalDetalleVisible(true);
               }}
               activeOpacity={0.7}
             >
@@ -565,11 +490,213 @@ const EjecucionServicio = ({ navigation }) => {
 
               <Text style={styles.servicioInfo}>🔧 {servicio.nombreServicio}</Text>
               <Text style={styles.servicioInfo}>📍 {servicio.direccion}</Text>
-              <Text style={styles.servicioInfo}>👤 Técnico: {servicio.tecnicoAsignado?.nombre || 'N/A'}</Text>
+              <Text style={styles.servicioInfo}>👤 Técnico: {servicio.tecnico?.nombre || servicio.tecnicoAsignado?.nombre || 'N/A'}</Text>
+
+              {servicio.imagen && (
+                <View style={styles.cardImagePreview}>
+                  <Ionicons name="image" size={16} color="#6C5CE7" />
+                  <Text style={styles.cardImageText}>📸 Tiene imagen adjunta</Text>
+                </View>
+              )}
             </TouchableOpacity>
           ))
         )}
       </ScrollView>
+
+      {/* ============================================
+          MODAL DE DETALLE DEL SERVICIO (NUEVO)
+          ============================================ */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalDetalleVisible}
+        onRequestClose={() => setModalDetalleVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <ScrollView style={styles.modalContent}>
+            {servicioDetalle && (
+              <>
+                {/* Cabecera */}
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>📋 Detalle del Servicio</Text>
+                  <TouchableOpacity onPress={() => setModalDetalleVisible(false)}>
+                    <Ionicons name="close" size={28} color="#999" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Estado */}
+                <View style={styles.detalleEstadoBadge}>
+                  <Text style={styles.detalleEstadoText}>{servicioDetalle.estado || 'TOMADO'}</Text>
+                </View>
+
+                {/* Imagen */}
+                {servicioDetalle.imagen && (
+                  <TouchableOpacity
+                    style={styles.detalleImagenContainer}
+                    onPress={() => {
+                      setImagenAmpliadaUri(servicioDetalle.imagen);
+                      setImagenAmpliadaVisible(true);
+                    }}
+                  >
+                    <Image
+                      source={{ uri: servicioDetalle.imagen }}
+                      style={styles.detalleImagen}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.imagenOverlay}>
+                      <Ionicons name="expand-outline" size={20} color="#FFFFFF" />
+                      <Text style={styles.imagenOverlayText}>Tocar para ampliar</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* Información del Servicio */}
+                <View style={styles.detalleSeccion}>
+                  <Text style={styles.detalleSeccionTitulo}>📌 Información del Servicio</Text>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>🔧 Servicio</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.nombreServicio || 'N/A'}</Text>
+                  </View>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>🔢 Código</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.codigoIdentificador || 'N/A'}</Text>
+                  </View>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>📊 Prioridad</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.prioridad || 'Normal'}</Text>
+                  </View>
+
+                  {servicioDetalle.observaciones && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>📝 Observaciones</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle.observaciones}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>📅 Fecha de Creación</Text>
+                    <Text style={styles.detalleCampoValor}>
+                      {new Date(servicioDetalle.createdAt).toLocaleDateString('es-EC', {
+                        day: '2-digit', month: 'long', year: 'numeric'
+                      })}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Información del Cliente */}
+                <View style={styles.detalleSeccion}>
+                  <Text style={styles.detalleSeccionTitulo}>👤 Información del Cliente</Text>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>👤 Nombre</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.cliente || 'N/A'}</Text>
+                  </View>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>📍 Dirección</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.direccion || 'N/A'}</Text>
+                  </View>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>🏘️ Barrio</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.barrio || 'N/A'}</Text>
+                  </View>
+
+                  <View style={styles.detalleCampo}>
+                    <Text style={styles.detalleCampoLabel}>📞 Teléfono</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.telefono || 'N/A'}</Text>
+                  </View>
+
+                  {servicioDetalle.telefonos && servicioDetalle.telefonos.length > 0 && (
+                    <View style={styles.detalleCampo}>
+                      <Text style={styles.detalleCampoLabel}>📞 Teléfonos Adicionales</Text>
+                      <Text style={styles.detalleCampoValor}>{servicioDetalle.telefonos.join(', ')}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Técnico Asignado */}
+                {servicioDetalle.tecnico && (
+                  <View style={styles.detalleSeccion}>
+                    <Text style={styles.detalleSeccionTitulo}>🔧 Técnico Asignado</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.tecnico.nombre || 'N/A'}</Text>
+                  </View>
+                )}
+
+                {/* Jefe Asignado */}
+                {servicioDetalle.jefe && (
+                  <View style={styles.detalleSeccion}>
+                    <Text style={styles.detalleSeccionTitulo}>👔 Jefe Asignado</Text>
+                    <Text style={styles.detalleCampoValor}>{servicioDetalle.jefe.nombre || 'N/A'}</Text>
+                  </View>
+                )}
+
+                {/* Botones */}
+                <View style={styles.detalleBotones}>
+                  <TouchableOpacity
+                    style={styles.detalleBotonAtras}
+                    onPress={() => setModalDetalleVisible(false)}
+                  >
+                    <Ionicons name="arrow-back" size={20} color="#6C5CE7" />
+                    <Text style={styles.detalleBotonAtrasText}>Atrás</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.detalleBotonEjecutar}
+                    onPress={() => {
+                      setModalDetalleVisible(false);
+                      setServicioSeleccionado(servicioDetalle);
+                      setMaterialesSeleccionados({});
+                      setObservaciones('');
+                      setMacEquipo('');
+                      setNumeroSerie('');
+                      setMaterialSeleccionado('');
+                      setCantidadMaterial('1');
+                      setModalVisible(true);
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.detalleBotonEjecutarText}>Ejecutar Servicio</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ============================================
+          MODAL DE IMAGEN AMPLIADA
+          ============================================ */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={imagenAmpliadaVisible}
+        onRequestClose={() => setImagenAmpliadaVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.imagenAmpliadaOverlay}
+          activeOpacity={1}
+          onPress={() => setImagenAmpliadaVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.imagenAmpliadaClose}
+            onPress={() => setImagenAmpliadaVisible(false)}
+          >
+            <Ionicons name="close-circle" size={40} color="#FFFFFF" />
+          </TouchableOpacity>
+          {imagenAmpliadaUri && (
+            <Image
+              source={{ uri: imagenAmpliadaUri }}
+              style={styles.imagenAmpliada}
+              resizeMode="contain"
+            />
+          )}
+        </TouchableOpacity>
+      </Modal>
 
       {/* ============================================
           MODAL DE EJECUCIÓN
@@ -595,7 +722,6 @@ const EjecucionServicio = ({ navigation }) => {
               </View>
             )}
 
-            {/* 📝 OBSERVACIONES */}
             <Text style={styles.modalLabel}>📝 Observaciones</Text>
             <TextInput
               style={[styles.modalInput, styles.modalTextArea]}
@@ -606,9 +732,8 @@ const EjecucionServicio = ({ navigation }) => {
               numberOfLines={3}
             />
 
-            {/* 📦 MATERIALES USADOS - PICKER DESPLEGABLE */}
             <Text style={styles.modalLabel}>📦 Materiales Usados (Opcional)</Text>
-            
+
             <View style={styles.materialContainer}>
               <View style={styles.pickerContainer}>
                 <Picker
@@ -622,7 +747,7 @@ const EjecucionServicio = ({ navigation }) => {
                   ))}
                 </Picker>
               </View>
-              
+
               <TextInput
                 style={styles.cantidadInput}
                 value={cantidadMaterial}
@@ -630,16 +755,15 @@ const EjecucionServicio = ({ navigation }) => {
                 placeholder="Cant"
                 keyboardType="numeric"
               />
-              
-              <TouchableOpacity 
-                style={styles.agregarMaterialButton} 
+
+              <TouchableOpacity
+                style={styles.agregarMaterialButton}
                 onPress={agregarMaterial}
               >
                 <Text style={styles.agregarMaterialText}>➕</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Materiales seleccionados - mostrados como etiquetas */}
             {servicioSeleccionado && (
               <View style={styles.materialesLista}>
                 {Object.keys(materialesSeleccionados[servicioSeleccionado._id] || {}).map((nombre) => {
@@ -663,7 +787,6 @@ const EjecucionServicio = ({ navigation }) => {
               💡 Los materiales son opcionales. Puedes ejecutar el servicio sin reportar materiales.
             </Text>
 
-            {/* 📶 MAC Y NÚMERO DE SERIE */}
             <Text style={styles.modalLabel}>📶 MAC Equipo</Text>
             <TextInput
               style={styles.modalInput}
@@ -682,7 +805,6 @@ const EjecucionServicio = ({ navigation }) => {
 
             <Text style={styles.modalResponsable}>👤 Responsable: {user?.nombre || ''}</Text>
 
-            {/* BOTONES DE ACCIÓN */}
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.pendienteButton]}
@@ -831,6 +953,21 @@ const styles = StyleSheet.create({
     color: '#636E72',
     marginBottom: 4,
   },
+  cardImagePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    backgroundColor: '#EDE7F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  cardImageText: {
+    fontSize: 12,
+    color: '#6C5CE7',
+    marginLeft: 4,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -842,7 +979,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     width: '90%',
-    maxHeight: '80%',
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
   },
   modalTitle: {
     fontSize: 20,
@@ -991,6 +1134,131 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginBottom: 10,
     fontStyle: 'italic',
+  },
+
+  // ✅ ESTILOS PARA EL MODAL DE DETALLE
+  detalleEstadoBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#FDCB6E',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 15,
+  },
+  detalleEstadoText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  detalleImagenContainer: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 15,
+    position: 'relative',
+    backgroundColor: '#F0F0F0',
+  },
+  detalleImagen: {
+    width: '100%',
+    height: '100%',
+  },
+  imagenOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  imagenOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginLeft: 6,
+  },
+  detalleSeccion: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  detalleSeccionTitulo: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8ECF1',
+    paddingBottom: 8,
+  },
+  detalleCampo: {
+    marginBottom: 8,
+  },
+  detalleCampoLabel: {
+    fontSize: 12,
+    color: '#636E72',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  detalleCampoValor: {
+    fontSize: 15,
+    color: '#2D3436',
+  },
+  detalleBotones: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  detalleBotonAtras: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 6,
+  },
+  detalleBotonAtrasText: {
+    fontSize: 15,
+    color: '#6C5CE7',
+    fontWeight: '600',
+  },
+  detalleBotonEjecutar: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00B894',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 6,
+  },
+  detalleBotonEjecutarText: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  imagenAmpliadaOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagenAmpliada: {
+    width: '95%',
+    height: '80%',
+    borderRadius: 10,
+  },
+  imagenAmpliadaClose: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
   },
 });
 
