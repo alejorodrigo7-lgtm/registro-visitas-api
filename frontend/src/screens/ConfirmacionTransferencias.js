@@ -284,6 +284,55 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         <Text style={styles.title}>📋 Confirmación de Transferencias</Text>
       </View>
 
+      {/* FILTRO POR FECHA */}
+      <View style={styles.filtroFechaContainer}>
+        <View style={styles.filtroFechaRow}>
+          <TouchableOpacity
+            style={[styles.filtroFechaBtn, fechaInicio && styles.filtroFechaBtnActivo]}
+            onPress={() => abrirDatePicker('start')}
+          >
+            <Text style={styles.filtroFechaLabel}>Desde:</Text>
+            <Text style={styles.filtroFechaValor}>{formatFechaFiltro(fechaInicio)}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filtroFechaBtn, fechaFin && styles.filtroFechaBtnActivo]}
+            onPress={() => abrirDatePicker('end')}
+          >
+            <Text style={styles.filtroFechaLabel}>Hasta:</Text>
+            <Text style={styles.filtroFechaValor}>{formatFechaFiltro(fechaFin)}</Text>
+          </TouchableOpacity>
+
+          {hayFiltroFecha && (
+            <TouchableOpacity
+              style={styles.filtroFechaClear}
+              onPress={limpiarFiltroFecha}
+            >
+              <Text style={styles.filtroFechaClearText}>X</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {hayFiltroFecha && (
+          <Text style={styles.filtroFechaInfo}>
+            Mostrando {transferenciasFiltradas.length} de {transferencias.length} transferencias
+          </Text>
+        )}
+      </View>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={
+            datePickerMode === 'start'
+              ? (fechaInicio || new Date())
+              : (fechaFin || new Date())
+          }
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDateChange}
+        />
+      )}
+
       <ScrollView
         style={styles.listaContainer}
         refreshControl={
