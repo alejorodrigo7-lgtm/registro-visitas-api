@@ -108,7 +108,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           onPress: async () => {
             try {
               await api.put(`/transferencias/${id}/confirmar`, { estado });
-              Alert.alert(', `Transferencia ${estado === 'CONFIRMADA' ? 'confirmada' : 'denegada'} correctamente`);
+              Alert.alert('Éxito', `Transferencia ${estado === 'CONFIRMADA' ? 'confirmada' : 'denegada'} correctamente`);
               setModalVisible(false);
               cargarTransferencias();
             } catch (error) {
