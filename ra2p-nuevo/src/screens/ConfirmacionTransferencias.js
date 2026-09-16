@@ -48,12 +48,40 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
   // ✅ FUNCIÓN PARA OBTENER LA IMAGEN
   const getImagen = (item) => {
-    if (item.imagenComprobante && item.imagenComprobante.length > 100) {
-      return item.imagenComprobante;
+    // ? PRIORIDAD 1: imagenComprobante
+    if (item.imagenComprobante) {
+      const img = item.imagenComprobante;
+      // Es URL de Cloudinary/HTTP
+      if (img.startsWith('http://') || img.startsWith('https://')) {
+        return img;
+      }
+      // Es Base64 con prefijo
+      if (img.startsWith('data:image')) {
+        return img;
+      }
+      // Es Base64 sin prefijo (largo > 100)
+      if (img.length > 100) {
+        return img;
+      }
     }
-    if (item.soporte && item.soporte.length > 100) {
-      return item.soporte;
+    
+    // ? PRIORIDAD 2: soporte (solo si es URL o Base64 v�lido)
+    if (item.soporte) {
+      const sop = item.soporte;
+      // Es URL de Cloudinary/HTTP
+      if (sop.startsWith('http://') || sop.startsWith('https://')) {
+        return sop;
+      }
+      // Es Base64 con prefijo
+      if (sop.startsWith('data:image')) {
+        return sop;
+      }
+      // Es Base64 sin prefijo (largo > 100)
+      if (sop.length > 100) {
+        return sop;
+      }
     }
+    
     return null;
   };
 
@@ -578,4 +606,5 @@ const styles = StyleSheet.create({
 });
 
 export default ConfirmacionTransferencias;
+
 

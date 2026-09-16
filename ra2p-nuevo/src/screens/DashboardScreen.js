@@ -27,9 +27,9 @@ const DashboardScreen = ({ navigation }) => {
   const [datePickerMode, setDatePickerMode] = useState('start');
   const [fechaInicio, setFechaInicio] = useState(new Date());
   const [fechaFin, setFechaFin] = useState(new Date());
-  
+
   const [subMenuActual, setSubMenuActual] = useState('resumen');
-  
+
   const [modalCorreoVisible, setModalCorreoVisible] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
@@ -135,6 +135,29 @@ const DashboardScreen = ({ navigation }) => {
     return d.toISOString().split('T')[0];
   };
 
+  // ✅ FUNCIÓN AUXILIAR: PARSEAR FECHA SEGURA
+  const parseFechaSegura = (fecha) => {
+    try {
+      if (!fecha) return new Date();
+      const d = new Date(fecha);
+      if (isNaN(d.getTime())) return new Date();
+      return d;
+    } catch (error) {
+      console.error('Error parseando fecha:', fecha, error);
+      return new Date();
+    }
+  };
+
+  // ✅ FUNCIÓN AUXILIAR: FORMATEAR FECHA SEGURA
+  const formatFechaSegura = (fecha) => {
+    try {
+      const d = parseFechaSegura(fecha);
+      return d.toISOString().split('T')[0];
+    } catch (error) {
+      return new Date().toISOString().split('T')[0];
+    }
+  };
+
   // ✅ Cargar TODOS los usuarios para el selector de correos
   const cargarUsuarios = async () => {
     try {
@@ -167,21 +190,27 @@ const DashboardScreen = ({ navigation }) => {
   const cargarDashboard = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       const hoy = new Date().toISOString().split('T')[0];
       const mes = new Date().getMonth();
       const fechaInicioStr = formatDateAPI(fechaInicio);
       const fechaFinStr = formatDateAPI(fechaFin);
 
+      console.log('═══════════════════════════════════════');
+      console.log(`📅 CARGANDO DASHBOARD`);
+      console.log(`📅 Fecha inicio: ${fechaInicioStr}`);
+      console.log(`📅 Fecha fin: ${fechaFinStr}`);
+      console.log('═══════════════════════════════════════');
+
       // ============================================
-      // 1. RECUPERACIÓN DE EQUIPOS - CON FILTRO DE FECHAS
+      // 1. RECUPERACIÓN DE EQUIPOS - CON FECHAS
       // ============================================
       const [asignadas, noRetirado, retirado, anulado, reconectado] = await Promise.all([
-        api.get('/recuperacion/ordenes/estado/asignada'),
-        api.get('/recuperacion/ordenes/estado/no_retirado'),
-        api.get('/recuperacion/ordenes/estado/retirado'),
-        api.get('/recuperacion/ordenes/estado/anulado'),
-        api.get('/recuperacion/ordenes/estado/reconectado'),
+        api.get(`/recuperacion/ordenes/estado/asignada?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/no_retirado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/retirado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/anulado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/reconectado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
       ]);
 
       const totalOrdenes = 
@@ -191,12 +220,12 @@ const DashboardScreen = ({ navigation }) => {
         (anulado.data.data?.length || 0) +
         (reconectado.data.data?.length || 0);
 
-      const response = await api.get('/recuperacion/ordenes');
+      const response = await api.get(`/recuperacion/ordenes?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } }));
       const todasOrdenes = response.data.data || [];
-      
+
       const ordenesFiltradas = todasOrdenes.filter(o => {
-        const fechaCreacion = new Date(o.fechaSubida || o.createdAt);
-        const fechaCreacionStr = formatDateAPI(fechaCreacion);
+        const fechaCreacion = parseFechaSegura(o.fechaSubida || o.createdAt);
+        const fechaCreacionStr = formatFechaSegura(fechaCreacion);
         return fechaCreacionStr >= fechaInicioStr && fechaCreacionStr <= fechaFinStr;
       });
 
@@ -204,14 +233,14 @@ const DashboardScreen = ({ navigation }) => {
       const visitasHoy = ordenesFiltradas.filter(o => {
         const ultimaVisita = o.visitas?.[o.visitas.length - 1];
         if (!ultimaVisita) return false;
-        const fechaVisita = new Date(ultimaVisita.fechaVisita).toISOString().split('T')[0];
+        const fechaVisita = formatFechaSegura(ultimaVisita.fechaVisita);
         return fechaVisita === hoy;
       }).length;
 
       const visitasMes = ordenesFiltradas.filter(o => {
         const ultimaVisita = o.visitas?.[o.visitas.length - 1];
         if (!ultimaVisita) return false;
-        const fechaVisita = new Date(ultimaVisita.fechaVisita);
+        const fechaVisita = parseFechaSegura(ultimaVisita.fechaVisita);
         return fechaVisita.getMonth() === mes;
       }).length;
 
@@ -220,45 +249,35 @@ const DashboardScreen = ({ navigation }) => {
       const promedioVisitas = totalOrdenes > 0 ? Number((totalVisitas / totalOrdenes).toFixed(1)) : 0;
 
       // ============================================
-      // 2. CAJA / DEPÓSITOS - CON FILTRO DE FECHAS
+      // 2. CAJA / DEPÓSITOS - CON FECHAS
       // ============================================
       let totalDepositos = 0, depositosPendientes = 0, depositosAprobados = 0, depositosRechazados = 0;
       let totalCaja = 0, cajaAbierta = 0, cajaCerrada = 0, saldoTotalCaja = 0;
 
       try {
-        const depositosRes = await api.get('/depositos');
+        const depositosRes = await api.get(`/depositos?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (depositosRes.data.success) {
           const depositos = depositosRes.data.data || [];
-          const depositosFiltrados = depositos.filter(d => {
-            const fecha = new Date(d.fecha || d.createdAt);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          totalDepositos = depositosFiltrados.length;
-          depositosPendientes = depositosFiltrados.filter(d => d.estado === 'pendiente').length;
-          depositosAprobados = depositosFiltrados.filter(d => d.estado === 'aprobado').length;
-          depositosRechazados = depositosFiltrados.filter(d => d.estado === 'rechazado').length;
+          totalDepositos = depositos.length;
+          depositosPendientes = depositos.filter(d => d.estado === 'pendiente').length;
+          depositosAprobados = depositos.filter(d => d.estado === 'aprobado').length;
+          depositosRechazados = depositos.filter(d => d.estado === 'rechazado').length;
         }
       } catch (error) {}
 
       try {
-        const cajaRes = await api.get('/caja/cuadres');
+        const cajaRes = await api.get(`/caja/cuadres?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (cajaRes.data.success) {
           const cajaData = cajaRes.data.data || [];
-          const cajaFiltrada = cajaData.filter(c => {
-            const fecha = new Date(c.fecha || c.createdAt);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          totalCaja = cajaFiltrada.length;
-          cajaAbierta = cajaFiltrada.filter(c => !c.cerrado).length;
-          cajaCerrada = cajaFiltrada.filter(c => c.cerrado).length;
-          saldoTotalCaja = cajaFiltrada.reduce((acc, c) => acc + (c.saldoDisponible || 0), 0);
+          totalCaja = cajaData.length;
+          cajaAbierta = cajaData.filter(c => !c.cerrado).length;
+          cajaCerrada = cajaData.filter(c => c.cerrado).length;
+          saldoTotalCaja = cajaData.reduce((acc, c) => acc + (c.saldoDisponible || 0), 0);
         }
       } catch (error) {}
 
       // ============================================
-      // 3. TRANSFERENCIAS - ESTADÍSTICAS POR BANCO + CUENTA
+      // 3. TRANSFERENCIAS - CON FECHAS
       // ============================================
       let totalTransferencias = 0, transferenciasPendientes = 0, transferenciasAprobadas = 0, transferenciasDenegadas = 0;
       let totalValorTransferencias = 0;
@@ -272,32 +291,23 @@ const DashboardScreen = ({ navigation }) => {
       let maxValorZona = 0;
 
       try {
-        console.log('📡 Cargando transferencias con estadísticas...');
-        const transferenciasRes = await api.get('/transferencias');
-        
+        console.log('📡 Cargando transferencias...');
+        const transferenciasRes = await api.get(`/transferencias?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
+
         if (transferenciasRes.data.success) {
           const transferencias = transferenciasRes.data.data || [];
-          
-          const transferenciasFiltradas = transferencias.filter(t => {
-            const fecha = new Date(t.fechaTransferencia || t.createdAt);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          
-          console.log(`📊 Transferencias totales: ${transferencias.length}, Filtradas: ${transferenciasFiltradas.length}`);
-          
-          totalTransferencias = transferenciasFiltradas.length;
-          transferenciasPendientes = transferenciasFiltradas.filter(t => t.estado === 'pendiente').length;
-          transferenciasAprobadas = transferenciasFiltradas.filter(t => t.estado === 'aprobado').length;
-          transferenciasDenegadas = transferenciasFiltradas.filter(t => t.estado === 'denegado').length;
-          
+          totalTransferencias = transferencias.length;
+          transferenciasPendientes = transferencias.filter(t => t.estado === 'pendiente').length;
+          transferenciasAprobadas = transferencias.filter(t => t.estado === 'aprobado').length;
+          transferenciasDenegadas = transferencias.filter(t => t.estado === 'denegado').length;
+
           const hoyStr = new Date().toISOString().split('T')[0];
           const mesActual = new Date().getMonth();
           const semanaAtras = new Date();
           semanaAtras.setDate(semanaAtras.getDate() - 7);
-          
-          transferenciasFiltradas.forEach(t => {
-            // ===== EXTRAER BANCO Y NÚMERO DE CUENTA =====
+
+          transferencias.forEach(t => {
+            // ✅ EXTRAER BANCO Y NÚMERO DE CUENTA COMPLETO
             let bancoNombre = 'OTRO';
             let numeroCuenta = '';
             let bancoCompleto = '';
@@ -327,18 +337,18 @@ const DashboardScreen = ({ navigation }) => {
                 bancoNombre = t.bancoCuenta.substring(0, 30).toUpperCase();
               }
               
-              // Construir clave única: Banco + Número de Cuenta
+              // Construir clave única
               bancoCompleto = numeroCuenta ? `${bancoNombre} (${numeroCuenta})` : bancoNombre;
             }
-            
+
             const zona = t.zonaSector || 'SIN ZONA';
             const valor = t.valor || 0;
-            const fecha = new Date(t.fechaTransferencia || t.createdAt);
-            const fechaStr = fecha.toISOString().split('T')[0];
-            
+            const fecha = parseFechaSegura(t.fechaTransferencia || t.createdAt);
+            const fechaStr = formatFechaSegura(fecha);
+
             totalValorTransferencias += valor;
-            
-            // ===== POR BANCO + CUENTA =====
+
+            // ✅ GUARDAR BANCO CON NÚMERO DE CUENTA
             if (!transferenciasPorBanco[bancoCompleto]) {
               transferenciasPorBanco[bancoCompleto] = { 
                 total: 0, 
@@ -349,15 +359,15 @@ const DashboardScreen = ({ navigation }) => {
             }
             transferenciasPorBanco[bancoCompleto].total += 1;
             transferenciasPorBanco[bancoCompleto].totalValor += valor;
-            
-            // ===== POR ZONA =====
+
+            // ... resto del código igual
+
             if (!transferenciasPorZona[zona]) {
               transferenciasPorZona[zona] = { total: 0, totalValor: 0 };
             }
             transferenciasPorZona[zona].total += 1;
             transferenciasPorZona[zona].totalValor += valor;
-            
-            // ===== PERÍODOS =====
+
             if (fechaStr === hoyStr) {
               transferenciasHoy++;
               valorTransferenciasHoy += valor;
@@ -371,51 +381,52 @@ const DashboardScreen = ({ navigation }) => {
               valorTransferenciasMes += valor;
             }
           });
-          
+
           const valoresBanco = Object.values(transferenciasPorBanco).map(d => d.totalValor);
           maxValorBanco = valoresBanco.length > 0 ? Math.max(...valoresBanco) : 0;
-          
+
           const valoresZona = Object.values(transferenciasPorZona).map(d => d.totalValor);
           maxValorZona = valoresZona.length > 0 ? Math.max(...valoresZona) : 0;
-          
+
           const evolucionMap = {};
-          transferenciasFiltradas.forEach(t => {
-            const fecha = new Date(t.fechaTransferencia || t.createdAt);
-            const fechaStr = fecha.toISOString().split('T')[0];
+          transferencias.forEach(t => {
+            const fecha = parseFechaSegura(t.fechaTransferencia || t.createdAt);
+            const fechaStr = formatFechaSegura(fecha);
             const valor = t.valor || 0;
-            
+
             if (!evolucionMap[fechaStr]) {
               evolucionMap[fechaStr] = { transferencias: 0, valor: 0 };
             }
             evolucionMap[fechaStr].transferencias += 1;
             evolucionMap[fechaStr].valor += valor;
           });
-          
+
           evolucionTransferencias = Object.entries(evolucionMap)
             .map(([fecha, datos]) => ({ fecha: new Date(fecha), ...datos }))
             .sort((a, b) => a.fecha - b.fecha);
-          
-          console.log(`✅ Transferencias procesadas: ${totalTransferencias}, Bancos+Cuentas: ${Object.keys(transferenciasPorBanco).length}, Zonas: ${Object.keys(transferenciasPorZona).length}`);
+
+          console.log(`✅ Transferencias: ${totalTransferencias}, Bancos: ${Object.keys(transferenciasPorBanco).length}`);
         }
       } catch (error) {
         console.error('❌ Error al cargar transferencias:', error);
       }
 
       // ============================================
-      // 4. SERVICIOS - CON FILTRO DE FECHAS
+      // 4. SERVICIOS - CON FECHAS
       // ============================================
       let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
       let serviciosHoy = 0, serviciosSemana = 0, serviciosMes = 0;
       let serviciosPorNombre = {};
 
       try {
-        console.log('🔍 Cargando servicios por estado...');
-        
+        console.log('🔍 Cargando servicios con fechas...');
+        console.log(`📅 Fechas: ${fechaInicioStr} a ${fechaFinStr}`);
+
         const [tomadosRes, ejecutadosRes, pendientesRes, retroalimentadosRes] = await Promise.all([
-          api.get('/servicios/estado/TOMADO'),
-          api.get('/servicios/estado/EJECUTADO').catch(() => ({ data: { data: [] } })),
-          api.get('/servicios/estado/PENDIENTE'),
-          api.get('/servicios/estado/RETROALIMENTADO').catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/TOMADO?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/EJECUTADO?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/PENDIENTE?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/RETROALIMENTADO?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
         ]);
 
         const tomados = tomadosRes.data?.data || [];
@@ -423,27 +434,23 @@ const DashboardScreen = ({ navigation }) => {
         const pendientes = pendientesRes.data?.data || [];
         const retroalimentados = retroalimentadosRes.data?.data || [];
 
-        const todosLosServicios = [...tomados, ...ejecutados, ...pendientes, ...retroalimentados];
-        
-        const serviciosFiltrados = todosLosServicios.filter(s => {
-          const fecha = new Date(s.createdAt || s.fechaCreacion || Date.now());
-          const fechaStr = formatDateAPI(fecha);
-          return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-        });
+        console.log(`✅ Servicios: TOMADO=${tomados.length}, EJECUTADO=${ejecutados.length}, PENDIENTE=${pendientes.length}, RETROALIMENTADO=${retroalimentados.length}`);
 
-        totalServicios = serviciosFiltrados.length;
-        serviciosActivos = serviciosFiltrados.filter(s => s.estado === 'TOMADO').length;
-        serviciosFinalizados = serviciosFiltrados.filter(s => s.estado === 'EJECUTADO').length;
-        serviciosPendientes = serviciosFiltrados.filter(s => s.estado === 'PENDIENTE').length;
+        totalServicios = tomados.length + ejecutados.length + pendientes.length + retroalimentados.length;
+        serviciosActivos = tomados.length;
+        serviciosFinalizados = ejecutados.length;
+        serviciosPendientes = pendientes.length;
+
+        const todosLosServicios = [...tomados, ...ejecutados, ...pendientes, ...retroalimentados];
 
         const hoyStr = new Date().toISOString().split('T')[0];
         const semanaAtras = new Date();
         semanaAtras.setDate(semanaAtras.getDate() - 7);
         const mesActual = new Date().getMonth();
 
-        serviciosFiltrados.forEach(s => {
-          const fecha = new Date(s.createdAt || s.fechaCreacion || Date.now());
-          const fechaStr = fecha.toISOString().split('T')[0];
+        todosLosServicios.forEach(s => {
+          const fecha = parseFechaSegura(s.createdAt || s.fechaCreacion);
+          const fechaStr = formatFechaSegura(fecha);
           const nombreServicio = s.nombreServicio || 'Sin especificar';
 
           if (!serviciosPorNombre[nombreServicio]) {
@@ -469,48 +476,38 @@ const DashboardScreen = ({ navigation }) => {
       }
 
       // ============================================
-      // 5. DESCONEXIONES - CON FILTRO DE FECHAS
+      // 5. DESCONEXIONES - CON FECHAS
       // ============================================
       let totalDesconexiones = 0, desconexionesPendientes = 0, desconexionesEjecutadas = 0, reconexionesRealizadas = 0;
 
       try {
-        const desconexionesRes = await api.get('/desconexiones');
+        const desconexionesRes = await api.get(`/desconexiones?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (desconexionesRes.data.success) {
           const desconexiones = desconexionesRes.data.data || [];
-          const desconexionesFiltradas = desconexiones.filter(d => {
-            const fecha = new Date(d.fecha || d.createdAt);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          totalDesconexiones = desconexionesFiltradas.length;
-          desconexionesPendientes = desconexionesFiltradas.filter(d => d.estado === 'pendiente').length;
-          desconexionesEjecutadas = desconexionesFiltradas.filter(d => d.estado === 'ejecutada').length;
-          reconexionesRealizadas = desconexionesFiltradas.filter(d => d.estado === 'reconectado').length;
+          totalDesconexiones = desconexiones.length;
+          desconexionesPendientes = desconexiones.filter(d => d.estado === 'pendiente').length;
+          desconexionesEjecutadas = desconexiones.filter(d => d.estado === 'ejecutada').length;
+          reconexionesRealizadas = desconexiones.filter(d => d.estado === 'reconectado').length;
         }
       } catch (error) {}
 
       // ============================================
-      // 6. RECIBOS - CON FILTRO DE FECHAS
+      // 6. RECIBOS - CON FECHAS
       // ============================================
       let totalRecibos = 0, recibosPendientes = 0, recibosSubidos = 0;
 
       try {
-        const recibosRes = await api.get('/recibos');
+        const recibosRes = await api.get(`/recibos?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (recibosRes.data.success) {
           const recibos = recibosRes.data.data || [];
-          const recibosFiltrados = recibos.filter(r => {
-            const fecha = new Date(r.fecha || r.createdAt);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          totalRecibos = recibosFiltrados.length;
-          recibosPendientes = recibosFiltrados.filter(r => r.estado === 'pendiente').length;
-          recibosSubidos = recibosFiltrados.filter(r => r.estado === 'subido').length;
+          totalRecibos = recibos.length;
+          recibosPendientes = recibos.filter(r => r.estado === 'pendiente').length;
+          recibosSubidos = recibos.filter(r => r.estado === 'subido').length;
         }
       } catch (error) {}
 
       // ============================================
-      // 7. USUARIOS - CON FILTRO DE FECHAS
+      // 7. USUARIOS - SIN FILTRO DE FECHAS
       // ============================================
       let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
 
@@ -518,68 +515,53 @@ const DashboardScreen = ({ navigation }) => {
         const usersRes = await api.get('/usuarios');
         if (usersRes.data.success) {
           const users = usersRes.data.data || [];
-          const usersFiltrados = users.filter(u => {
-            const fecha = new Date(u.createdAt || u.fechaRegistro);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          totalUsuarios = usersFiltrados.length;
-          totalCoordinadores = usersFiltrados.filter(u => u.rol?.toLowerCase() === 'coordinador').length;
-          totalAdmins = usersFiltrados.filter(u => ['admin', 'jefe'].includes(u.rol?.toLowerCase())).length;
-          totalTecnicos = usersFiltrados.filter(u => u.rol?.toLowerCase() === 'tecnico').length;
-          totalClientes = usersFiltrados.filter(u => u.rol?.toLowerCase() === 'cliente').length;
+          totalUsuarios = users.length;
+          totalCoordinadores = users.filter(u => u.rol?.toLowerCase() === 'coordinador').length;
+          totalAdmins = users.filter(u => ['admin', 'jefe'].includes(u.rol?.toLowerCase())).length;
+          totalTecnicos = users.filter(u => u.rol?.toLowerCase() === 'tecnico').length;
+          totalClientes = users.filter(u => u.rol?.toLowerCase() === 'cliente').length;
         }
       } catch (error) {
         console.error('❌ Error al cargar usuarios en dashboard:', error);
       }
 
       // ============================================
-      // 8. ASISTENCIA - CON FILTRO DE FECHAS
+      // 8. ASISTENCIA - CON FECHAS
       // ============================================
       let totalAsistencias = 0, asistenciasHoy = 0, ausenciasRegistradas = 0;
 
       try {
-        const asistenciaRes = await api.get('/asistencia');
+        const asistenciaRes = await api.get(`/asistencia?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (asistenciaRes.data.success) {
           const asistencias = asistenciaRes.data.data || [];
-          const asistenciasFiltradas = asistencias.filter(a => {
-            const fecha = new Date(a.fecha);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          totalAsistencias = asistenciasFiltradas.length;
-          asistenciasHoy = asistenciasFiltradas.filter(a => {
-            const fecha = new Date(a.fecha).toISOString().split('T')[0];
+          totalAsistencias = asistencias.length;
+          asistenciasHoy = asistencias.filter(a => {
+            const fecha = formatFechaSegura(a.fecha);
             return fecha === hoy;
           }).length;
-          ausenciasRegistradas = asistenciasFiltradas.filter(a => a.estado === 'ausente').length;
+          ausenciasRegistradas = asistencias.filter(a => a.estado === 'ausente').length;
         }
       } catch (error) {}
 
       // ============================================
-      // 9. UBICACIONES - CON FILTRO DE FECHAS
+      // 9. UBICACIONES - CON FECHAS
       // ============================================
       let totalUbicaciones = 0, ubicacionesHoy = 0;
 
       try {
-        const ubicacionesRes = await api.get('/ubicaciones');
+        const ubicacionesRes = await api.get(`/ubicaciones?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (ubicacionesRes.data.success) {
           const ubicaciones = ubicacionesRes.data.data || [];
-          const ubicacionesFiltradas = ubicaciones.filter(u => {
-            const fecha = new Date(u.createdAt || u.fecha);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          totalUbicaciones = ubicacionesFiltradas.length;
-          ubicacionesHoy = ubicacionesFiltradas.filter(u => {
-            const fecha = new Date(u.createdAt || u.fecha).toISOString().split('T')[0];
+          totalUbicaciones = ubicaciones.length;
+          ubicacionesHoy = ubicaciones.filter(u => {
+            const fecha = formatFechaSegura(u.createdAt || u.fecha);
             return fecha === hoy;
           }).length;
         }
       } catch (error) {}
 
       // ============================================
-      // 10. BODEGAS - CON FILTRO DE FECHAS
+      // 10. BODEGAS - SIN FILTRO
       // ============================================
       let totalBodegas = 0, totalMateriales = 0, materialesAsignados = 0;
 
@@ -587,39 +569,29 @@ const DashboardScreen = ({ navigation }) => {
         const bodegasRes = await api.get('/bodegas');
         if (bodegasRes.data.success) {
           const bodegas = bodegasRes.data.data || [];
-          const bodegasFiltradas = bodegas.filter(b => {
-            const fecha = new Date(b.createdAt || b.fecha);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          totalBodegas = bodegasFiltradas.length;
-          totalMateriales = bodegasFiltradas.reduce((acc, b) => acc + (b.materiales?.length || 0), 0);
-          materialesAsignados = bodegasFiltradas.reduce((acc, b) => acc + (b.materiales?.filter(m => m.asignado).length || 0), 0);
+          totalBodegas = bodegas.length;
+          totalMateriales = bodegas.reduce((acc, b) => acc + (b.materiales?.length || 0), 0);
+          materialesAsignados = bodegas.reduce((acc, b) => acc + (b.materiales?.filter(m => m.asignado).length || 0), 0);
         }
       } catch (error) {}
 
       // ============================================
-      // 11. REPORTES - CON FILTRO DE FECHAS
+      // 11. REPORTES - CON FECHAS
       // ============================================
       let totalReportes = 0, reportesPendientes = 0, reportesGenerados = 0;
 
       try {
-        const reportesRes = await api.get('/reportes');
+        const reportesRes = await api.get(`/reportes?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (reportesRes.data.success) {
           const reportes = reportesRes.data.data || [];
-          const reportesFiltrados = reportes.filter(r => {
-            const fecha = new Date(r.fecha || r.createdAt);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          totalReportes = reportesFiltrados.length;
-          reportesPendientes = reportesFiltrados.filter(r => r.estado === 'pendiente').length;
-          reportesGenerados = reportesFiltrados.filter(r => r.estado === 'generado').length;
+          totalReportes = reportes.length;
+          reportesPendientes = reportes.filter(r => r.estado === 'pendiente').length;
+          reportesGenerados = reportes.filter(r => r.estado === 'generado').length;
         }
       } catch (error) {}
 
       // ============================================
-      // 12. VISITAS COMPLETAS - CON FILTRO DE FECHAS Y SOLO COORDINADORES
+      // 12. VISITAS - CON FECHAS
       // ============================================
       let totalVisitasData = 0, totalCobradoData = 0;
       let visitasMesCount = 0, cobradoMesCount = 0;
@@ -629,26 +601,19 @@ const DashboardScreen = ({ navigation }) => {
       let visitasPorUsuario = {};
 
       try {
-        console.log('📡 Cargando visitas...');
-        const visitasRes = await api.get('/visitas');
+        console.log('📡 Cargando visitas con fechas...');
+        const visitasRes = await api.get(`/visitas?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         console.log('📡 Visitas recibidas:', visitasRes.data?.data?.length || 0);
-        
+
         if (visitasRes.data.success) {
           const visitas = visitasRes.data.data || [];
-          
-          const visitasFiltradas = visitas.filter(v => {
-            const fecha = new Date(v.fecha);
-            const fechaStr = formatDateAPI(fecha);
-            return fechaStr >= fechaInicioStr && fechaStr <= fechaFinStr;
-          });
-          
-          totalVisitasData = visitasFiltradas.length;
-          
+          totalVisitasData = visitas.length;
+
           const hoyStr = new Date().toISOString().split('T')[0];
           const mesActual = new Date().getMonth();
           const semanaAtras = new Date();
           semanaAtras.setDate(semanaAtras.getDate() - 7);
-          
+
           let coordinadores = [];
           try {
             const usersRes = await api.get('/usuarios');
@@ -661,38 +626,38 @@ const DashboardScreen = ({ navigation }) => {
           } catch (error) {
             console.error('❌ Error cargando coordinadores:', error);
           }
-          
-          visitasFiltradas.forEach((v, index) => {
-            const fecha = new Date(v.fecha);
-            const fechaStr = fecha.toISOString().split('T')[0];
+
+          visitas.forEach((v, index) => {
+            const fecha = parseFechaSegura(v.fecha);
+            const fechaStr = formatFechaSegura(fecha);
             const esCobro = v.tipo === 'Cobro';
             const monto = v.monto || 0;
-            
+
             const usuario = v.usuario?.nombre || v.tecnico?.nombre || v.creadoPor?.nombre || 'Sin asignar';
-            
-            const esCoordinador = coordinadores.some(c => 
-              usuario.toLowerCase().includes(c.toLowerCase()) || 
+
+            const esCoordinador = coordinadores.some(c =>
+              usuario.toLowerCase().includes(c.toLowerCase()) ||
               c.toLowerCase().includes(usuario.toLowerCase())
             );
-            
+
             if (!esCoordinador && coordinadores.length > 0) {
               return;
             }
-            
+
             if (!visitasPorUsuario[usuario]) {
               visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0, cobradoSemana: 0, cobradoMes: 0 };
             }
-            
+
             let tipo = v.tipo || 'OTROS';
             let tipoMapeado = 'OTROS';
             if (tipo === 'Cobro') tipoMapeado = 'COBRO';
             else if (tipo === 'Instalación') tipoMapeado = 'INSTALACION';
             else if (tipo === 'Mantenimiento') tipoMapeado = 'MANTENIMIENTO';
-            
+
             visitasPorTipo[tipoMapeado] = (visitasPorTipo[tipoMapeado] || 0) + 1;
-            
+
             if (esCobro) totalCobradoData += monto;
-            
+
             if (fecha.getMonth() === mesActual) {
               visitasMesCount++;
               visitasPorUsuario[usuario].mes++;
@@ -701,7 +666,7 @@ const DashboardScreen = ({ navigation }) => {
                 visitasPorUsuario[usuario].cobradoMes = (visitasPorUsuario[usuario].cobradoMes || 0) + monto;
               }
             }
-            
+
             if (fecha >= semanaAtras) {
               visitasSemanaCount++;
               visitasPorUsuario[usuario].semana++;
@@ -710,21 +675,21 @@ const DashboardScreen = ({ navigation }) => {
                 visitasPorUsuario[usuario].cobradoSemana = (visitasPorUsuario[usuario].cobradoSemana || 0) + monto;
               }
             }
-            
+
             if (fechaStr === hoyStr) {
               visitasHoyCount++;
               visitasPorUsuario[usuario].hoy++;
               if (esCobro) cobradoHoyCount += monto;
             }
-            
+
             visitasPorUsuario[usuario].total++;
           });
-          
+
           const usuariosOrdenados = Object.entries(visitasPorUsuario)
             .sort((a, b) => b[1].total - a[1].total);
           visitasPorUsuario = Object.fromEntries(usuariosOrdenados);
-          
-          console.log('📊 visitasPorUsuario FINAL (solo coordinadores):', Object.keys(visitasPorUsuario).length, 'usuarios');
+
+          console.log('📊 visitasPorUsuario FINAL:', Object.keys(visitasPorUsuario).length, 'usuarios');
         }
       } catch (error) {
         console.error('Error al cargar visitas:', error);
@@ -733,8 +698,8 @@ const DashboardScreen = ({ navigation }) => {
       // ============================================
       // 13. ACTIVIDAD RECIENTE
       // ============================================
-      const sorted = [...ordenesFiltradas].sort((a, b) => 
-        new Date(b.fechaSubida || b.createdAt) - new Date(a.fechaSubida || a.createdAt)
+      const sorted = [...ordenesFiltradas].sort((a, b) =>
+        parseFechaSegura(b.fechaSubida || b.createdAt) - parseFechaSegura(a.fechaSubida || a.createdAt)
       );
       setRecentActivity(sorted.slice(0, 5));
 
@@ -820,8 +785,10 @@ const DashboardScreen = ({ navigation }) => {
         visitasPorUsuario,
       });
 
+      console.log('✅ Dashboard cargado correctamente');
+
     } catch (error) {
-      console.error('Error cargando dashboard:', error);
+      console.error('❌ Error cargando dashboard:', error);
       Alert.alert('Error', 'No se pudieron cargar los datos del dashboard');
     } finally {
       setLoading(false);
@@ -868,7 +835,7 @@ const DashboardScreen = ({ navigation }) => {
     if (texto.trim() === '') {
       setUsuariosFiltrados(usuarios);
     } else {
-      const filtrados = usuarios.filter(u => 
+      const filtrados = usuarios.filter(u =>
         u.nombre?.toLowerCase().includes(texto.toLowerCase()) ||
         u.email?.toLowerCase().includes(texto.toLowerCase())
       );
@@ -909,7 +876,7 @@ const DashboardScreen = ({ navigation }) => {
 
     try {
       const reporte = generarReporte(tipoReporte);
-      
+
       const response = await api.post('/email/enviar-reporte', {
         to: emails,
         subject: `📊 Reporte de ${getTituloReporte(tipoReporte)} - ${new Date().toLocaleDateString('es-EC')}`,
@@ -932,16 +899,18 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
+  // ✅ GENERAR REPORTE CON FECHAS EN EL TÍTULO
   const generarReporte = (tipo) => {
     const fecha = new Date().toLocaleDateString('es-EC');
-    const fechaInicioReporte = formatDate(fechaInicio);
-    const fechaFinReporte = formatDate(fechaFin);
+    const fechaInicioStr = formatDate(fechaInicio);
+    const fechaFinStr = formatDate(fechaFin);
     
+    // ✅ TÍTULO CON FECHAS SELECCIONADAS
     let reporte = `📊 REPORTE DE ${getTituloReporte(tipo).toUpperCase()} - RA²P\n`;
-    reporte += `====================================\n`;
+    reporte += `📅 DEL ${fechaInicioStr.toUpperCase()} AL ${fechaFinStr.toUpperCase()}\n`;
+    reporte += `════════════════════════════════════\n`;
     reporte += `Fecha de generación: ${fecha}\n`;
-    reporte += `📅 PERÍODO SELECCIONADO: ${fechaInicioReporte} - ${fechaFinReporte}\n`;
-    reporte += `====================================\n\n`;
+    reporte += `════════════════════════════════════\n\n`;
 
     switch (tipo) {
       case 'visitas':
@@ -962,12 +931,12 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- INSTALACIÓN: ${stats.visitasPorTipo?.INSTALACION || 0}\n`;
         reporte += `- MANTENIMIENTO: ${stats.visitasPorTipo?.MANTENIMIENTO || 0}\n`;
         reporte += `- OTROS: ${stats.visitasPorTipo?.OTROS || 0}\n\n`;
-        
+
         reporte += `👤 VISITAS POR COORDINADOR\n`;
         reporte += `====================================\n`;
         const usuarios = stats.visitasPorUsuario || {};
         if (Object.keys(usuarios).length === 0) {
-          reporte += `- No hay visitas de coordinadores registradas en este período\n`;
+          reporte += `- No hay visitas de coordinadores registradas\n`;
         } else {
           for (const [nombre, datos] of Object.entries(usuarios)) {
             reporte += `- ${nombre}:\n`;
@@ -991,7 +960,6 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Caja Cerrada: ${stats.cajaCerrada}\n`;
         reporte += `- Saldo Total: $${stats.saldoTotalCaja.toFixed(2)}\n`;
         break;
-
       case 'transferencias':
         reporte += `🔄 TRANSFERENCIAS\n`;
         reporte += `====================================\n`;
@@ -1001,43 +969,38 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Pendientes: ${stats.transferenciasPendientes}\n`;
         reporte += `- Aprobadas: ${stats.transferenciasAprobadas}\n`;
         reporte += `- Denegadas: ${stats.transferenciasDenegadas}\n\n`;
-        
-        reporte += `📌 POR PERÍODO (relativo a hoy)\n`;
+
+        reporte += `📌 POR PERÍODO\n`;
         reporte += `- Semana: ${stats.transferenciasSemana || 0} transf - $${(stats.valorTransferenciasSemana || 0).toFixed(2)}\n`;
         reporte += `- Mes: ${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}\n`;
         reporte += `- Hoy: ${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}\n\n`;
-        
-        reporte += `🏦 POR BANCO + CUENTA (en el período seleccionado)\n`;
+
+        reporte += `🏦 POR BANCO + CUENTA\n`;
         reporte += `====================================\n`;
         const bancos = stats.transferenciasPorBanco || {};
         if (Object.keys(bancos).length === 0) {
-          reporte += `- No hay transferencias en este período\n`;
+          reporte += `- No hay transferencias registradas\n`;
         } else {
           const bancosOrdenados = Object.entries(bancos).sort((a, b) => b[1].totalValor - a[1].totalValor);
           for (const [clave, datos] of bancosOrdenados) {
-            const cuentaInfo = datos.numeroCuenta ? ` (Cuenta: ${datos.numeroCuenta})` : '';
-            reporte += `- ${datos.bancoNombre || 'OTRO'}${cuentaInfo}: ${datos.total} transf - $${datos.totalValor.toFixed(2)}\n`;
+            // ✅ Mostrar banco completo con número de cuenta
+            const bancoNombre = datos.bancoNombre || clave;
+            const cuentaInfo = datos.numeroCuenta ? ` | 💳 Cuenta: ${datos.numeroCuenta}` : '';
+            reporte += `- 🏦 ${bancoNombre}${cuentaInfo}\n`;
+            reporte += `  📄 ${datos.total} transferencias | 💰 Total: $${datos.totalValor.toFixed(2)}\n`;
+            reporte += `  📊 Promedio: $${(datos.totalValor / datos.total).toFixed(2)}\n`;
           }
         }
-        
-        reporte += `\n📍 POR ZONA/SECTOR (en el período seleccionado)\n`;
+
+        reporte += `\n📍 POR ZONA/SECTOR\n`;
         reporte += `====================================\n`;
         const zonas = stats.transferenciasPorZona || {};
         if (Object.keys(zonas).length === 0) {
-          reporte += `- No hay transferencias en este período\n`;
+          reporte += `- No hay transferencias registradas\n`;
         } else {
           const zonasOrdenadas = Object.entries(zonas).sort((a, b) => b[1].totalValor - a[1].totalValor);
           for (const [zona, datos] of zonasOrdenadas) {
             reporte += `- ${zona}: ${datos.total} transf - $${datos.totalValor.toFixed(2)}\n`;
-          }
-        }
-        
-        if (stats.evolucionTransferencias && stats.evolucionTransferencias.length > 0) {
-          reporte += `\n📈 EVOLUCIÓN DIARIA (en el período seleccionado)\n`;
-          reporte += `====================================\n`;
-          for (const dia of stats.evolucionTransferencias) {
-            const fechaDia = new Date(dia.fecha).toLocaleDateString('es-EC');
-            reporte += `- ${fechaDia}: ${dia.transferencias} transf - $${dia.valor.toFixed(2)}\n`;
           }
         }
         break;
@@ -1049,18 +1012,18 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Servicios de Hoy: ${stats.serviciosHoy}\n`;
         reporte += `- Servicios de la Semana: ${stats.serviciosSemana}\n`;
         reporte += `- Servicios del Mes: ${stats.serviciosMes}\n\n`;
-        
+
         reporte += `📋 POR ESTADO\n`;
         reporte += `- 🟡 Activos (TOMADO): ${stats.serviciosActivos}\n`;
         reporte += `- 🟢 Finalizados (EJECUTADO): ${stats.serviciosFinalizados}\n`;
         reporte += `- 🔴 Pendientes: ${stats.serviciosPendientes}\n`;
         const retroalimentados = stats.totalServicios - stats.serviciosActivos - stats.serviciosFinalizados - stats.serviciosPendientes;
         reporte += `- 🔵 Retroalimentados: ${retroalimentados}\n\n`;
-        
+
         reporte += `📋 POR TIPO DE SERVICIO\n`;
         const tipos = stats.serviciosPorNombre || {};
         if (Object.keys(tipos).length === 0) {
-          reporte += `- No hay servicios registrados en este período\n`;
+          reporte += `- No hay servicios registrados\n`;
         } else {
           const tiposOrdenados = Object.entries(tipos).sort((a, b) => {
             const totalA = a[1].hoy + a[1].semana + a[1].mes;
@@ -1105,12 +1068,12 @@ const DashboardScreen = ({ navigation }) => {
         break;
 
       default:
-        reporte += `\nSin datos disponibles\n`;
+        reporte += `Sin datos disponibles\n`;
     }
 
-    reporte += `\n====================================\n`;
+    reporte += `\n════════════════════════════════════\n`;
+    reporte += `📅 Período: ${fechaInicioStr} al ${fechaFinStr}\n`;
     reporte += `Reporte generado automáticamente desde RA²P\n`;
-    reporte += `Fecha: ${new Date().toLocaleString('es-EC')}`;
     return reporte;
   };
 
@@ -1160,7 +1123,7 @@ const DashboardScreen = ({ navigation }) => {
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>👤 Visitas por Coordinador</Text>
               {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
-                <Text style={styles.emptyText}>No hay visitas de coordinadores registradas en este período</Text>
+                <Text style={styles.emptyText}>No hay visitas de coordinadores registradas</Text>
               ) : (
                 Object.entries(stats.visitasPorUsuario || {}).map(([nombre, datos]) => (
                   <View key={nombre} style={styles.usuarioVisitaItem}>
@@ -1182,31 +1145,31 @@ const DashboardScreen = ({ navigation }) => {
                 ))
               )}
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📌 Totales Generales</Text>
               <StatRow label="Total Visitas" value={stats.totalVisitas} icon="eye-outline" color="#6C5CE7" />
               <StatRow label="Total Cobrado" value={`$${stats.totalCobrado.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📆 Este Mes</Text>
               <StatRow label="Visitas del Mes" value={stats.visitasMes} icon="calendar-outline" color="#6C5CE7" />
               <StatRow label="Cobrado del Mes" value={`$${stats.cobradoMes.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📅 Última Semana</Text>
               <StatRow label="Visitas de la Semana" value={stats.visitasSemana} icon="calendar-outline" color="#6C5CE7" />
               <StatRow label="Cobrado de la Semana" value={`$${stats.cobradoSemana.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📌 Hoy</Text>
               <StatRow label="Visitas de Hoy" value={stats.visitasHoy} icon="today-outline" color="#6C5CE7" />
               <StatRow label="Cobrado de Hoy" value={`$${stats.cobradoHoy.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
-            
+
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📋 Por Tipo de Visita</Text>
               <StatRow label="💲 COBRO" value={stats.visitasPorTipo?.COBRO || 0} icon="cash-outline" color="#00B894" />
@@ -1259,60 +1222,50 @@ const DashboardScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>🏦 Transferencias por Banco + Cuenta</Text>
+              <Text style={styles.subSectionTitle}>🏦 Transferencias por Banco</Text>
               {Object.keys(stats.transferenciasPorBanco || {}).length === 0 ? (
-                <Text style={styles.emptyText}>No hay transferencias registradas en este período</Text>
+                <Text style={styles.emptyText}>No hay transferencias registradas</Text>
               ) : (
                 Object.entries(stats.transferenciasPorBanco || {})
                   .sort((a, b) => b[1].totalValor - a[1].totalValor)
-                  .map(([clave, datos], index) => {
-                    const colores = ['#6C5CE7', '#00B894', '#FDCB6E', '#E17055', '#0984E3', '#6C5CE7', '#00B894', '#FDCB6E'];
-                    return (
-                      <View key={clave} style={styles.bancoTransferenciaItem}>
-                        <View style={styles.bancoTransferenciaHeader}>
-                          <View style={styles.bancoTransferenciaInfo}>
-                            <Text style={styles.bancoTransferenciaNombre} numberOfLines={1} ellipsizeMode="tail">
-                              🏦 {datos.bancoNombre || 'OTRO'}
-                            </Text>
-                            {datos.numeroCuenta && (
-                              <Text style={styles.bancoTransferenciaCuenta}>
-                                💳 Cuenta: {datos.numeroCuenta}
-                              </Text>
-                            )}
-                          </View>
-                          <Text style={styles.bancoTransferenciaTotal}>
-                            ${datos.totalValor.toFixed(2)}
-                          </Text>
-                        </View>
-                        <View style={styles.bancoTransferenciaDetalles}>
-                          <Text style={styles.bancoTransferenciaCantidad}>
-                            📄 {datos.total} transferencias
-                          </Text>
-                          <Text style={styles.bancoTransferenciaCantidad}>
-                            💰 Promedio: ${(datos.totalValor / datos.total).toFixed(2)}
-                          </Text>
-                        </View>
-                        <View style={styles.barraProgresoContainer}>
-                          <View 
-                            style={[
-                              styles.barraProgresoFill, 
-                              { 
-                                width: `${Math.min((datos.totalValor / (stats.maxValorBanco || 1)) * 100, 100)}%`,
-                                backgroundColor: colores[index % colores.length]
-                              }
-                            ]} 
-                          />
-                        </View>
+                  .map(([banco, datos]) => (
+                    <View key={banco} style={styles.bancoTransferenciaItem}>
+                      <View style={styles.bancoTransferenciaHeader}>
+                        <Text style={styles.bancoTransferenciaNombre} numberOfLines={1} ellipsizeMode="tail">
+                          {banco}
+                        </Text>
+                        <Text style={styles.bancoTransferenciaTotal}>
+                          ${datos.totalValor.toFixed(2)}
+                        </Text>
                       </View>
-                    );
-                  })
+                      <View style={styles.bancoTransferenciaDetalles}>
+                        <Text style={styles.bancoTransferenciaCantidad}>
+                          📄 {datos.total} transferencias
+                        </Text>
+                        <Text style={styles.bancoTransferenciaCantidad}>
+                          💰 Promedio: ${(datos.totalValor / datos.total).toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.barraProgresoContainer}>
+                        <View
+                          style={[
+                            styles.barraProgresoFill,
+                            {
+                              width: `${Math.min((datos.totalValor / (stats.maxValorBanco || 1)) * 100, 100)}%`,
+                              backgroundColor: ['#6C5CE7', '#00B894', '#FDCB6E', '#E17055', '#0984E3', '#6C5CE7'][Object.keys(stats.transferenciasPorBanco || {}).indexOf(banco) % 6]
+                            }
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  ))
               )}
             </View>
 
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📍 Transferencias por Zona/Sector</Text>
               {Object.keys(stats.transferenciasPorZona || {}).length === 0 ? (
-                <Text style={styles.emptyText}>No hay transferencias registradas en este período</Text>
+                <Text style={styles.emptyText}>No hay transferencias registradas</Text>
               ) : (
                 Object.entries(stats.transferenciasPorZona || {})
                   .sort((a, b) => b[1].totalValor - a[1].totalValor)
@@ -1333,14 +1286,14 @@ const DashboardScreen = ({ navigation }) => {
                         </Text>
                       </View>
                       <View style={styles.barraProgresoContainer}>
-                        <View 
+                        <View
                           style={[
-                            styles.barraProgresoFill, 
-                            { 
+                            styles.barraProgresoFill,
+                            {
                               width: `${Math.min((datos.totalValor / (stats.maxValorZona || 1)) * 100, 100)}%`,
                               backgroundColor: ['#E17055', '#0984E3', '#00B894', '#FDCB6E', '#6C5CE7', '#E17055'][Object.keys(stats.transferenciasPorZona || {}).indexOf(zona) % 6]
                             }
-                          ]} 
+                          ]}
                         />
                       </View>
                     </View>
@@ -1404,7 +1357,7 @@ const DashboardScreen = ({ navigation }) => {
             <View style={styles.subSection}>
               <Text style={styles.subSectionTitle}>📋 Por Tipo de Servicio</Text>
               {Object.keys(stats.serviciosPorNombre || {}).length === 0 ? (
-                <Text style={styles.emptyText}>No hay servicios registrados en este período</Text>
+                <Text style={styles.emptyText}>No hay servicios registrados</Text>
               ) : (
                 Object.entries(stats.serviciosPorNombre || {}).map(([nombre, datos]) => {
                   const total = datos.hoy + datos.semana + datos.mes;
@@ -1625,7 +1578,7 @@ const DashboardScreen = ({ navigation }) => {
       <View style={styles.filterContainer}>
         <Text style={styles.filterLabel}>📅 Rango de fechas:</Text>
         <View style={styles.filterRow}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterButton}
             onPress={() => { setDatePickerMode('start'); setShowDatePicker(true); }}
           >
@@ -1633,7 +1586,7 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={styles.filterButtonText}>{formatDate(fechaInicio)}</Text>
           </TouchableOpacity>
           <Text style={styles.filterSeparator}>→</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterButton}
             onPress={() => { setDatePickerMode('end'); setShowDatePicker(true); }}
           >
@@ -1694,6 +1647,9 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={styles.modalTitle}>📧 Enviar Reporte por Correo</Text>
             <Text style={styles.modalSubtitle}>
               Reporte: {getTituloReporte(tipoReporte)}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              📅 {formatDate(fechaInicio)} al {formatDate(fechaFin)}
             </Text>
 
             <Text style={styles.modalLabel}>👥 Seleccionar usuarios:</Text>
@@ -2114,19 +2070,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  bancoTransferenciaInfo: {
-    flex: 1,
-    marginRight: 8,
-  },
   bancoTransferenciaNombre: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2D3436',
-  },
-  bancoTransferenciaCuenta: {
-    fontSize: 12,
-    color: '#636E72',
-    marginTop: 2,
+    flex: 1,
+    marginRight: 8,
   },
   bancoTransferenciaTotal: {
     fontSize: 15,
