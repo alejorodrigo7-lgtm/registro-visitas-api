@@ -46,20 +46,17 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     cargarTransferencias();
   };
 
-  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN (de cualquier campo)
+  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN
   const getImagen = (item) => {
-    // Primero revisar imagenComprobante
     if (item.imagenComprobante && item.imagenComprobante.length > 100) {
       return item.imagenComprobante;
     }
-    // Luego revisar soporte
     if (item.soporte && item.soporte.length > 100) {
       return item.soporte;
     }
     return null;
   };
 
-  // ✅ VERIFICAR SI TIENE IMAGEN
   const tieneImagen = (item) => {
     return getImagen(item) !== null;
   };
@@ -126,13 +123,23 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
         <Text style={styles.transferenciaNombre}>{item.nombreUsuario}</Text>
 
+        {/* ✅ ZONA */}
+        <View style={styles.zonaContainer}>
+          <Text style={styles.zonaText}>📍 {item.zonaSector} - {item.barrio}</Text>
+        </View>
+
+        {/* ✅ NUEVO: BANCO Y CUENTA */}
+        <View style={styles.bancoContainer}>
+          <Text style={styles.bancoLabel}>🏦 Banco / Cuenta:</Text>
+          <Text style={styles.bancoText}>{item.bancoCuenta}</Text>
+        </View>
+
         <View style={styles.transferenciaFooter}>
           <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
           <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
           <Text style={styles.transferenciaInfo}>👤 {item.responsable}</Text>
         </View>
 
-        {/* ✅ INDICADOR DE IMAGEN */}
         {tieneImagen(item) && (
           <View style={styles.imagenIndicator}>
             <Text style={styles.imagenIndicatorText}>📷 Tiene comprobante</Text>
@@ -191,7 +198,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* ✅ MODAL DE DETALLE CON IMAGEN MEJORADA */}
+      {/* ✅ MODAL DE DETALLE */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -210,14 +217,24 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                 <Text style={styles.modalLabel}>Nombre:</Text>
                 <Text style={styles.modalValue}>{transferenciaSeleccionada.nombreUsuario}</Text>
 
+                <Text style={styles.modalLabel}>Documento:</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.numeroDocumento}</Text>
+
                 <Text style={styles.modalLabel}>Valor:</Text>
                 <Text style={styles.modalValue}>{formatValor(transferenciaSeleccionada.valor)}</Text>
 
-                <Text style={styles.modalLabel}>Zona:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.zonaSector} - {transferenciaSeleccionada.barrio}</Text>
+                <Text style={styles.modalLabel}>Zona / Barrio:</Text>
+                <Text style={styles.modalValue}>
+                  📍 {transferenciaSeleccionada.zonaSector} - {transferenciaSeleccionada.barrio}
+                </Text>
 
-                <Text style={styles.modalLabel}>Banco:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.bancoCuenta}</Text>
+                {/* ✅ BANCO Y CUENTA */}
+                <Text style={styles.modalLabel}>🏦 Banco / Cuenta:</Text>
+                <View style={styles.modalBancoContainer}>
+                  <Text style={styles.modalBancoText}>
+                    {transferenciaSeleccionada.bancoCuenta}
+                  </Text>
+                </View>
 
                 <Text style={styles.modalLabel}>Fecha:</Text>
                 <Text style={styles.modalValue}>{formatFecha(transferenciaSeleccionada.fechaTransferencia)}</Text>
@@ -230,7 +247,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                   <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado}</Text>
                 </View>
 
-                {/* ✅ IMAGEN DEL COMPROBANTE - VERIFICA AMBOS CAMPOS */}
+                {/* IMAGEN DEL COMPROBANTE */}
                 {(() => {
                   const imagenData = getImagen(transferenciaSeleccionada);
                   if (imagenData) {
@@ -354,9 +371,41 @@ const styles = StyleSheet.create({
   transferenciaNombre: {
     fontSize: 16,
     color: '#2D3436',
-    marginBottom: 8,
+    marginBottom: 6,
     fontWeight: '500',
   },
+
+  // ✅ ZONA
+  zonaContainer: {
+    marginBottom: 8,
+  },
+  zonaText: {
+    fontSize: 13,
+    color: '#6C5CE7',
+    fontWeight: '500',
+  },
+
+  // ✅ BANCO Y CUENTA
+  bancoContainer: {
+    marginBottom: 8,
+    backgroundColor: '#F0F4FF',
+    padding: 10,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#0984E3',
+  },
+  bancoLabel: {
+    fontSize: 11,
+    color: '#636E72',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  bancoText: {
+    fontSize: 13,
+    color: '#0984E3',
+    fontWeight: '600',
+  },
+
   transferenciaFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -454,6 +503,22 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     marginBottom: 4,
   },
+
+  // ✅ BANCO EN MODAL
+  modalBancoContainer: {
+    backgroundColor: '#F0F4FF',
+    padding: 12,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0984E3',
+    marginBottom: 4,
+  },
+  modalBancoText: {
+    fontSize: 15,
+    color: '#0984E3',
+    fontWeight: '600',
+  },
+
   imagenContainer: {
     marginTop: 10,
     alignItems: 'center',
