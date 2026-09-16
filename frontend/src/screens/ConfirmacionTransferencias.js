@@ -46,7 +46,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     cargarTransferencias();
   };
 
-  // âœ… FUNCIÃ“N PARA OBTENER LA IMAGEN
+  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN
   const getImagen = (item) => {
     // ? PRIORIDAD 1: imagenComprobante
     if (item.imagenComprobante) {
@@ -100,7 +100,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   const confirmarTransferencia = async (id, estado) => {
     Alert.alert(
       'Confirmar Transferencia',
-      `Â¿EstÃ¡s seguro de ${estado === 'CONFIRMADA' ? 'aprobar' : 'denegar'} esta transferencia?`,
+      `¿Estás seguro de ${estado === 'CONFIRMADA' ? 'aprobar' : 'denegar'} esta transferencia?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -108,7 +108,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           onPress: async () => {
             try {
               await api.put(`/transferencias/${id}/confirmar`, { estado });
-              Alert.alert('Ã‰xito', `Transferencia ${estado === 'CONFIRMADA' ? 'confirmada' : 'denegada'} correctamente`);
+              Alert.alert(', `Transferencia ${estado === 'CONFIRMADA' ? 'confirmada' : 'denegada'} correctamente`);
               setModalVisible(false);
               cargarTransferencias();
             } catch (error) {
@@ -159,26 +159,26 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
         <Text style={styles.transferenciaNombre}>{item.nombreUsuario}</Text>
 
-        {/* âœ… ZONA */}
+        {/* ✅ ZONA */}
         <View style={styles.zonaContainer}>
-          <Text style={styles.zonaText}>ðŸ“ {item.zonaSector} - {item.barrio}</Text>
+          <Text style={styles.zonaText}>📍 {item.zonaSector} - {item.barrio}</Text>
         </View>
 
-        {/* âœ… NUEVO: BANCO Y CUENTA */}
+        {/* ✅ NUEVO: BANCO Y CUENTA */}
         <View style={styles.bancoContainer}>
-          <Text style={styles.bancoLabel}>ðŸ¦ Banco / Cuenta:</Text>
+          <Text style={styles.bancoLabel}>🏦 Banco / Cuenta:</Text>
           <Text style={styles.bancoText}>{item.bancoCuenta}</Text>
         </View>
 
         <View style={styles.transferenciaFooter}>
-          <Text style={styles.transferenciaInfo}>ðŸ’° {formatValor(item.valor)}</Text>
-          <Text style={styles.transferenciaInfo}>ðŸ“… {formatFecha(item.fechaTransferencia)}</Text>
-          <Text style={styles.transferenciaInfo}>ðŸ‘¤ {item.responsable}</Text>
+          <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
+          <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
+          <Text style={styles.transferenciaInfo}>👤 {item.responsable}</Text>
         </View>
 
         {tieneImagen(item) && (
           <View style={styles.imagenIndicator}>
-            <Text style={styles.imagenIndicatorText}>ðŸ“· Tiene comprobante</Text>
+            <Text style={styles.imagenIndicatorText}>📷 Tiene comprobante</Text>
           </View>
         )}
 
@@ -188,13 +188,13 @@ const ConfirmacionTransferencias = ({ navigation }) => {
               style={[styles.accionButton, styles.accionAprobar]}
               onPress={() => confirmarTransferencia(item._id, 'CONFIRMADA')}
             >
-              <Text style={styles.accionButtonText}>âœ… Aprobar</Text>
+              <Text style={styles.accionButtonText}>✅ Aprobar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.accionButton, styles.accionDenegar]}
               onPress={() => confirmarTransferencia(item._id, 'DENEGADA')}
             >
-              <Text style={styles.accionButtonText}>âŒ Denegar</Text>
+              <Text style={styles.accionButtonText}>❌ Denegar</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -214,7 +214,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>ðŸ“‹ ConfirmaciÃ³n de Transferencias</Text>
+        <Text style={styles.title}>📋 Confirmación de Transferencias</Text>
       </View>
 
       <ScrollView
@@ -225,7 +225,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
       >
         {transferencias.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>ðŸ“­</Text>
+            <Text style={styles.emptyIcon}>📭</Text>
             <Text style={styles.emptyText}>No hay transferencias pendientes</Text>
           </View>
         ) : (
@@ -234,7 +234,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* âœ… MODAL DE DETALLE */}
+      {/* ✅ MODAL DE DETALLE */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -243,11 +243,11 @@ const ConfirmacionTransferencias = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <ScrollView style={styles.modalContent}>
-            <Text style={styles.modalTitle}>ðŸ“‹ Detalle de Transferencia</Text>
+            <Text style={styles.modalTitle}>📋 Detalle de Transferencia</Text>
 
             {transferenciaSeleccionada && (
               <View>
-                <Text style={styles.modalLabel}>CÃ³digo:</Text>
+                <Text style={styles.modalLabel}>C</Text>
                 <Text style={styles.modalValue}>{transferenciaSeleccionada.codigoIdentificador}</Text>
 
                 <Text style={styles.modalLabel}>Nombre:</Text>
@@ -261,11 +261,11 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
                 <Text style={styles.modalLabel}>Zona / Barrio:</Text>
                 <Text style={styles.modalValue}>
-                  ðŸ“ {transferenciaSeleccionada.zonaSector} - {transferenciaSeleccionada.barrio}
+                  📍 {transferenciaSeleccionada.zonaSector} - {transferenciaSeleccionada.barrio}
                 </Text>
 
-                {/* âœ… BANCO Y CUENTA */}
-                <Text style={styles.modalLabel}>ðŸ¦ Banco / Cuenta:</Text>
+                {/* ✅ BANCO Y CUENTA */}
+                <Text style={styles.modalLabel}>🏦 Banco / Cuenta:</Text>
                 <View style={styles.modalBancoContainer}>
                   <Text style={styles.modalBancoText}>
                     {transferenciaSeleccionada.bancoCuenta}
@@ -289,21 +289,21 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                   if (imagenData) {
                     return (
                       <View style={styles.imagenContainer}>
-                        <Text style={styles.modalLabel}>ðŸ“· Comprobante:</Text>
+                        <Text style={styles.modalLabel}>📷 Comprobante:</Text>
                         <Image
                           source={{
                             uri: getImagenUri(imagenData)
                           }}
                           style={styles.modalImagen}
                           resizeMode="contain"
-                          onError={(e) => console.log('âŒ Error imagen:', e.nativeEvent.error)}
+                          onError={(e) => console.log('❌ Error imagen:', e.nativeEvent.error)}
                         />
                       </View>
                     );
                   } else {
                     return (
                       <View style={styles.sinImagenContainer}>
-                        <Text style={styles.sinImagenText}>ðŸ“­ Sin comprobante</Text>
+                        <Text style={styles.sinImagenText}>📭 Sin comprobante</Text>
                       </View>
                     );
                   }
@@ -315,13 +315,13 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                       style={[styles.modalButton, styles.modalAprobar]}
                       onPress={() => confirmarTransferencia(transferenciaSeleccionada._id, 'CONFIRMADA')}
                     >
-                      <Text style={styles.modalButtonText}>âœ… Aprobar</Text>
+                      <Text style={styles.modalButtonText}>✅ Aprobar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.modalButton, styles.modalDenegar]}
                       onPress={() => confirmarTransferencia(transferenciaSeleccionada._id, 'DENEGADA')}
                     >
-                      <Text style={styles.modalButtonText}>âŒ Denegar</Text>
+                      <Text style={styles.modalButtonText}>❌ Denegar</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // âœ… ZONA
+  // ✅ ZONA
   zonaContainer: {
     marginBottom: 8,
   },
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // âœ… BANCO Y CUENTA
+  // ✅ BANCO Y CUENTA
   bancoContainer: {
     marginBottom: 8,
     backgroundColor: '#F0F4FF',
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
-  // âœ… BANCO EN MODAL
+  // ✅ BANCO EN MODAL
   modalBancoContainer: {
     backgroundColor: '#F0F4FF',
     padding: 12,
