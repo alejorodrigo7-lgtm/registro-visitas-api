@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -292,9 +292,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
                         <Text style={styles.modalLabel}>ðŸ“· Comprobante:</Text>
                         <Image
                           source={{
-                            uri: imagenData.startsWith('data:image')
-                              ? imagenData
-                              : `data:image/jpeg;base64,${imagenData}`
+                            uri: getImagenUri(imagenData)
                           }}
                           style={styles.modalImagen}
                           resizeMode="contain"
