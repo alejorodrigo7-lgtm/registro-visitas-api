@@ -122,9 +122,7 @@ exports.subirTransferencia = async (req, res) => {
       });
     }
 
-    // ✅ ============================================
-    // ✅ NUEVA VALIDACIÓN: VERIFICAR DOCUMENTO DUPLICADO
-    // ✅ ============================================
+    // ✅ VALIDACIÓN: VERIFICAR DOCUMENTO DUPLICADO
     const documentoExistente = await Transferencia.findOne({ 
       numeroDocumento: numeroDocumento.trim() 
     });
@@ -142,7 +140,6 @@ exports.subirTransferencia = async (req, res) => {
         }
       });
     }
-    // ✅ ============================================
 
     const responsable = await User.findById(req.user._id);
     if (!responsable) {
@@ -153,7 +150,7 @@ exports.subirTransferencia = async (req, res) => {
       });
     }
 
-    // ✅ COMPRIMIR IMAGEN ANTES DE GUARDAR (SOPORTA CLOUDINARY)
+    // ✅ COMPRIMIR IMAGEN ANTES DE GUARDAR
     const imagenComprimida = await comprimirImagen(imagenComprobante);
 
     const transferencia = await Transferencia.create({
@@ -214,9 +211,8 @@ exports.getTransferencias = async (req, res) => {
       query.estado = estado;
     }
 
-    if (['Tecnico', 'Coordinador'].includes(req.user.rol)) {
-      query.responsableId = req.user._id;
-    }
+    // ✅ TODOS los roles ven TODAS las transferencias
+    // (Sin filtro por responsableId)
 
     const transferencias = await Transferencia.find(query)
       .populate('responsableId', 'nombre email rol')
@@ -298,14 +294,12 @@ exports.confirmarTransferencia = async (req, res) => {
       });
     }
 
-    // ✅ ============================================
-    // ✅ NUEVA VALIDACIÓN: VERIFICAR DOCUMENTO DUPLICADO AL CONFIRMAR
-    // ✅ ============================================
+    // ✅ VALIDACIÓN: VERIFICAR DOCUMENTO DUPLICADO AL CONFIRMAR
     if (estado === 'CONFIRMADA') {
       const documentoExistente = await Transferencia.findOne({
         numeroDocumento: transferencia.numeroDocumento,
-        _id: { $ne: id },  // Excluir la actual
-        estado: { $in: ['CONFIRMADA', 'INGRESADA'] }  // Solo confirmadas/ingresadas
+        _id: { $ne: id },
+        estado: { $in: ['CONFIRMADA', 'INGRESADA'] }
       });
       
       if (documentoExistente) {
@@ -322,7 +316,6 @@ exports.confirmarTransferencia = async (req, res) => {
         });
       }
     }
-    // ✅ ============================================
 
     // ✅ ACTUALIZAR SEGÚN EL ESTADO
     if (estado === 'CONFIRMADA') {
@@ -332,12 +325,10 @@ exports.confirmarTransferencia = async (req, res) => {
       console.log(`✅ Transferencia CONFIRMADA`);
     } else if (estado === 'DENEGADA') {
       transferencia.estado = 'DENEGADA';
-      // ✅ GUARDAR LA NOTA DE DENEGACIÓN
       transferencia.notaDenegacion = notaDenegacion || 'Sin nota';
       transferencia.denegadoPor = req.user._id;
       transferencia.fechaDenegacion = new Date();
       
-      // ✅ Si se envía una nueva imagen de comprobante (para denegación)
       if (imagenComprobante) {
         transferencia.imagenComprobante = imagenComprobante;
       }
@@ -469,9 +460,8 @@ exports.buscarTransferenciasRevision = async (req, res) => {
       ],
     };
 
-    if (['Tecnico', 'Coordinador'].includes(req.user.rol)) {
-      query.responsableId = req.user._id;
-    }
+    // ✅ TODOS los roles ven TODAS las transferencias
+    // (Sin filtro por responsableId)
 
     const transferencias = await Transferencia.find(query)
       .populate('responsableId', 'nombre email rol')
@@ -517,9 +507,8 @@ exports.getTransferenciasByEstado = async (req, res) => {
 
     let query = { estado };
     
-    if (req.user && ['Tecnico', 'Coordinador'].includes(req.user.rol)) {
-      query.responsableId = req.user._id;
-    }
+    // ✅ TODOS los roles ven TODAS las transferencias
+    // (Sin filtro por responsableId)
 
     console.log('📊 Usando índice createdAt_-1 para ordenar...');
     
