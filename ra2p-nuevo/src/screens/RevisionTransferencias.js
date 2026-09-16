@@ -42,6 +42,19 @@ const RevisionTransferencias = ({ navigation }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState('start');
 
+  // ✅ NUEVO: FILTRO POR ESTADO
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState('TODOS');
+  const [mostrarFiltroEstado, setMostrarFiltroEstado] = useState(false);
+
+  // ✅ ESTADOS DISPONIBLES
+  const estadosDisponibles = [
+    { valor: 'SUBIDA', label: '📤 Subida' },
+    { valor: 'CONFIRMADA', label: '✅ Confirmada' },
+    { valor: 'DENEGADA', label: '❌ Denegada' },
+    { valor: 'INGRESADA', label: '💰 Ingresada' },
+    { valor: 'EN_REVISION', label: '🔍 En Revisión' },
+  ];
+
   // ✅ CARGAR TRANSFERENCIAS
   const cargarTransferencias = async () => {
     try {
@@ -53,13 +66,11 @@ const RevisionTransferencias = ({ navigation }) => {
       setTransferencias(data);
       setTransferenciasFiltradas(data);
 
-      // ✅ EXTRAER ZONAS ÚNICAS
       const zonasUnicas = [...new Set(data.map(t => t.zonaSector).filter(Boolean))];
       zonasUnicas.sort();
       setZonasDisponibles(zonasUnicas);
 
       console.log(`✅ ${data.length} transferencias cargadas`);
-      console.log(`📍 Zonas: ${zonasUnicas.join(', ')}`);
 
     } catch (error) {
       console.error('❌ Error al cargar transferencias:', error);
@@ -79,11 +90,11 @@ const RevisionTransferencias = ({ navigation }) => {
     cargarTransferencias();
   };
 
-  // ✅ FILTRAR TRANSFERENCIAS (combina los 3 filtros opcionales)
-  const aplicarFiltros = (texto, zona, fInicio, fFin) => {
+  // ✅ FILTRAR TRANSFERENCIAS (combina los 4 filtros opcionales)
+  const aplicarFiltros = (texto, zona, fInicio, fFin, estado) => {
     let filtradas = [...transferencias];
 
-    // 🔍 Filtro por texto (opcional)
+    // 🔍 Filtro por texto
     if (texto && texto.trim() !== '') {
       const termino = texto.toLowerCase().trim();
       filtradas = filtradas.filter(t =>
@@ -93,12 +104,12 @@ const RevisionTransferencias = ({ navigation }) => {
       );
     }
 
-    // 📍 Filtro por zona (opcional)
+    // 📍 Filtro por zona
     if (zona && zona !== 'TODAS') {
       filtradas = filtradas.filter(t => t.zonaSector === zona);
     }
 
-    // 📅 Filtro por fecha (opcional)
+    // 📅 Filtro por fecha inicio
     if (fInicio) {
       const inicio = new Date(fInicio);
       inicio.setHours(0, 0, 0, 0);
@@ -108,6 +119,7 @@ const RevisionTransferencias = ({ navigation }) => {
       });
     }
 
+    // 📅 Filtro por fecha fin
     if (fFin) {
       const fin = new Date(fFin);
       fin.setHours(23, 59, 59, 999);
@@ -117,32 +129,48 @@ const RevisionTransferencias = ({ navigation }) => {
       });
     }
 
+    // ✅ NUEVO: Filtro por estado
+    if (estado && estado !== 'TODOS') {
+      filtradas = filtradas.filter(t => t.estado === estado);
+    }
+
     setTransferenciasFiltradas(filtradas);
   };
 
-  // ✅ BUSCAR (desde el input)
+  // ✅ BUSCAR
   const buscarTransferencias = () => {
-    aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, fechaFin);
+    aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, fechaFin, estadoSeleccionado);
   };
 
   // ✅ SELECCIONAR ZONA
   const seleccionarZona = (zona) => {
     setZonaSeleccionada(zona);
-    aplicarFiltros(searchTerm, zona, fechaInicio, fechaFin);
+    aplicarFiltros(searchTerm, zona, fechaInicio, fechaFin, estadoSeleccionado);
     setMostrarFiltroZona(false);
   };
 
-  // ✅ LIMPIAR SOLO ZONA
-  const limpiarZona = () => {
-    setZonaSeleccionada('TODAS');
-    aplicarFiltros(searchTerm, 'TODAS', fechaInicio, fechaFin);
+  // ✅ SELECCIONAR ESTADO
+  const seleccionarEstado = (estado) => {
+    setEstadoSeleccionado(estado);
+    aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, fechaFin, estado);
+    setMostrarFiltroEstado(false);
   };
 
-  // ✅ LIMPIAR SOLO FECHA
+  // ✅ LIMPIAR FILTROS INDIVIDUALES
+  const limpiarZona = () => {
+    setZonaSeleccionada('TODAS');
+    aplicarFiltros(searchTerm, 'TODAS', fechaInicio, fechaFin, estadoSeleccionado);
+  };
+
   const limpiarFecha = () => {
     setFechaInicio(null);
     setFechaFin(null);
-    aplicarFiltros(searchTerm, zonaSeleccionada, null, null);
+    aplicarFiltros(searchTerm, zonaSeleccionada, null, null, estadoSeleccionado);
+  };
+
+  const limpiarEstado = () => {
+    setEstadoSeleccionado('TODOS');
+    aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, fechaFin, 'TODOS');
   };
 
   // ✅ LIMPIAR TODOS LOS FILTROS
@@ -151,6 +179,7 @@ const RevisionTransferencias = ({ navigation }) => {
     setZonaSeleccionada('TODAS');
     setFechaInicio(null);
     setFechaFin(null);
+    setEstadoSeleccionado('TODOS');
     setTransferenciasFiltradas(transferencias);
   };
 
@@ -160,15 +189,14 @@ const RevisionTransferencias = ({ navigation }) => {
     if (selectedDate) {
       if (datePickerMode === 'start') {
         setFechaInicio(selectedDate);
-        aplicarFiltros(searchTerm, zonaSeleccionada, selectedDate, fechaFin);
+        aplicarFiltros(searchTerm, zonaSeleccionada, selectedDate, fechaFin, estadoSeleccionado);
       } else {
         setFechaFin(selectedDate);
-        aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, selectedDate);
+        aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, selectedDate, estadoSeleccionado);
       }
     }
   };
 
-  // ✅ ABRIR DATE PICKER
   const abrirDatePicker = (modo) => {
     setDatePickerMode(modo);
     setShowDatePicker(true);
@@ -179,9 +207,10 @@ const RevisionTransferencias = ({ navigation }) => {
     searchTerm.trim() !== '' ||
     zonaSeleccionada !== 'TODAS' ||
     fechaInicio !== null ||
-    fechaFin !== null;
+    fechaFin !== null ||
+    estadoSeleccionado !== 'TODOS';
 
-  // ✅ COLORES POR ESTADO
+  // ✅ COLORES Y LABELS
   const getEstadoColor = (estado) => {
     const colors = {
       'SUBIDA': '#FDCB6E',
@@ -204,6 +233,12 @@ const RevisionTransferencias = ({ navigation }) => {
     return labels[estado] || estado;
   };
 
+  const getEstadoFiltroLabel = (estado) => {
+    if (estado === 'TODOS') return 'Estado';
+    const found = estadosDisponibles.find(e => e.valor === estado);
+    return found ? found.label : estado;
+  };
+
   const formatFecha = (fecha) => {
     if (!fecha) return 'Sin fecha';
     return new Date(fecha).toLocaleDateString('es-ES', {
@@ -211,9 +246,7 @@ const RevisionTransferencias = ({ navigation }) => {
     });
   };
 
-  const formatValor = (valor) => {
-    return `$${valor?.toFixed(2) || '0.00'}`;
-  };
+  const formatValor = (valor) => `$${valor?.toFixed(2) || '0.00'}`;
 
   const getImagen = (item) => {
     if (item.imagenComprobante && item.imagenComprobante.length > 100) {
@@ -284,7 +317,7 @@ const RevisionTransferencias = ({ navigation }) => {
         </Text>
       </View>
 
-      {/* ✅ BUSCADOR POR TEXTO */}
+      {/* ✅ BUSCADOR */}
       <View style={styles.buscadorContainer}>
         <TextInput
           style={styles.buscadorInput}
@@ -298,66 +331,74 @@ const RevisionTransferencias = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* ✅ FILTROS POR ZONA Y FECHA */}
+      {/* ✅ FILTROS: ZONA, FECHA, ESTADO */}
       <View style={styles.filtrosContainer}>
         {/* Filtro por Zona */}
-        <View style={styles.filtroItem}>
-          <TouchableOpacity
-            style={[
-              styles.filtroButton,
-              zonaSeleccionada !== 'TODAS' && styles.filtroButtonActivo
-            ]}
-            onPress={() => setMostrarFiltroZona(!mostrarFiltroZona)}
-          >
-            <Text style={[
-              styles.filtroButtonText,
-              zonaSeleccionada !== 'TODAS' && styles.filtroButtonTextActivo
-            ]}>
-              📍 {zonaSeleccionada === 'TODAS' ? 'Zona' : zonaSeleccionada}
-            </Text>
-            {zonaSeleccionada !== 'TODAS' && (
-              <TouchableOpacity onPress={limpiarZona} style={styles.filtroClearBtn}>
-                <Text style={styles.filtroClearText}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.filtroButton, zonaSeleccionada !== 'TODAS' && styles.filtroButtonActivo]}
+          onPress={() => {
+            setMostrarFiltroZona(!mostrarFiltroZona);
+            setMostrarFiltroFecha(false);
+            setMostrarFiltroEstado(false);
+          }}
+        >
+          <Text style={[styles.filtroButtonText, zonaSeleccionada !== 'TODAS' && styles.filtroButtonTextActivo]}>
+            📍 {zonaSeleccionada === 'TODAS' ? 'Zona' : zonaSeleccionada}
+          </Text>
+          {zonaSeleccionada !== 'TODAS' && (
+            <TouchableOpacity onPress={limpiarZona} style={styles.filtroClearBtn}>
+              <Text style={styles.filtroClearText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
 
         {/* Filtro por Fecha */}
-        <View style={styles.filtroItem}>
-          <TouchableOpacity
-            style={[
-              styles.filtroButton,
-              (fechaInicio || fechaFin) && styles.filtroButtonActivo
-            ]}
-            onPress={() => setMostrarFiltroFecha(!mostrarFiltroFecha)}
-          >
-            <Text style={[
-              styles.filtroButtonText,
-              (fechaInicio || fechaFin) && styles.filtroButtonTextActivo
-            ]}>
-              📅 {(fechaInicio || fechaFin) ? 'Fecha' : 'Fecha'}
-            </Text>
-            {(fechaInicio || fechaFin) && (
-              <TouchableOpacity onPress={limpiarFecha} style={styles.filtroClearBtn}>
-                <Text style={styles.filtroClearText}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.filtroButton, (fechaInicio || fechaFin) && styles.filtroButtonActivo]}
+          onPress={() => {
+            setMostrarFiltroFecha(!mostrarFiltroFecha);
+            setMostrarFiltroZona(false);
+            setMostrarFiltroEstado(false);
+          }}
+        >
+          <Text style={[styles.filtroButtonText, (fechaInicio || fechaFin) && styles.filtroButtonTextActivo]}>
+            📅 Fecha
+          </Text>
+          {(fechaInicio || fechaFin) && (
+            <TouchableOpacity onPress={limpiarFecha} style={styles.filtroClearBtn}>
+              <Text style={styles.filtroClearText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+
+        {/* ✅ NUEVO: Filtro por Estado */}
+        <TouchableOpacity
+          style={[styles.filtroButton, estadoSeleccionado !== 'TODOS' && styles.filtroButtonActivo]}
+          onPress={() => {
+            setMostrarFiltroEstado(!mostrarFiltroEstado);
+            setMostrarFiltroZona(false);
+            setMostrarFiltroFecha(false);
+          }}
+        >
+          <Text style={[styles.filtroButtonText, estadoSeleccionado !== 'TODOS' && styles.filtroButtonTextActivo]}>
+            🏷️ {getEstadoFiltroLabel(estadoSeleccionado)}
+          </Text>
+          {estadoSeleccionado !== 'TODOS' && (
+            <TouchableOpacity onPress={limpiarEstado} style={styles.filtroClearBtn}>
+              <Text style={styles.filtroClearText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
 
         {/* Limpiar todos */}
         {hayFiltrosActivos && (
-          <TouchableOpacity
-            style={styles.limpiarTodosButton}
-            onPress={limpiarTodosFiltros}
-          >
+          <TouchableOpacity style={styles.limpiarTodosButton} onPress={limpiarTodosFiltros}>
             <Text style={styles.limpiarTodosText}>🗑️ Limpiar todo</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* ✅ LISTA DE ZONAS (desplegable) */}
+      {/* ✅ LISTA DE ZONAS */}
       {mostrarFiltroZona && (
         <View style={styles.filtroDesplegable}>
           <ScrollView style={styles.filtroDesplegableScroll} nestedScrollEnabled>
@@ -385,26 +426,51 @@ const RevisionTransferencias = ({ navigation }) => {
         </View>
       )}
 
+      {/* ✅ LISTA DE ESTADOS */}
+      {mostrarFiltroEstado && (
+        <View style={styles.filtroDesplegable}>
+          <ScrollView style={styles.filtroDesplegableScroll} nestedScrollEnabled>
+            <TouchableOpacity
+              style={[styles.filtroOpcion, estadoSeleccionado === 'TODOS' && styles.filtroOpcionActiva]}
+              onPress={() => seleccionarEstado('TODOS')}
+            >
+              <Text style={[styles.filtroOpcionText, estadoSeleccionado === 'TODOS' && styles.filtroOpcionTextActivo]}>
+                🌐 Todos los estados
+              </Text>
+            </TouchableOpacity>
+
+            {estadosDisponibles.map((estado) => (
+              <TouchableOpacity
+                key={estado.valor}
+                style={[styles.filtroOpcion, estadoSeleccionado === estado.valor && styles.filtroOpcionActiva]}
+                onPress={() => seleccionarEstado(estado.valor)}
+              >
+                <View style={styles.estadoOpcionRow}>
+                  <View style={[styles.estadoColorDot, { backgroundColor: getEstadoColor(estado.valor) }]} />
+                  <Text style={[styles.filtroOpcionText, estadoSeleccionado === estado.valor && styles.filtroOpcionTextActivo]}>
+                    {estado.label}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* ✅ SELECTOR DE FECHAS */}
       {mostrarFiltroFecha && (
         <View style={styles.fechaSelectorContainer}>
           <Text style={styles.fechaSelectorTitle}>📅 Filtrar por fecha</Text>
 
           <View style={styles.fechaBotonesRow}>
-            <TouchableOpacity
-              style={styles.fechaBoton}
-              onPress={() => abrirDatePicker('start')}
-            >
+            <TouchableOpacity style={styles.fechaBoton} onPress={() => abrirDatePicker('start')}>
               <Text style={styles.fechaBotonLabel}>Desde:</Text>
               <Text style={styles.fechaBotonValor}>
                 {fechaInicio ? formatFecha(fechaInicio) : 'Seleccionar'}
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.fechaBoton}
-              onPress={() => abrirDatePicker('end')}
-            >
+            <TouchableOpacity style={styles.fechaBoton} onPress={() => abrirDatePicker('end')}>
               <Text style={styles.fechaBotonLabel}>Hasta:</Text>
               <Text style={styles.fechaBotonValor}>
                 {fechaFin ? formatFecha(fechaFin) : 'Seleccionar'}
@@ -413,10 +479,7 @@ const RevisionTransferencias = ({ navigation }) => {
           </View>
 
           <View style={styles.fechaAccionesRow}>
-            <TouchableOpacity
-              style={styles.fechaAccionBtn}
-              onPress={() => setMostrarFiltroFecha(false)}
-            >
+            <TouchableOpacity style={styles.fechaAccionBtn} onPress={() => setMostrarFiltroFecha(false)}>
               <Text style={styles.fechaAccionText}>Cerrar</Text>
             </TouchableOpacity>
 
@@ -430,14 +493,9 @@ const RevisionTransferencias = ({ navigation }) => {
         </View>
       )}
 
-      {/* DatePicker */}
       {showDatePicker && (
         <DateTimePicker
-          value={
-            datePickerMode === 'start'
-              ? (fechaInicio || new Date())
-              : (fechaFin || new Date())
-          }
+          value={datePickerMode === 'start' ? (fechaInicio || new Date()) : (fechaFin || new Date())}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handleDateChange}
@@ -447,9 +505,7 @@ const RevisionTransferencias = ({ navigation }) => {
       {/* ✅ LISTA DE TRANSFERENCIAS */}
       <ScrollView
         style={styles.listaContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {transferenciasFiltradas.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -461,10 +517,7 @@ const RevisionTransferencias = ({ navigation }) => {
                 : 'No hay transferencias registradas'}
             </Text>
             {hayFiltrosActivos && (
-              <TouchableOpacity
-                style={styles.emptyLimpiarBtn}
-                onPress={limpiarTodosFiltros}
-              >
+              <TouchableOpacity style={styles.emptyLimpiarBtn} onPress={limpiarTodosFiltros}>
                 <Text style={styles.emptyLimpiarText}>Limpiar filtros</Text>
               </TouchableOpacity>
             )}
@@ -553,10 +606,7 @@ const RevisionTransferencias = ({ navigation }) => {
               </View>
             )}
 
-            <TouchableOpacity
-              style={styles.modalCerrar}
-              onPress={() => setModalVisible(false)}
-            >
+            <TouchableOpacity style={styles.modalCerrar} onPress={() => setModalVisible(false)}>
               <Text style={styles.modalCerrarText}>Cerrar</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -597,8 +647,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#636E72',
   },
-
-  // ✅ BUSCADOR
   buscadorContainer: {
     flexDirection: 'row',
     padding: 15,
@@ -626,8 +674,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
   },
-
-  // ✅ FILTROS
   filtrosContainer: {
     flexDirection: 'row',
     paddingHorizontal: 15,
@@ -636,9 +682,6 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: 'wrap',
     alignItems: 'center',
-  },
-  filtroItem: {
-    flexDirection: 'row',
   },
   filtroButton: {
     flexDirection: 'row',
@@ -689,8 +732,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-
-  // ✅ DESPLEGABLE DE ZONAS
   filtroDesplegable: {
     marginHorizontal: 15,
     marginBottom: 10,
@@ -698,7 +739,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E8ECF1',
-    maxHeight: 200,
+    maxHeight: 220,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -706,7 +747,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   filtroDesplegableScroll: {
-    maxHeight: 200,
+    maxHeight: 220,
   },
   filtroOpcion: {
     padding: 14,
@@ -724,8 +765,16 @@ const styles = StyleSheet.create({
     color: '#6C5CE7',
     fontWeight: '600',
   },
-
-  // ✅ SELECTOR DE FECHAS
+  estadoOpcionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  estadoColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
   fechaSelectorContainer: {
     marginHorizontal: 15,
     marginBottom: 10,
@@ -793,8 +842,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-
-  // ✅ LISTA
   listaContainer: {
     flex: 1,
     padding: 15,
@@ -905,8 +952,6 @@ const styles = StyleSheet.create({
   footerSpacer: {
     height: 20,
   },
-
-  // ✅ MODAL
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
