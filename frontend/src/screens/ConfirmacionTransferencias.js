@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
     ActivityIndicator,
     Alert,
@@ -22,12 +24,21 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null);
 
+  // FILTRO POR FECHA
+  const [fechaInicio, setFechaInicio] = useState(null);
+  const [fechaFin, setFechaFin] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerMode, setDatePickerMode] = useState('start');
+  const [transferenciasFiltradas, setTransferenciasFiltradas] = useState([]);
+
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
   const cargarTransferencias = async () => {
     try {
       const response = await api.get('/transferencias/estado/SUBIDA');
-      setTransferencias(response.data.data || []);
+      const data = response.data.data || [];
+      setTransferencias(data);
+      setTransferenciasFiltradas(data);
     } catch (error) {
       console.error('Error al cargar transferencias:', error);
       Alert.alert('Error', 'No se pudieron cargar las transferencias');
@@ -95,6 +106,62 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
   const tieneImagen = (item) => {
     return getImagen(item) !== null;
+  };
+
+  // FILTRO POR FECHA
+  const aplicarFiltroFecha = (inicio, fin) => {
+    let filtradas = [...transferencias];
+    
+    if (inicio) {
+      const inicioDate = new Date(inicio);
+      inicioDate.setHours(0, 0, 0, 0);
+      filtradas = filtradas.filter(t => {
+        const fecha = new Date(t.fechaTransferencia || t.createdAt);
+        return fecha >= inicioDate;
+      });
+    }
+    
+    if (fin) {
+      const finDate = new Date(fin);
+      finDate.setHours(23, 59, 59, 999);
+      filtradas = filtradas.filter(t => {
+        const fecha = new Date(t.fechaTransferencia || t.createdAt);
+        return fecha <= finDate;
+      });
+    }
+    
+    setTransferenciasFiltradas(filtradas);
+  };
+
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      if (datePickerMode === 'start') {
+        setFechaInicio(selectedDate);
+        aplicarFiltroFecha(selectedDate, fechaFin);
+      } else {
+        setFechaFin(selectedDate);
+        aplicarFiltroFecha(fechaInicio, selectedDate);
+      }
+    }
+  };
+
+  const abrirDatePicker = (modo) => {
+    setDatePickerMode(modo);
+    setShowDatePicker(true);
+  };
+
+  const limpiarFiltroFecha = () => {
+    setFechaInicio(null);
+    setFechaFin(null);
+    setTransferenciasFiltradas(transferencias);
+  };
+
+  const hayFiltroFecha = fechaInicio !== null || fechaFin !== null;
+
+  const formatFechaFiltro = (fecha) => {
+    if (!fecha) return 'Seleccionar';
+    return new Date(fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   const confirmarTransferencia = async (id, estado) => {
@@ -223,13 +290,13 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {transferencias.length === 0 ? (
+        {transferenciasFiltradas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📭</Text>
             <Text style={styles.emptyText}>No hay transferencias pendientes</Text>
           </View>
         ) : (
-          transferencias.map(renderTransferencia)
+          transferenciasFiltradas.map(renderTransferencia)
         )}
         <View style={styles.footerSpacer} />
       </ScrollView>
@@ -365,6 +432,59 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: '#636E72',
+  },
+  filtroFechaContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filtroFechaRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  filtroFechaBtn: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+  },
+  filtroFechaBtnActivo: {
+    backgroundColor: '#6C5CE720',
+    borderColor: '#6C5CE7',
+  },
+  filtroFechaLabel: {
+    fontSize: 11,
+    color: '#636E72',
+    marginBottom: 2,
+  },
+  filtroFechaValor: {
+    fontSize: 13,
+    color: '#2D3436',
+    fontWeight: '600',
+  },
+  filtroFechaClear: {
+    backgroundColor: '#FF6B6B',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filtroFechaClearText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  filtroFechaInfo: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#6C5CE7',
+    fontWeight: '500',
   },
   listaContainer: {
     flex: 1,
