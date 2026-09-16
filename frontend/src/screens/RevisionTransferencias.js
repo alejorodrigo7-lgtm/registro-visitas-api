@@ -12,7 +12,9 @@ import {
   TouchableOpacity,
   View,
   Dimensions,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -24,17 +26,43 @@ const RevisionTransferencias = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [transferencias, setTransferencias] = useState([]);
   const [transferenciasFiltradas, setTransferenciasFiltradas] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null);
 
+  // ✅ FILTROS OPCIONALES
+  const [searchTerm, setSearchTerm] = useState('');
+  const [zonasDisponibles, setZonasDisponibles] = useState([]);
+  const [zonaSeleccionada, setZonaSeleccionada] = useState('TODAS');
+  const [mostrarFiltroZona, setMostrarFiltroZona] = useState(false);
+
+  // ✅ FILTRO POR FECHA
+  const [mostrarFiltroFecha, setMostrarFiltroFecha] = useState(false);
+  const [fechaInicio, setFechaInicio] = useState(null);
+  const [fechaFin, setFechaFin] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerMode, setDatePickerMode] = useState('start');
+
+  // ✅ CARGAR TRANSFERENCIAS
   const cargarTransferencias = async () => {
     try {
+      console.log('📡 Cargando transferencias...');
+
       const response = await api.get('/transferencias');
-      setTransferencias(response.data.data || []);
-      setTransferenciasFiltradas(response.data.data || []);
+      const data = response.data.data || [];
+
+      setTransferencias(data);
+      setTransferenciasFiltradas(data);
+
+      // ✅ EXTRAER ZONAS ÚNICAS
+      const zonasUnicas = [...new Set(data.map(t => t.zonaSector).filter(Boolean))];
+      zonasUnicas.sort();
+      setZonasDisponibles(zonasUnicas);
+
+      console.log(`✅ ${data.length} transferencias cargadas`);
+      console.log(`📍 Zonas: ${zonasUnicas.join(', ')}`);
+
     } catch (error) {
-      console.error('Error al cargar transferencias:', error);
+      console.error('❌ Error al cargar transferencias:', error);
       Alert.alert('Error', 'No se pudieron cargar las transferencias');
     } finally {
       setLoading(false);
@@ -51,20 +79,109 @@ const RevisionTransferencias = ({ navigation }) => {
     cargarTransferencias();
   };
 
-  const buscarTransferencias = async () => {
-    if (!searchTerm || searchTerm.trim() === '') {
-      setTransferenciasFiltradas(transferencias);
-      return;
+  // ✅ FILTRAR TRANSFERENCIAS (combina los 3 filtros opcionales)
+  const aplicarFiltros = (texto, zona, fInicio, fFin) => {
+    let filtradas = [...transferencias];
+
+    // 🔍 Filtro por texto (opcional)
+    if (texto && texto.trim() !== '') {
+      const termino = texto.toLowerCase().trim();
+      filtradas = filtradas.filter(t =>
+        t.nombreUsuario?.toLowerCase().includes(termino) ||
+        t.codigoIdentificador?.toLowerCase().includes(termino) ||
+        t.numeroDocumento?.toLowerCase().includes(termino)
+      );
     }
 
-    try {
-      const response = await api.get(`/transferencias/buscar-revision?search=${searchTerm.trim()}`);
-      setTransferenciasFiltradas(response.data.data || []);
-    } catch (error) {
-      Alert.alert('Error', 'Error al buscar transferencias');
+    // 📍 Filtro por zona (opcional)
+    if (zona && zona !== 'TODAS') {
+      filtradas = filtradas.filter(t => t.zonaSector === zona);
+    }
+
+    // 📅 Filtro por fecha (opcional)
+    if (fInicio) {
+      const inicio = new Date(fInicio);
+      inicio.setHours(0, 0, 0, 0);
+      filtradas = filtradas.filter(t => {
+        const fecha = new Date(t.fechaTransferencia || t.createdAt);
+        return fecha >= inicio;
+      });
+    }
+
+    if (fFin) {
+      const fin = new Date(fFin);
+      fin.setHours(23, 59, 59, 999);
+      filtradas = filtradas.filter(t => {
+        const fecha = new Date(t.fechaTransferencia || t.createdAt);
+        return fecha <= fin;
+      });
+    }
+
+    setTransferenciasFiltradas(filtradas);
+  };
+
+  // ✅ BUSCAR (desde el input)
+  const buscarTransferencias = () => {
+    aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, fechaFin);
+  };
+
+  // ✅ SELECCIONAR ZONA
+  const seleccionarZona = (zona) => {
+    setZonaSeleccionada(zona);
+    aplicarFiltros(searchTerm, zona, fechaInicio, fechaFin);
+    setMostrarFiltroZona(false);
+  };
+
+  // ✅ LIMPIAR SOLO ZONA
+  const limpiarZona = () => {
+    setZonaSeleccionada('TODAS');
+    aplicarFiltros(searchTerm, 'TODAS', fechaInicio, fechaFin);
+  };
+
+  // ✅ LIMPIAR SOLO FECHA
+  const limpiarFecha = () => {
+    setFechaInicio(null);
+    setFechaFin(null);
+    aplicarFiltros(searchTerm, zonaSeleccionada, null, null);
+  };
+
+  // ✅ LIMPIAR TODOS LOS FILTROS
+  const limpiarTodosFiltros = () => {
+    setSearchTerm('');
+    setZonaSeleccionada('TODAS');
+    setFechaInicio(null);
+    setFechaFin(null);
+    setTransferenciasFiltradas(transferencias);
+  };
+
+  // ✅ MANEJAR CAMBIO DE FECHA
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      if (datePickerMode === 'start') {
+        setFechaInicio(selectedDate);
+        aplicarFiltros(searchTerm, zonaSeleccionada, selectedDate, fechaFin);
+      } else {
+        setFechaFin(selectedDate);
+        aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, selectedDate);
+      }
     }
   };
 
+  // ✅ ABRIR DATE PICKER
+  const abrirDatePicker = (modo) => {
+    setDatePickerMode(modo);
+    setShowDatePicker(true);
+  };
+
+  // ✅ VERIFICAR SI HAY FILTROS ACTIVOS
+  const hayFiltrosActivos =
+    searchTerm.trim() !== '' ||
+    zonaSeleccionada !== 'TODAS' ||
+    fechaInicio !== null ||
+    fechaFin !== null;
+
+  // ✅ COLORES POR ESTADO
   const getEstadoColor = (estado) => {
     const colors = {
       'SUBIDA': '#FDCB6E',
@@ -89,31 +206,28 @@ const RevisionTransferencias = ({ navigation }) => {
 
   const formatFecha = (fecha) => {
     if (!fecha) return 'Sin fecha';
-    return new Date(fecha).toLocaleDateString('es-ES');
+    return new Date(fecha).toLocaleDateString('es-ES', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
   };
 
   const formatValor = (valor) => {
     return `$${valor?.toFixed(2) || '0.00'}`;
   };
 
-  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN (de cualquier campo)
   const getImagen = (item) => {
-    // Primero revisar imagenComprobante
     if (item.imagenComprobante && item.imagenComprobante.length > 100) {
       return item.imagenComprobante;
     }
-    // Luego revisar soporte
     if (item.soporte && item.soporte.length > 100) {
       return item.soporte;
     }
     return null;
   };
 
-  // ✅ VERIFICAR SI TIENE IMAGEN
-  const tieneImagen = (item) => {
-    return getImagen(item) !== null;
-  };
+  const tieneImagen = (item) => getImagen(item) !== null;
 
+  // ✅ RENDERIZAR TRANSFERENCIA
   const renderTransferencia = (item) => {
     return (
       <TouchableOpacity
@@ -133,13 +247,16 @@ const RevisionTransferencias = ({ navigation }) => {
 
         <Text style={styles.transferenciaNombre}>{item.nombreUsuario}</Text>
 
+        <View style={styles.zonaContainer}>
+          <Text style={styles.zonaText}>📍 {item.zonaSector} - {item.barrio}</Text>
+        </View>
+
         <View style={styles.transferenciaFooter}>
           <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
           <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
           <Text style={styles.transferenciaInfo}>👤 {item.responsable}</Text>
         </View>
 
-        {/* ✅ INDICADOR DE IMAGEN */}
         {tieneImagen(item) && (
           <View style={styles.imagenIndicator}>
             <Text style={styles.imagenIndicatorText}>📷 Tiene comprobante</Text>
@@ -162,32 +279,172 @@ const RevisionTransferencias = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>🔍 Revisión de Transferencias</Text>
+        <Text style={styles.subtitle}>
+          {transferenciasFiltradas.length} de {transferencias.length} transferencias
+        </Text>
       </View>
 
+      {/* ✅ BUSCADOR POR TEXTO */}
       <View style={styles.buscadorContainer}>
         <TextInput
           style={styles.buscadorInput}
           value={searchTerm}
           onChangeText={setSearchTerm}
-          placeholder="Buscar por nombre o código..."
+          placeholder="🔍 Nombre, código o documento..."
           onSubmitEditing={buscarTransferencias}
         />
         <TouchableOpacity style={styles.buscadorButton} onPress={buscarTransferencias}>
-          <Text style={styles.buscadorButtonText}>🔍 Buscar</Text>
+          <Text style={styles.buscadorButtonText}>🔍</Text>
         </TouchableOpacity>
-        {searchTerm.length > 0 && (
+      </View>
+
+      {/* ✅ FILTROS POR ZONA Y FECHA */}
+      <View style={styles.filtrosContainer}>
+        {/* Filtro por Zona */}
+        <View style={styles.filtroItem}>
           <TouchableOpacity
-            style={styles.limpiarButton}
-            onPress={() => {
-              setSearchTerm('');
-              setTransferenciasFiltradas(transferencias);
-            }}
+            style={[
+              styles.filtroButton,
+              zonaSeleccionada !== 'TODAS' && styles.filtroButtonActivo
+            ]}
+            onPress={() => setMostrarFiltroZona(!mostrarFiltroZona)}
           >
-            <Text style={styles.limpiarButtonText}>✕</Text>
+            <Text style={[
+              styles.filtroButtonText,
+              zonaSeleccionada !== 'TODAS' && styles.filtroButtonTextActivo
+            ]}>
+              📍 {zonaSeleccionada === 'TODAS' ? 'Zona' : zonaSeleccionada}
+            </Text>
+            {zonaSeleccionada !== 'TODAS' && (
+              <TouchableOpacity onPress={limpiarZona} style={styles.filtroClearBtn}>
+                <Text style={styles.filtroClearText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Filtro por Fecha */}
+        <View style={styles.filtroItem}>
+          <TouchableOpacity
+            style={[
+              styles.filtroButton,
+              (fechaInicio || fechaFin) && styles.filtroButtonActivo
+            ]}
+            onPress={() => setMostrarFiltroFecha(!mostrarFiltroFecha)}
+          >
+            <Text style={[
+              styles.filtroButtonText,
+              (fechaInicio || fechaFin) && styles.filtroButtonTextActivo
+            ]}>
+              📅 {(fechaInicio || fechaFin) ? 'Fecha' : 'Fecha'}
+            </Text>
+            {(fechaInicio || fechaFin) && (
+              <TouchableOpacity onPress={limpiarFecha} style={styles.filtroClearBtn}>
+                <Text style={styles.filtroClearText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Limpiar todos */}
+        {hayFiltrosActivos && (
+          <TouchableOpacity
+            style={styles.limpiarTodosButton}
+            onPress={limpiarTodosFiltros}
+          >
+            <Text style={styles.limpiarTodosText}>🗑️ Limpiar todo</Text>
           </TouchableOpacity>
         )}
       </View>
 
+      {/* ✅ LISTA DE ZONAS (desplegable) */}
+      {mostrarFiltroZona && (
+        <View style={styles.filtroDesplegable}>
+          <ScrollView style={styles.filtroDesplegableScroll} nestedScrollEnabled>
+            <TouchableOpacity
+              style={[styles.filtroOpcion, zonaSeleccionada === 'TODAS' && styles.filtroOpcionActiva]}
+              onPress={() => seleccionarZona('TODAS')}
+            >
+              <Text style={[styles.filtroOpcionText, zonaSeleccionada === 'TODAS' && styles.filtroOpcionTextActivo]}>
+                🌐 Todas las zonas
+              </Text>
+            </TouchableOpacity>
+
+            {zonasDisponibles.map((zona) => (
+              <TouchableOpacity
+                key={zona}
+                style={[styles.filtroOpcion, zonaSeleccionada === zona && styles.filtroOpcionActiva]}
+                onPress={() => seleccionarZona(zona)}
+              >
+                <Text style={[styles.filtroOpcionText, zonaSeleccionada === zona && styles.filtroOpcionTextActivo]}>
+                  📍 {zona}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* ✅ SELECTOR DE FECHAS */}
+      {mostrarFiltroFecha && (
+        <View style={styles.fechaSelectorContainer}>
+          <Text style={styles.fechaSelectorTitle}>📅 Filtrar por fecha</Text>
+
+          <View style={styles.fechaBotonesRow}>
+            <TouchableOpacity
+              style={styles.fechaBoton}
+              onPress={() => abrirDatePicker('start')}
+            >
+              <Text style={styles.fechaBotonLabel}>Desde:</Text>
+              <Text style={styles.fechaBotonValor}>
+                {fechaInicio ? formatFecha(fechaInicio) : 'Seleccionar'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.fechaBoton}
+              onPress={() => abrirDatePicker('end')}
+            >
+              <Text style={styles.fechaBotonLabel}>Hasta:</Text>
+              <Text style={styles.fechaBotonValor}>
+                {fechaFin ? formatFecha(fechaFin) : 'Seleccionar'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.fechaAccionesRow}>
+            <TouchableOpacity
+              style={styles.fechaAccionBtn}
+              onPress={() => setMostrarFiltroFecha(false)}
+            >
+              <Text style={styles.fechaAccionText}>Cerrar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.fechaAccionBtn, styles.fechaAccionAplicar]}
+              onPress={() => setMostrarFiltroFecha(false)}
+            >
+              <Text style={styles.fechaAccionTextAplicar}>✅ Aplicar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* DatePicker */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={
+            datePickerMode === 'start'
+              ? (fechaInicio || new Date())
+              : (fechaFin || new Date())
+          }
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDateChange}
+        />
+      )}
+
+      {/* ✅ LISTA DE TRANSFERENCIAS */}
       <ScrollView
         style={styles.listaContainer}
         refreshControl={
@@ -199,8 +456,18 @@ const RevisionTransferencias = ({ navigation }) => {
             <Text style={styles.emptyIcon}>📭</Text>
             <Text style={styles.emptyText}>No hay transferencias</Text>
             <Text style={styles.emptySubText}>
-              {searchTerm ? 'No se encontraron transferencias con ese criterio' : 'Todas las transferencias están procesadas'}
+              {hayFiltrosActivos
+                ? 'No se encontraron transferencias con los filtros aplicados'
+                : 'No hay transferencias registradas'}
             </Text>
+            {hayFiltrosActivos && (
+              <TouchableOpacity
+                style={styles.emptyLimpiarBtn}
+                onPress={limpiarTodosFiltros}
+              >
+                <Text style={styles.emptyLimpiarText}>Limpiar filtros</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           transferenciasFiltradas.map(renderTransferencia)
@@ -208,7 +475,7 @@ const RevisionTransferencias = ({ navigation }) => {
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* ✅ MODAL DE DETALLE CON IMAGEN MEJORADA */}
+      {/* ✅ MODAL DE DETALLE */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -227,11 +494,16 @@ const RevisionTransferencias = ({ navigation }) => {
                 <Text style={styles.modalLabel}>Nombre:</Text>
                 <Text style={styles.modalValue}>{transferenciaSeleccionada.nombreUsuario}</Text>
 
+                <Text style={styles.modalLabel}>Documento:</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.numeroDocumento}</Text>
+
                 <Text style={styles.modalLabel}>Valor:</Text>
                 <Text style={styles.modalValue}>{formatValor(transferenciaSeleccionada.valor)}</Text>
 
-                <Text style={styles.modalLabel}>Zona:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.zonaSector} - {transferenciaSeleccionada.barrio}</Text>
+                <Text style={styles.modalLabel}>Zona / Barrio:</Text>
+                <Text style={styles.modalValue}>
+                  📍 {transferenciaSeleccionada.zonaSector} - {transferenciaSeleccionada.barrio}
+                </Text>
 
                 <Text style={styles.modalLabel}>Banco:</Text>
                 <Text style={styles.modalValue}>{transferenciaSeleccionada.bancoCuenta}</Text>
@@ -247,7 +519,15 @@ const RevisionTransferencias = ({ navigation }) => {
                   <Text style={styles.estadoBadgeText}>{getEstadoLabel(transferenciaSeleccionada.estado)}</Text>
                 </View>
 
-                {/* ✅ IMAGEN DEL COMPROBANTE - VERIFICA AMBOS CAMPOS */}
+                {transferenciaSeleccionada.notaDenegacion && (
+                  <>
+                    <Text style={styles.modalLabel}>Nota de Denegación:</Text>
+                    <Text style={[styles.modalValue, { color: '#E74C3C' }]}>
+                      {transferenciaSeleccionada.notaDenegacion}
+                    </Text>
+                  </>
+                )}
+
                 {(() => {
                   const imagenData = getImagen(transferenciaSeleccionada);
                   if (imagenData) {
@@ -255,11 +535,7 @@ const RevisionTransferencias = ({ navigation }) => {
                       <View style={styles.imagenContainer}>
                         <Text style={styles.modalLabel}>📷 Comprobante:</Text>
                         <Image
-                          source={{
-                            uri: imagenData.startsWith('data:image')
-                              ? imagenData
-                              : `data:image/jpeg;base64,${imagenData}`
-                          }}
+                          source={{ uri: imagenData }}
                           style={styles.modalImagen}
                           resizeMode="contain"
                           onError={(e) => console.log('❌ Error imagen:', e.nativeEvent.error)}
@@ -306,6 +582,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
+  subtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    marginTop: 4,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -315,12 +597,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#636E72',
   },
+
+  // ✅ BUSCADOR
   buscadorContainer: {
     flexDirection: 'row',
     padding: 15,
+    paddingBottom: 8,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
     alignItems: 'center',
   },
   buscadorInput: {
@@ -328,8 +611,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     padding: 12,
     borderRadius: 10,
-    fontSize: 16,
-    marginRight: 10,
+    fontSize: 15,
+    marginRight: 8,
   },
   buscadorButton: {
     backgroundColor: '#6C5CE7',
@@ -337,28 +620,181 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
   },
   buscadorButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 16,
+  },
+
+  // ✅ FILTROS
+  filtrosContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 15,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+    gap: 8,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  filtroItem: {
+    flexDirection: 'row',
+  },
+  filtroButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+    gap: 6,
+  },
+  filtroButtonActivo: {
+    backgroundColor: '#6C5CE720',
+    borderColor: '#6C5CE7',
+  },
+  filtroButtonText: {
+    fontSize: 13,
+    color: '#636E72',
     fontWeight: '500',
   },
-  limpiarButton: {
-    backgroundColor: '#FF6B6B',
-    padding: 12,
+  filtroButtonTextActivo: {
+    color: '#6C5CE7',
+    fontWeight: '600',
+  },
+  filtroClearBtn: {
+    marginLeft: 4,
+    backgroundColor: '#6C5CE7',
     borderRadius: 10,
+    width: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 5,
-    width: 44,
-    height: 44,
   },
-  limpiarButtonText: {
+  filtroClearText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: 'bold',
   },
+  limpiarTodosButton: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  limpiarTodosText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // ✅ DESPLEGABLE DE ZONAS
+  filtroDesplegable: {
+    marginHorizontal: 15,
+    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+    maxHeight: 200,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  filtroDesplegableScroll: {
+    maxHeight: 200,
+  },
+  filtroOpcion: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filtroOpcionActiva: {
+    backgroundColor: '#6C5CE720',
+  },
+  filtroOpcionText: {
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  filtroOpcionTextActivo: {
+    color: '#6C5CE7',
+    fontWeight: '600',
+  },
+
+  // ✅ SELECTOR DE FECHAS
+  fechaSelectorContainer: {
+    marginHorizontal: 15,
+    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  fechaSelectorTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 12,
+  },
+  fechaBotonesRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  fechaBoton: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+  },
+  fechaBotonLabel: {
+    fontSize: 11,
+    color: '#636E72',
+    marginBottom: 4,
+  },
+  fechaBotonValor: {
+    fontSize: 14,
+    color: '#2D3436',
+    fontWeight: '600',
+  },
+  fechaAccionesRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  fechaAccionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+  },
+  fechaAccionAplicar: {
+    backgroundColor: '#6C5CE7',
+  },
+  fechaAccionText: {
+    fontSize: 14,
+    color: '#636E72',
+    fontWeight: '500',
+  },
+  fechaAccionTextAplicar: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+
+  // ✅ LISTA
   listaContainer: {
     flex: 1,
     padding: 15,
@@ -398,7 +834,15 @@ const styles = StyleSheet.create({
   transferenciaNombre: {
     fontSize: 16,
     color: '#2D3436',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  zonaContainer: {
     marginBottom: 8,
+  },
+  zonaText: {
+    fontSize: 13,
+    color: '#6C5CE7',
     fontWeight: '500',
   },
   transferenciaFooter: {
@@ -443,10 +887,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#636E72',
     marginTop: 5,
+    textAlign: 'center',
+    paddingHorizontal: 30,
+  },
+  emptyLimpiarBtn: {
+    marginTop: 15,
+    backgroundColor: '#6C5CE7',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  emptyLimpiarText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   footerSpacer: {
     height: 20,
   },
+
+  // ✅ MODAL
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
