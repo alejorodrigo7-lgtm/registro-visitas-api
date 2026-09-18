@@ -37,6 +37,10 @@ const SubirRecibo = ({ navigation }) => {
   const [archivosNombre, setArchivosNombre] = useState([]);
 
   const [mensajeError, setMensajeError] = useState('');
+  
+  // Estados para el modal de denegacion
+  const [modalDenegarVisible, setModalDenegarVisible] = useState(false);
+  const [notaDenegacion, setNotaDenegacion] = useState('');
 
   const fetchSolicitudes = useCallback(async () => {
     try {
@@ -302,8 +306,8 @@ const SubirRecibo = ({ navigation }) => {
 
       if (response.data.success) {
         Alert.alert(
-          '✅ Recibo Enviado',
-          `El recibo se ha enviado exitosamente con ${archivos.length} PDF(s)`,
+          'Recibo Enviado',
+          `Se envio correctamente el recibo de ${selectedSolicitud.cliente.nombre}`,
           [
             {
               text: 'OK',
@@ -340,38 +344,43 @@ const SubirRecibo = ({ navigation }) => {
     }
   };
 
-  const handleDenegar = async () => {
-    Alert.alert(
-      '⚠️ Denegar Solicitud',
-      '¿Estás seguro de que deseas denegar esta solicitud?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Denegar',
-          style: 'destructive',
-          onPress: async () => {
-            setUploading(true);
-            try {
-              const response = await api.put(`/solicitudes-recibo/${selectedSolicitud._id}/denegar`);
-              
-              if (response.data.success) {
-                Alert.alert('✅ Solicitud Denegada', 'La solicitud ha sido denegada');
-                setModalVisible(false);
-                fetchSolicitudes();
-              } else {
-                Alert.alert('Error', response.data.message || 'Error al denegar');
-              }
-            } catch (error) {
-              console.error('Error:', error);
-              Alert.alert('Error', 'Error al denegar la solicitud');
-            } finally {
-              setUploading(false);
-            }
-          }
-        }
-      ]
-    );
+  const handleDenegar = () => {
+    setNotaDenegacion('');
+    setModalDenegarVisible(true);
   };
+
+  const confirmarDenegacion = async () => {
+    if (!notaDenegacion.trim()) {
+      Alert.alert('Error', 'Por favor escribe el motivo de la denegacion');
+      return;
+    }
+    
+    setUploading(true);
+    try {
+      const response = await api.put(
+        `/solicitudes-recibo/${selectedSolicitud._id}/denegar`,
+        { notaDenegacion: notaDenegacion.trim() }
+      );
+      
+      if (response.data.success) {
+        Alert.alert(
+          'Solicitud Denegada',
+          `Se denego el recibo de ${selectedSolicitud.cliente.nombre}`
+        );
+        setModalDenegarVisible(false);
+        setModalVisible(false);
+        setNotaDenegacion('');
+        fetchSolicitudes();
+      } else {
+        Alert.alert('Error', response.data.message || 'Error al denegar');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'Error al denegar la solicitud');
+    } finally {
+      setUploading(false);
+    }
+  };;
 
   // ============================================
   // RENDER
@@ -599,6 +608,66 @@ const SubirRecibo = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+    
+      {/* MODAL DE DENEGACION CON NOTA */}
+      <Modal
+        visible={modalDenegarVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setModalDenegarVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Denegar Solicitud</Text>
+              <TouchableOpacity onPress={() => setModalDenegarVisible(false)}>
+                <Ionicons name="close" size={24} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedSolicitud && (
+              <View style={styles.modalClienteInfo}>
+                <Text style={styles.modalClienteNombre}>{selectedSolicitud.cliente.nombre}</Text>
+                <Text style={styles.modalClienteCodigo}>Codigo: {selectedSolicitud.cliente.codigo}</Text>
+              </View>
+            )}
+
+            <Text style={styles.denegarLabel}>Motivo de la denegacion:</Text>
+            <TextInput
+              style={styles.denegarInput}
+              value={notaDenegacion}
+              onChangeText={setNotaDenegacion}
+              placeholder="Escribe el motivo por el que se deniega..."
+              placeholderTextColor="#999"
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelarDenegarButton]}
+                onPress={() => setModalDenegarVisible(false)}
+                disabled={uploading}
+              >
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmarDenegarButton]}
+                onPress={confirmarDenegacion}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonText}>Denegar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -755,6 +824,30 @@ const styles = StyleSheet.create({
   disabledModalButton: { backgroundColor: '#BDBDBD' },
   denyModalButton: { backgroundColor: '#F44336' },
   modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  denegarLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2C3E50',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  denegarInput: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#2C3E50',
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+    minHeight: 100,
+    marginBottom: 16,
+  },
+  cancelarDenegarButton: {
+    backgroundColor: '#95A5A6',
+  },
+  confirmarDenegarButton: {
+    backgroundColor: '#F44336',
+  },
   platformIndicator: { 
     textAlign: 'center', 
     fontSize: 11, 
