@@ -65,17 +65,38 @@ const DescargarRecibo = ({ navigation }) => {
     fetchSolicitudes();
   }, [fetchSolicitudes]);
 
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredSolicitudes(solicitudes);
-    } else {
-      const filtered = solicitudes.filter(s =>
-        s.cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.cliente.codigo.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredSolicitudes(filtered);
+  // Buscar en el backend (sin limite, en TODA la BD)
+  const buscarEnBackend = async () => {
+    const termino = searchTerm.trim();
+    
+    setLoading(true);
+    try {
+      let url = '/solicitudes-recibo?estado=APROBADO';
+      if (termino) {
+        url += '&busqueda=' + encodeURIComponent(termino);
+      }
+      
+      console.log('🔍 Buscando:', url);
+      const response = await api.get(url);
+      
+      if (response.data.success) {
+        const data = response.data.data || [];
+        setFilteredSolicitudes(data);
+        console.log(`✅ Encontradas: ${data.length} solicitudes`);
+      }
+    } catch (error) {
+      console.error('Error buscando:', error);
+      Alert.alert('Error', 'No se pudo buscar');
+    } finally {
+      setLoading(false);
     }
-  }, [searchTerm, solicitudes]);
+  };
+
+  // Limpiar busqueda (volver a mostrar todos)
+  const limpiarBusqueda = () => {
+    setSearchTerm('');
+    setFilteredSolicitudes(solicitudes);
+  };
 
   // ✅ DESCARGAR ARCHIVO - SOPORTE PARA Base64, URL y FILE
   const handleDownload = async (solicitud) => {
@@ -274,12 +295,17 @@ const DescargarRecibo = ({ navigation }) => {
           placeholderTextColor="#999"
           value={searchTerm}
           onChangeText={setSearchTerm}
+          onSubmitEditing={buscarEnBackend}
+          returnKeyType="search"
         />
         {searchTerm.length > 0 && (
           <TouchableOpacity onPress={() => setSearchTerm('')}>
             <Ionicons name="close-circle" size={20} color="#999" />
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={styles.searchButton} onPress={buscarEnBackend}>
+          <Text style={styles.searchButtonText}>Buscar</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -328,6 +354,18 @@ const styles = StyleSheet.create({
     height: 45
   },
   searchIcon: { marginRight: 10 },
+  searchButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 6,
+  },
+  searchButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   searchInput: { flex: 1, fontSize: 15, color: '#2C3E50', paddingVertical: 8 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 10, fontSize: 16, color: '#666' },

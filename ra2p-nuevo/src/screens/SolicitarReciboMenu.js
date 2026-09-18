@@ -35,7 +35,14 @@ const SolicitarReciboMenu = ({ navigation }) => {
       icon: 'download-outline',
       screen: 'DescargarRecibo',
       visible: true
-    }
+      },
+      {
+        title: 'Solicitudes Denegadas',
+        subtitle: 'Ver las solicitudes que fueron denegadas',
+        icon: 'close-circle-outline',
+        screen: 'SolicitudesDenegadas',
+        visible: isAdminOrJefe
+      }
   ];
 
   const visibleOptions = options.filter(opt => opt.visible);

@@ -17,10 +17,18 @@ const getSolicitudes = async (req, res) => {
       ];
     }
 
-    const solicitudes = await SolicitudRecibo.find(query)
-      .sort({ fechaSolicitud: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    // Si hay busqueda, buscar sin limite. Si no, paginar
+    let solicitudes;
+    if (busqueda && busqueda.trim() !== '') {
+      solicitudes = await SolicitudRecibo.find(query)
+        .sort({ fechaSolicitud: -1 });
+      console.log('Busqueda sin limite: ' + busqueda + ' -> ' + solicitudes.length + ' resultados');
+    } else {
+      solicitudes = await SolicitudRecibo.find(query)
+        .sort({ fechaSolicitud: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+    }
 
     const total = await SolicitudRecibo.countDocuments(query);
 

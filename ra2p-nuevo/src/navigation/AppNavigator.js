@@ -49,6 +49,7 @@ import SolicitarReciboMenu from '../screens/SolicitarReciboMenu';
 import SolicitarRecibo from '../screens/SolicitarRecibo';
 import SubirRecibo from '../screens/SubirRecibo';
 import DescargarRecibo from '../screens/DescargarRecibo';
+import SolicitudesDenegadas from '../screens/SolicitudesDenegadas';
 
 // ✅ MÓDULO RECUPERACIÓN DE EQUIPOS
 import RecuperacionMenu from '../screens/RecuperacionMenu';
@@ -300,6 +301,12 @@ const AppNavigator = () => {
         component={DescargarRecibo} 
         options={{ headerShown: true, title: 'Descargar Recibo' }} 
       />
+
+        <Stack.Screen
+          name="SolicitudesDenegadas"
+          component={SolicitudesDenegadas}
+          options={{ headerShown: true, title: 'Solicitudes Denegadas' }}
+        />
 
       {/* MÓDULO RECUPERACIÓN DE EQUIPOS */}
       <Stack.Screen 

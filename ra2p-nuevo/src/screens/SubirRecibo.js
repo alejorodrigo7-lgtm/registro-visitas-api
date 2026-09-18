@@ -359,7 +359,7 @@ const SubirRecibo = ({ navigation }) => {
     try {
       const response = await api.put(
         `/solicitudes-recibo/${selectedSolicitud._id}/denegar`,
-        { notaDenegacion: notaDenegacion.trim() }
+        { motivo: notaDenegacion.trim() }
       );
       
       if (response.data.success) {
