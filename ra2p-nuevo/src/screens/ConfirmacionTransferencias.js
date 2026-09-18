@@ -44,6 +44,11 @@ const ConfirmacionTransferencias = ({ navigation }) => {
       const data = response.data.data || [];
       setTransferencias(data);
       setTransferenciasFiltradas(data);
+
+      // Extraer bancos unicos
+      const bancosUnicos = [...new Set(data.map(t => t.bancoCuenta).filter(Boolean))];
+      bancosUnicos.sort();
+      setBancosDisponibles(bancosUnicos);
     } catch (error) {
       console.error('Error al cargar transferencias:', error);
       Alert.alert('Error', 'No se pudieron cargar las transferencias');
@@ -115,27 +120,8 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
   // FILTRO POR FECHA
   const aplicarFiltroFecha = (inicio, fin) => {
-    let filtradas = [...transferencias];
-    
-    if (inicio) {
-      const inicioDate = new Date(inicio);
-      inicioDate.setHours(0, 0, 0, 0);
-      filtradas = filtradas.filter(t => {
-        const fecha = new Date(t.fechaTransferencia || t.createdAt);
-        return fecha >= inicioDate;
-      });
-    }
-    
-    if (fin) {
-      const finDate = new Date(fin);
-      finDate.setHours(23, 59, 59, 999);
-      filtradas = filtradas.filter(t => {
-        const fecha = new Date(t.fechaTransferencia || t.createdAt);
-        return fecha <= finDate;
-      });
-    }
-    
-    setTransferenciasFiltradas(filtradas);
+    // Delegar a la funcion combinada que respeta tambien el filtro de banco
+    aplicarFiltrosCombinados(inicio, fin, bancoSeleccionado);
   };
 
   const handleDateChange = (event, selectedDate) => {
@@ -159,7 +145,8 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   const limpiarFiltroFecha = () => {
     setFechaInicio(null);
     setFechaFin(null);
-    setTransferenciasFiltradas(transferencias);
+    // Respetar el filtro de banco activo
+    aplicarFiltrosCombinados(null, null, bancoSeleccionado);
   };
 
   const hayFiltroFecha = fechaInicio !== null || fechaFin !== null;
