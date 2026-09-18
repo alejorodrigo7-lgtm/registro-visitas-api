@@ -26,6 +26,7 @@ const RevisionTransferencias = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [transferencias, setTransferencias] = useState([]);
   const [transferenciasFiltradas, setTransferenciasFiltradas] = useState([]);
+  const [buscando, setBuscando] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null);
 
@@ -138,39 +139,61 @@ const RevisionTransferencias = ({ navigation }) => {
   };
 
   // ✅ BUSCAR
-  const buscarTransferencias = () => {
-    aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, fechaFin, estadoSeleccionado);
+  const buscarTransferencias = async () => {
+    setBuscando(true);
+    try {
+      const params = [];
+      if (searchTerm && searchTerm.trim()) params.push('search=' + encodeURIComponent(searchTerm.trim()));
+      if (zonaSeleccionada && zonaSeleccionada !== 'TODAS') params.push('zona=' + encodeURIComponent(zonaSeleccionada));
+      if (estadoSeleccionado && estadoSeleccionado !== 'TODOS') params.push('estado=' + encodeURIComponent(estadoSeleccionado));
+      if (fechaInicio) params.push('fechaInicio=' + encodeURIComponent(fechaInicio.toISOString()));
+      if (fechaFin) params.push('fechaFin=' + encodeURIComponent(fechaFin.toISOString()));
+      const queryString = params.join('&');
+      const url = queryString ? '/transferencias/buscar?' + queryString : '/transferencias/buscar';
+      console.log('Buscando:', url);
+      const response = await api.get(url);
+      const data = response.data.data || [];
+      setTransferenciasFiltradas(data);
+      console.log('Encontradas:', data.length);
+    } catch (error) {
+      console.error('Error buscando:', error);
+      Alert.alert('Error', 'No se pudo realizar la busqueda');
+    } finally {
+      setBuscando(false);
+    }
   };
 
   // ✅ SELECCIONAR ZONA
   const seleccionarZona = (zona) => {
     setZonaSeleccionada(zona);
-    aplicarFiltros(searchTerm, zona, fechaInicio, fechaFin, estadoSeleccionado);
+    // Re-ejecutar busqueda en backend con filtro de zona
+    setTimeout(() => buscarTransferencias(), 100);
     setMostrarFiltroZona(false);
   };
 
   // ✅ SELECCIONAR ESTADO
   const seleccionarEstado = (estado) => {
     setEstadoSeleccionado(estado);
-    aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, fechaFin, estado);
+    // Re-ejecutar busqueda en backend con filtro de estado
+    setTimeout(() => buscarTransferencias(), 100);
     setMostrarFiltroEstado(false);
   };
 
   // ✅ LIMPIAR FILTROS INDIVIDUALES
   const limpiarZona = () => {
     setZonaSeleccionada('TODAS');
-    aplicarFiltros(searchTerm, 'TODAS', fechaInicio, fechaFin, estadoSeleccionado);
+    setTimeout(() => buscarTransferencias(), 100);
   };
 
   const limpiarFecha = () => {
     setFechaInicio(null);
     setFechaFin(null);
-    aplicarFiltros(searchTerm, zonaSeleccionada, null, null, estadoSeleccionado);
+    setTimeout(() => buscarTransferencias(), 100);
   };
 
   const limpiarEstado = () => {
     setEstadoSeleccionado('TODOS');
-    aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, fechaFin, 'TODOS');
+    setTimeout(() => buscarTransferencias(), 100);
   };
 
   // ✅ LIMPIAR TODOS LOS FILTROS
@@ -189,10 +212,12 @@ const RevisionTransferencias = ({ navigation }) => {
     if (selectedDate) {
       if (datePickerMode === 'start') {
         setFechaInicio(selectedDate);
-        aplicarFiltros(searchTerm, zonaSeleccionada, selectedDate, fechaFin, estadoSeleccionado);
+        // Re-ejecutar con la nueva fecha
+        setTimeout(() => buscarTransferencias(), 200);
       } else {
         setFechaFin(selectedDate);
-        aplicarFiltros(searchTerm, zonaSeleccionada, fechaInicio, selectedDate, estadoSeleccionado);
+        // Re-ejecutar con la nueva fecha
+        setTimeout(() => buscarTransferencias(), 200);
       }
     }
   };
@@ -312,6 +337,8 @@ const RevisionTransferencias = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>🔍 Revisión de Transferencias</Text>
+        {buscando && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 4 }} />}
+        {buscando && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 4 }} />}
         <Text style={styles.subtitle}>
           {transferenciasFiltradas.length} de {transferencias.length} transferencias
         </Text>

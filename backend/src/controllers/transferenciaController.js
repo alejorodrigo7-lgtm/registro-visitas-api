@@ -444,29 +444,54 @@ exports.ingresarTransferencia = async (req, res) => {
 // ============================================
 exports.buscarTransferenciasRevision = async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, zona, estado, fechaInicio, fechaFin } = req.query;
 
-    if (!search) {
-      return res.status(400).json({
-        success: false,
-        message: 'Se requiere un término de búsqueda',
-      });
-    }
+    // Construir query
+    const query = {};
 
-    const query = {
-      $or: [
+    // Busqueda por texto (nombre, codigo, documento)
+    if (search && search.trim() !== '') {
+      query.$or = [
         { nombreUsuario: { $regex: search, $options: 'i' } },
         { codigoIdentificador: { $regex: search, $options: 'i' } },
-      ],
-    };
+        { numeroDocumento: { $regex: search, $options: 'i' } },
+      ];
+    }
 
-    // ✅ TODOS los roles ven TODAS las transferencias
-    // (Sin filtro por responsableId)
+    // Filtro por zona
+    if (zona && zona !== 'TODAS') {
+      query.zonaSector = zona;
+    }
+
+    // Filtro por estado
+    if (estado && estado !== 'TODOS') {
+      query.estado = estado;
+    }
+
+    // Filtro por fecha
+    if (fechaInicio || fechaFin) {
+      query.fechaTransferencia = {};
+      if (fechaInicio) {
+        const inicio = new Date(fechaInicio);
+        inicio.setHours(0, 0, 0, 0);
+        query.fechaTransferencia.$gte = inicio;
+      }
+      if (fechaFin) {
+        const fin = new Date(fechaFin);
+        fin.setHours(23, 59, 59, 999);
+        query.fechaTransferencia.$lte = fin;
+      }
+    }
+
+    // SIN LIMITE - buscar en TODA la base de datos
+    console.log('🔍 Buscando transferencias:', JSON.stringify(query));
 
     const transferencias = await Transferencia.find(query)
       .populate('responsableId', 'nombre email rol')
-      .sort({ createdAt: -1 })
-      .limit(100);
+      .sort({ fechaTransferencia: -1 })
+      .lean();
+
+    console.log(`✅ Encontradas: ${transferencias.length}`);
 
     res.json({
       success: true,
