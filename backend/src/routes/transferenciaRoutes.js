@@ -70,6 +70,12 @@ router.get('/estado/:estado',
   transferenciaController.getTransferenciasByEstado
 );
 
+// 🔍 BUSCAR TRANSFERENCIAS - SIN LIMITE (alias de buscar-revision) - ADMIN, JEFE, COORDINADOR
+router.get('/buscar',
+  authorize('Admin', 'Jefe', 'Coordinador'),
+  transferenciaController.buscarTransferenciasRevision
+);
+
 // 🔍 BUSCAR TRANSFERENCIAS PARA REVISIÓN - ADMIN, JEFE
 router.get('/buscar-revision', 
   authorize('Admin', 'Jefe'), 
