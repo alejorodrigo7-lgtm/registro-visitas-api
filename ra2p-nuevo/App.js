@@ -117,6 +117,7 @@ import SolicitarReciboMenu from './src/screens/SolicitarReciboMenu';
 import SolicitarRecibo from './src/screens/SolicitarRecibo';
 import SubirRecibo from './src/screens/SubirRecibo';
 import DescargarRecibo from './src/screens/DescargarRecibo';
+import SolicitudesDenegadas from './src/screens/SolicitudesDenegadas';
 
 // ============================================
 // 📦 RECUPERACIÓN DE EQUIPOS
@@ -236,6 +237,7 @@ const ThemedNavigation = () => {
         <Stack.Screen name="SolicitarRecibo" component={SolicitarRecibo} options={{ title: '📝 Solicitar Recibo' }} />
         <Stack.Screen name="SubirRecibo" component={SubirRecibo} options={{ title: '📤 Subir Recibo' }} />
         <Stack.Screen name="DescargarRecibo" component={DescargarRecibo} options={{ title: '📥 Descargar Recibo' }} />
+        <Stack.Screen name="SolicitudesDenegadas" component={SolicitudesDenegadas} options={{ title: 'Solicitudes Denegadas' }} />
 
         {/* RECUPERACIÓN DE EQUIPOS */}
         <Stack.Screen name="RecuperacionMenu" component={RecuperacionMenu} options={{ title: '📦 Recuperación de Equipos' }} />
