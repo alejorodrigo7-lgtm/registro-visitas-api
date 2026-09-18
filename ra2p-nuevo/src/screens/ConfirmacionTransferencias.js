@@ -36,6 +36,10 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   const [mostrarFiltroBanco, setMostrarFiltroBanco] = useState(false);
   const [bancosDisponibles, setBancosDisponibles] = useState([]);
 
+  // BUSQUEDA POR NOMBRE/CODIGO/DOCUMENTO
+  const [searchTerm, setSearchTerm] = useState('');
+  const [buscando, setBuscando] = useState(false);
+
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
   const cargarTransferencias = async () => {
@@ -188,7 +192,8 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   const seleccionarBanco = (banco) => {
     setBancoSeleccionado(banco);
     setMostrarFiltroBanco(false);
-    aplicarFiltrosCombinados(fechaInicio, fechaFin, banco);
+    // Buscar en backend con el nuevo filtro
+    setTimeout(() => buscarTransferenciasConFiltros(banco), 50);
   };
 
   const limpiarFiltroBanco = () => {
@@ -197,6 +202,55 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   };
 
   const hayFiltroBanco = bancoSeleccionado !== 'TODOS';
+
+  // BUSQUEDA POR NOMBRE/CODIGO/DOCUMENTO (busca en TODA la BD)
+  const buscarTransferencias = async () => {
+    setBuscando(true);
+    try {
+      const params = ['estado=SUBIDA'];
+      if (searchTerm && searchTerm.trim()) params.push('search=' + encodeURIComponent(searchTerm.trim()));
+      if (zonaSeleccionada && zonaSeleccionada !== 'TODAS') params.push('zona=' + encodeURIComponent(zonaSeleccionada));
+      if (bancoSeleccionado && bancoSeleccionado !== 'TODOS') params.push('banco=' + encodeURIComponent(bancoSeleccionado));
+      if (fechaInicio) params.push('fechaInicio=' + encodeURIComponent(fechaInicio.toISOString()));
+      if (fechaFin) params.push('fechaFin=' + encodeURIComponent(fechaFin.toISOString()));
+      
+      const url = '/transferencias/buscar?' + params.join('&');
+      console.log('Buscando:', url);
+      const response = await api.get(url);
+      const data = response.data.data || [];
+      setTransferenciasFiltradas(data);
+      console.log('Encontradas:', data.length);
+    } catch (error) {
+      console.error('Error buscando:', error);
+      Alert.alert('Error', 'No se pudo realizar la busqueda');
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  // Helper: buscar con un banco especifico (evita problemas de estado async)
+  const buscarTransferenciasConFiltros = async (bancoParam) => {
+    setBuscando(true);
+    try {
+      const banco = bancoParam !== undefined ? bancoParam : bancoSeleccionado;
+      const params = ['estado=SUBIDA'];
+      if (searchTerm && searchTerm.trim()) params.push('search=' + encodeURIComponent(searchTerm.trim()));
+      if (zonaSeleccionada && zonaSeleccionada !== 'TODAS') params.push('zona=' + encodeURIComponent(zonaSeleccionada));
+      if (banco && banco !== 'TODOS') params.push('banco=' + encodeURIComponent(banco));
+      if (fechaInicio) params.push('fechaInicio=' + encodeURIComponent(fechaInicio.toISOString()));
+      if (fechaFin) params.push('fechaFin=' + encodeURIComponent(fechaFin.toISOString()));
+      
+      const url = '/transferencias/buscar?' + params.join('&');
+      console.log('Buscando:', url);
+      const response = await api.get(url);
+      const data = response.data.data || [];
+      setTransferenciasFiltradas(data);
+    } catch (error) {
+      console.error('Error buscando:', error);
+    } finally {
+      setBuscando(false);
+    }
+  };
 
   const confirmarTransferencia = async (id, estado) => {
     Alert.alert(
@@ -317,6 +371,32 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>📋 Confirmación de Transferencias</Text>
+      </View>
+
+      {/* BUSCADOR POR NOMBRE/CODIGO/DOCUMENTO */}
+      <View style={styles.buscadorContainer}>
+        <TextInput
+          style={styles.buscadorInput}
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          placeholder="Buscar nombre, codigo o documento..."
+          onSubmitEditing={buscarTransferencias}
+          returnKeyType="search"
+        />
+        <TouchableOpacity style={styles.buscadorButton} onPress={buscarTransferencias}>
+          <Text style={styles.buscadorButtonText}>Buscar</Text>
+        </TouchableOpacity>
+        {searchTerm.trim() !== '' && (
+          <TouchableOpacity
+            style={styles.buscadorClearBtn}
+            onPress={() => {
+              setSearchTerm('');
+              setTimeout(() => buscarTransferencias(), 100);
+            }}
+          >
+            <Text style={styles.buscadorClearText}>X</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* FILTRO POR FECHA */}
@@ -557,6 +637,46 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: '#636E72',
+  },
+  buscadorContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  buscadorInput: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    padding: 10,
+    borderRadius: 10,
+    fontSize: 14,
+    marginRight: 8,
+  },
+  buscadorButton: {
+    backgroundColor: '#6C5CE7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  buscadorButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  buscadorClearBtn: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginLeft: 6,
+  },
+  buscadorClearText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   filtroFechaContainer: {
     backgroundColor: '#FFFFFF',

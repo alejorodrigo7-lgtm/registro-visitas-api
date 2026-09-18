@@ -444,7 +444,7 @@ exports.ingresarTransferencia = async (req, res) => {
 // ============================================
 exports.buscarTransferenciasRevision = async (req, res) => {
   try {
-    const { search, zona, estado, fechaInicio, fechaFin } = req.query;
+    const { search, zona, estado, banco, fechaInicio, fechaFin } = req.query;
 
     // Construir query
     const query = {};
@@ -466,6 +466,11 @@ exports.buscarTransferenciasRevision = async (req, res) => {
     // Filtro por estado
     if (estado && estado !== 'TODOS') {
       query.estado = estado;
+    }
+
+    // Filtro por banco
+    if (banco && banco !== 'TODOS') {
+      query.bancoCuenta = banco;
     }
 
     // Filtro por fecha
