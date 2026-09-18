@@ -31,6 +31,11 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   const [datePickerMode, setDatePickerMode] = useState('start');
   const [transferenciasFiltradas, setTransferenciasFiltradas] = useState([]);
 
+  // FILTRO POR BANCO
+  const [bancoSeleccionado, setBancoSeleccionado] = useState('TODOS');
+  const [mostrarFiltroBanco, setMostrarFiltroBanco] = useState(false);
+  const [bancosDisponibles, setBancosDisponibles] = useState([]);
+
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
   const cargarTransferencias = async () => {
@@ -163,6 +168,48 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     if (!fecha) return 'Seleccionar';
     return new Date(fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
+
+  // FILTRO POR BANCO
+  const aplicarFiltrosCombinados = (inicio, fin, banco) => {
+    let filtradas = [...transferencias];
+    
+    if (inicio) {
+      const inicioDate = new Date(inicio);
+      inicioDate.setHours(0, 0, 0, 0);
+      filtradas = filtradas.filter(t => {
+        const fecha = new Date(t.fechaTransferencia || t.createdAt);
+        return fecha >= inicioDate;
+      });
+    }
+    
+    if (fin) {
+      const finDate = new Date(fin);
+      finDate.setHours(23, 59, 59, 999);
+      filtradas = filtradas.filter(t => {
+        const fecha = new Date(t.fechaTransferencia || t.createdAt);
+        return fecha <= finDate;
+      });
+    }
+    
+    if (banco && banco !== 'TODOS') {
+      filtradas = filtradas.filter(t => t.bancoCuenta === banco);
+    }
+    
+    setTransferenciasFiltradas(filtradas);
+  };
+
+  const seleccionarBanco = (banco) => {
+    setBancoSeleccionado(banco);
+    setMostrarFiltroBanco(false);
+    aplicarFiltrosCombinados(fechaInicio, fechaFin, banco);
+  };
+
+  const limpiarFiltroBanco = () => {
+    setBancoSeleccionado('TODOS');
+    aplicarFiltrosCombinados(fechaInicio, fechaFin, 'TODOS');
+  };
+
+  const hayFiltroBanco = bancoSeleccionado !== 'TODOS';
 
   const confirmarTransferencia = async (id, estado) => {
     Alert.alert(
@@ -318,6 +365,47 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           <Text style={styles.filtroFechaInfo}>
             Mostrando {transferenciasFiltradas.length} de {transferencias.length} transferencias
           </Text>
+        )}
+      </View>
+
+      {/* FILTRO POR BANCO */}
+      <View style={styles.filtroBancoContainer}>
+        <TouchableOpacity
+          style={[styles.filtroBancoBtn, hayFiltroBanco && styles.filtroBancoBtnActivo]}
+          onPress={() => setMostrarFiltroBanco(!mostrarFiltroBanco)}
+        >
+          <Text style={[styles.filtroBancoBtnText, hayFiltroBanco && styles.filtroBancoBtnTextActivo]}>
+            🏦 {hayFiltroBanco ? bancoSeleccionado : 'Banco / Cuenta'}
+          </Text>
+          {hayFiltroBanco && (
+            <TouchableOpacity onPress={limpiarFiltroBanco} style={styles.filtroBancoClear}>
+              <Text style={styles.filtroBancoClearText}>X</Text>
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+
+        {mostrarFiltroBanco && (
+          <ScrollView style={styles.filtroBancoLista} nestedScrollEnabled>
+            <TouchableOpacity
+              style={[styles.filtroBancoItem, bancoSeleccionado === 'TODOS' && styles.filtroBancoItemActivo]}
+              onPress={() => seleccionarBanco('TODOS')}
+            >
+              <Text style={[styles.filtroBancoItemText, bancoSeleccionado === 'TODOS' && styles.filtroBancoItemTextActivo]}>
+                🌐 Todos los bancos
+              </Text>
+            </TouchableOpacity>
+            {bancosDisponibles.map((banco) => (
+              <TouchableOpacity
+                key={banco}
+                style={[styles.filtroBancoItem, bancoSeleccionado === banco && styles.filtroBancoItemActivo]}
+                onPress={() => seleccionarBanco(banco)}
+              >
+                <Text style={[styles.filtroBancoItemText, bancoSeleccionado === banco && styles.filtroBancoItemTextActivo]}>
+                  🏦 {banco}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         )}
       </View>
 
@@ -535,6 +623,76 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6C5CE7',
     fontWeight: '500',
+  },
+  filtroBancoContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 15,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filtroBancoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+  },
+  filtroBancoBtnActivo: {
+    backgroundColor: '#6C5CE720',
+    borderColor: '#6C5CE7',
+  },
+  filtroBancoBtnText: {
+    fontSize: 13,
+    color: '#636E72',
+    fontWeight: '500',
+    flex: 1,
+  },
+  filtroBancoBtnTextActivo: {
+    color: '#6C5CE7',
+    fontWeight: '600',
+  },
+  filtroBancoClear: {
+    backgroundColor: '#6C5CE7',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  filtroBancoClearText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  filtroBancoLista: {
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+    maxHeight: 250,
+  },
+  filtroBancoItem: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filtroBancoItemActivo: {
+    backgroundColor: '#6C5CE720',
+  },
+  filtroBancoItemText: {
+    fontSize: 13,
+    color: '#2D3436',
+  },
+  filtroBancoItemTextActivo: {
+    color: '#6C5CE7',
+    fontWeight: '600',
   },
   listaContainer: {
     flex: 1,
