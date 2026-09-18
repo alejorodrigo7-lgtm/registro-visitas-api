@@ -225,6 +225,7 @@ const ConfirmacionTransferencias = ({ navigation }) => {
         </View>
 
         <Text style={styles.transferenciaNombre}>{item.nombreUsuario}</Text>
+        <Text style={styles.transferenciaDocumento}>Doc: {item.numeroDocumento}</Text>
 
         {/* ✅ ZONA */}
         <View style={styles.zonaContainer}>
@@ -576,6 +577,12 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     marginBottom: 6,
     fontWeight: '500',
+  },
+  transferenciaDocumento: {
+    fontSize: 13,
+    color: '#0984E3',
+    fontWeight: '500',
+    marginBottom: 6,
   },
 
   // ✅ ZONA
