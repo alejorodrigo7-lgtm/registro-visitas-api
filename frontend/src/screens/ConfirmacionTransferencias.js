@@ -210,7 +210,6 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     try {
       const params = ['estado=SUBIDA'];
       if (searchTerm && searchTerm.trim()) params.push('search=' + encodeURIComponent(searchTerm.trim()));
-      if (zonaSeleccionada && zonaSeleccionada !== 'TODAS') params.push('zona=' + encodeURIComponent(zonaSeleccionada));
       if (bancoSeleccionado && bancoSeleccionado !== 'TODOS') params.push('banco=' + encodeURIComponent(bancoSeleccionado));
       if (fechaInicio) params.push('fechaInicio=' + encodeURIComponent(fechaInicio.toISOString()));
       if (fechaFin) params.push('fechaFin=' + encodeURIComponent(fechaFin.toISOString()));
@@ -236,7 +235,6 @@ const ConfirmacionTransferencias = ({ navigation }) => {
       const banco = bancoParam !== undefined ? bancoParam : bancoSeleccionado;
       const params = ['estado=SUBIDA'];
       if (searchTerm && searchTerm.trim()) params.push('search=' + encodeURIComponent(searchTerm.trim()));
-      if (zonaSeleccionada && zonaSeleccionada !== 'TODAS') params.push('zona=' + encodeURIComponent(zonaSeleccionada));
       if (banco && banco !== 'TODOS') params.push('banco=' + encodeURIComponent(banco));
       if (fechaInicio) params.push('fechaInicio=' + encodeURIComponent(fechaInicio.toISOString()));
       if (fechaFin) params.push('fechaFin=' + encodeURIComponent(fechaFin.toISOString()));
