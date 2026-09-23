@@ -37,7 +37,6 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.ra2p.app",
-      "googleServicesFile": "./android/app/google-services.json",
       "config": {
         "googleMaps": {
           "apiKey": "AQ.Ab8RN6Kn8LSOqYchqr9n9XFjKn7AVgHuUZ3YxKIEKNzKbLlrng"
