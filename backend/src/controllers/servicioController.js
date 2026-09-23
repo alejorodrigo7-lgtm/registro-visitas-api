@@ -439,7 +439,7 @@ exports.getServiciosByEstado = async (req, res) => {
     }
 
     const servicios = await Servicio.find(query)
-      .select('-imagen')
+      .select('+imagen')
       .limit(50)
       .lean();
 
@@ -500,7 +500,7 @@ exports.getServicios = async (req, res) => {
     }
 
     const servicios = await Servicio.find(query)
-      .select('-imagen')
+      .select('+imagen')
       .limit(50)
       .lean();
 
@@ -839,7 +839,7 @@ exports.buscarServicios = async (req, res) => {
     };
 
     const servicios = await Servicio.find(query)
-      .select('-imagen')
+      .select('+imagen')
       .limit(50)
       .lean();
 
@@ -919,7 +919,7 @@ exports.getServiciosTomadosByTecnico = async (req, res) => {
       activo: true,
       createdAt: filtroFechas
     })
-    .select('-imagen')
+    .select('+imagen')
     .limit(50)
     .lean();
     
@@ -959,7 +959,7 @@ exports.getMisServicios = async (req, res) => {
     };
 
     const servicios = await Servicio.find(query)
-      .select('-imagen')
+      .select('+imagen')
       .limit(50)
       .lean();
 
