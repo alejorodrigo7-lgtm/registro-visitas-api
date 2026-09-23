@@ -2,8 +2,8 @@
   "expo": {
     "name": "RA²P",
     "slug": "ra2p-nuevo",
-    "version": "1.0.9",
-    "runtimeVersion": "1.0.9",
+    "version": "1.1.0",
+    "runtimeVersion": "1.1.0",
     "newArchEnabled": true,
     "updates": {
       "url": "https://u.expo.dev/c498ddad-89aa-41ae-9f7d-e0f2e31df324",

@@ -365,6 +365,7 @@ const MenuPrincipal = ({ navigation }) => {
             <View style={styles.userInfo}>
               <Text style={styles.userName} numberOfLines={1}>{user?.nombre || 'Usuario'}</Text>
               <Text style={styles.userRole}>{user?.rol || ''}</Text>
+              <Text style={styles.appVersion}>v1.1.0</Text>
             </View>
           </View>
         </View>
@@ -382,25 +383,6 @@ const MenuPrincipal = ({ navigation }) => {
             </View>
           )}
         </View>
-
-        <TouchableOpacity
-          style={[styles.tokenButton, { backgroundColor: '#00B894' }]}
-          onPress={registrarTokenManual}
-          disabled={registrandoToken}
-        >
-          <Ionicons name="cloud-upload-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.tokenButtonText}>
-            {registrandoToken ? '⏳ Registrando...' : '📱 Registrar Token'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tokenButton, { backgroundColor: '#E17055' }]}
-          onPress={ejecutarDiagnostico}
-        >
-          <Ionicons name="medkit-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.tokenButtonText}>🩺 Diagnóstico Push</Text>
-        </TouchableOpacity>
 
         {mostrarLogs && (
           <View style={styles.logsContainer}>
@@ -716,6 +698,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     letterSpacing: 0.3,
+  },
+  appVersion: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '400',
+    marginTop: 2,
   },
   userRole: {
     color: 'rgba(255,255,255,0.3)',
