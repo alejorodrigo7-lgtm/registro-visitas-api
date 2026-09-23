@@ -14,8 +14,6 @@
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
     "@react-native-community/netinfo": "11.4.1",
-    "@react-native-firebase/app": "^25.1.0",
-    "@react-native-firebase/messaging": "^25.1.0",
     "@react-native-picker/picker": "^2.9.0",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/stack": "^6.4.1",
