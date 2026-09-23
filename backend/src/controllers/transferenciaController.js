@@ -169,20 +169,28 @@ exports.subirTransferencia = async (req, res) => {
       estado: 'SUBIDA',
     });
 
-    const adminsJefes = await User.find({
-      rol: { $in: ['Admin', 'Jefe'] },
+    // Notificar a TODOS los usuarios activos con push token
+    // (excepto al que subio la transferencia)
+    const usuariosNotificar = await User.find({
+      _id: { $ne: req.user._id },
+      activo: true,
+      expoPushToken: { $exists: true, $nin: [null, ''] },
     });
 
-    for (const usuario of adminsJefes) {
+    console.log(`📲 Notificando a ${usuariosNotificar.length} usuarios`);
+
+    for (const usuario of usuariosNotificar) {
       await enviarNotificacionTransferencia(
         usuario._id,
         '💰 Nueva Transferencia',
-        `Nueva transferencia de ${nombreUsuario} por $${parseFloat(valor).toFixed(2)}`,
+        `${responsable.nombre} subio la transferencia de ${nombreUsuario} por $${parseFloat(valor).toFixed(2)}`,
         {
           transferenciaId: transferencia._id,
           nombreUsuario,
           valor: parseFloat(valor),
           estado: 'SUBIDA',
+          tipo: 'NUEVA_TRANSFERENCIA',
+          screen: 'RevisionTransferencias',
         }
       );
     }
