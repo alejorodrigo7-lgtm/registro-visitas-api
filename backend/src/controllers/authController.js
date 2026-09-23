@@ -144,7 +144,7 @@ exports.login = async (req, res) => {
         telefono: user.telefono || '',
         especialidad: user.especialidad || '',
         activo: user.activo,
-        pushToken: user.pushToken || null,
+        expoPushToken: user.expoPushToken || null,
       },
     });
   } catch (error) {
@@ -488,7 +488,7 @@ exports.registrarPushToken = async (req, res) => {
       });
     }
 
-    user.pushToken = token;
+    user.expoPushToken = token;
     await user.save();
 
     logger.info(`Token push registrado para ${user.email}`, {
