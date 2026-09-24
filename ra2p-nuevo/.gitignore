@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase Service Account (credenciales secretas)
+firebase-service-account.json
