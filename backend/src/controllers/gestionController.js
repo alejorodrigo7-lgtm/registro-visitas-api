@@ -148,7 +148,7 @@ exports.crearServicioGestion = async (req, res) => {
       telefono,
       telefonoContacto,
       tipoContacto,
-      nombreServicio: 'SIN INTERNET (FOCO ROJO)', // default
+      nombreServicio: 'INTERNET DEFICIENTE', // default para servicios de gestión
       telefonos: [telefono],
       observaciones,
       responsable: responsable.nombre,
