@@ -15,20 +15,20 @@ const enviarNotificacionPush = async (userId, { title, body, data = {} }) => {
     }
 
     // Verificar si tiene token push
-    if (!user.pushToken) {
+    if (!user.expoPushToken) {
       console.log(`⚠️ Usuario ${user.email} no tiene token push registrado`);
       return { success: false, error: 'No tiene token push' };
     }
 
     // Verificar si el token es válido
-    if (!Expo.isExpoPushToken(user.pushToken)) {
-      console.log(`❌ Token push inválido para usuario ${user.email}: ${user.pushToken}`);
+    if (!Expo.isExpoPushToken(user.expoPushToken)) {
+      console.log(`❌ Token push inválido para usuario ${user.email}: ${user.expoPushToken}`);
       return { success: false, error: 'Token push inválido' };
     }
 
     // Crear mensaje
     const message = {
-      to: user.pushToken,
+      to: user.expoPushToken,
       sound: 'default',
       title: title || 'Notificación',
       body: body || 'Tienes una nueva notificación',
@@ -38,7 +38,7 @@ const enviarNotificacionPush = async (userId, { title, body, data = {} }) => {
     };
 
     console.log(`📤 Enviando push a ${user.email}`);
-    console.log(`📱 Token: ${user.pushToken.substring(0, 20)}...`);
+    console.log(`📱 Token: ${user.expoPushToken.substring(0, 20)}...`);
 
     // Enviar notificación
     const chunks = expo.chunkPushNotifications([message]);
@@ -68,7 +68,7 @@ const enviarNotificacionPush = async (userId, { title, body, data = {} }) => {
           console.error(`❌ Error en push ${receiptId}:`, receipt.message);
           if (receipt.details && receipt.details.error === 'DeviceNotRegistered') {
             // Limpiar token inválido
-            await User.findByIdAndUpdate(userId, { pushToken: null });
+            await User.findByIdAndUpdate(userId, { expoPushToken: null });
             console.log(`🧹 Token inválido eliminado para ${user.email}`);
           }
         }
@@ -97,7 +97,7 @@ const guardarTokenPush = async (userId, token) => {
 
     const user = await User.findByIdAndUpdate(
       userId,
-      { pushToken: token },
+      { expoPushToken: token },
       { new: true }
     );
 
