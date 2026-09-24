@@ -215,20 +215,11 @@ router.post('/guardar-token', protect, async (req, res) => {
 // ============================================
 // OBTENER TODAS LAS NOTIFICACIONES DEL USUARIO
 // ============================================
-router.get('/', protect, async (req, res) => {
-  try {
-    const notificaciones = await Notificacion.find({ usuario: req.user._id })
-      .sort({ fecha: -1 })
-      .limit(100);
-
-    res.json({
-      success: true,
-      count: notificaciones.length,
-      data: notificaciones,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+// OBTENER NOTIFICACIONES (usa controlador con limit configurable)
+router.get('/', protect, (req, res) => {
+  // Importar el controlador aquí para evitar dependencias circulares
+  const notificacionController = require('../controllers/notificacionController');
+  return notificacionController.getNotificaciones(req, res);
 });
 
 // ============================================
@@ -239,7 +230,7 @@ router.get('/no-leidas', protect, async (req, res) => {
     const notificaciones = await Notificacion.find({
       usuario: req.user._id,
       leida: false
-    }).sort({ fecha: -1 });
+    }).sort({ createdAt: -1 });
 
     res.json({
       success: true,
