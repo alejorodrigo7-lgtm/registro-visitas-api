@@ -489,8 +489,8 @@ const MenuPrincipal = ({ navigation }) => {
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
           <Text style={[styles.lehaim, { color: colors.textSecondary }]}>לחיים</Text>
-          <Text style={[styles.footerText, { color: colors.textSecondary }]}>🔥 RA²P v1.0.7 🔥</Text>
-          <Text style={[styles.footerSubText, { color: colors.textSecondary }]}>Desarrollado por Alejandro Abril 👍</Text>
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>RA²P v1.1.0</Text>
+          <Text style={[styles.footerSubText, { color: colors.textSecondary }]}>Desarrollado por Alejandro Abril</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
