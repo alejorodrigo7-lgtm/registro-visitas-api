@@ -49,8 +49,8 @@ const RoleSelection = ({ navigation }) => {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>🔥 RA²P v1.0.7 🔥</Text>
-        <Text style={styles.footerSubText}>Desarrollado por Alejandro Abril 👍</Text>
+        <Text style={styles.footerText}>RA²P v1.1.0</Text>
+        <Text style={styles.footerSubText}>Desarrollado por Alejandro Abril</Text>
       </View>
     </SafeAreaView>
   );
