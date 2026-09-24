@@ -7,6 +7,7 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // ============================================
   // LOGIN
@@ -46,6 +47,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ============================================
+  // ============================================
+  // REFRESCAR CONTADOR DE NOTIFICACIONES NO LEIDAS
+  // ============================================
+  const refreshUnreadCount = async () => {
+    try {
+      const response = await api.get('/notificaciones/no-leidas/count');
+      if (response.data.success) {
+        setUnreadCount(response.data.count || 0);
+      }
+    } catch (error) {
+      console.error('Error obteniendo contador:', error.message);
+    }
+  };
+
   // LOGOUT
   // ============================================
   const logout = async () => {
@@ -80,6 +95,17 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
+  // Refrescar contador cuando el usuario se loguea
+  useEffect(() => {
+    if (user) {
+      refreshUnreadCount();
+      const interval = setInterval(refreshUnreadCount, 30000);
+      return () => clearInterval(interval);
+    } else {
+      setUnreadCount(0);
+    }
+  }, [user]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -88,6 +114,8 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         isAuthenticated: !!user,
+        unreadCount,
+        refreshUnreadCount,
       }}
     >
       {children}
