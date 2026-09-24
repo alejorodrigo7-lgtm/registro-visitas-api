@@ -73,15 +73,31 @@ exports.enviarNotificacion = async (req, res) => {
 // ============================================
 exports.getNotificaciones = async (req, res) => {
   try {
+    const { limit = 500, skip = 0 } = req.query;
+
+    // Contar total de notificaciones
+    const total = await Notificacion.countDocuments({
+      usuario: req.user._id
+    });
+
+    // Contar no leidas
+    const noLeidas = await Notificacion.countDocuments({
+      usuario: req.user._id,
+      leida: false
+    });
+
+    // Obtener notificaciones ordenadas por mas reciente
     const notificaciones = await Notificacion.find({
       usuario: req.user._id
-    }).sort({ createdAt: -1 });
-
-    const noLeidas = notificaciones.filter(n => !n.leida).length;
+    })
+    .sort({ createdAt: -1 })
+    .skip(parseInt(skip))
+    .limit(parseInt(limit));
 
     res.json({
       success: true,
       count: notificaciones.length,
+      total: total,
       noLeidas: noLeidas,
       data: notificaciones,
     });
