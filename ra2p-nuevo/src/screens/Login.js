@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { registerForPushNotificationsAsync } from '../services/notificationService';
 
 const Login = ({ navigation, route }) => {
   const { login } = useAuth();
@@ -34,6 +35,15 @@ const Login = ({ navigation, route }) => {
     setLoading(false);
 
     if (result.success) {
+      // Registrar token push DESPUES del login
+      try {
+        console.log('Registrando token despues de login...');
+        await registerForPushNotificationsAsync();
+        console.log('Token registrado');
+      } catch (pushError) {
+        console.error('Error registrando token push:', pushError);
+      }
+
       navigation.replace('MenuPrincipal');
     } else {
       Alert.alert('Error', result.error || 'Credenciales inválidas');
