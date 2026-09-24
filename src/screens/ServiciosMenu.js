@@ -57,6 +57,20 @@ const ServiciosMenu = ({ navigation }) => {
       icon: 'business-outline',
       show: isAdmin || isJefe || isTecnico,
     },
+    // 🆕 SERVICIOS GESTIÓN - Admin, Jefe, Coordinador, Técnico
+    {
+      id: 'ServiciosGestion',
+      label: '📤 Servicios Gestión',
+      icon: 'cloud-upload-outline',
+      show: isAdmin || isJefe || isCoordinador || isTecnico,
+    },
+    // 🆕 REVISIÓN GESTIÓN - Solo Admin y Jefe
+    {
+      id: 'RevisionGestion',
+      label: '📊 Revisión Gestión',
+      icon: 'checkmark-done-outline',
+      show: isAdmin || isJefe,
+    },
   ];
 
   const visibleItems = menuItems.filter(item => item.show);

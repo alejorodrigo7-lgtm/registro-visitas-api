@@ -58,6 +58,8 @@ import EjecucionServicio from './src/screens/EjecucionServicio';
 import RetroalimentacionServicio from './src/screens/RetroalimentacionServicio';
 import RevisionServicios from './src/screens/RevisionServicios';
 import BuscarServicio from './src/screens/BuscarServicio';
+import ServiciosGestion from './src/screens/ServiciosGestion';
+import RevisionGestion from './src/screens/RevisionGestion';
 
 // Cajas
 import CajasMenu from './src/screens/CajasMenu';
@@ -117,6 +119,7 @@ import SolicitarReciboMenu from './src/screens/SolicitarReciboMenu';
 import SolicitarRecibo from './src/screens/SolicitarRecibo';
 import SubirRecibo from './src/screens/SubirRecibo';
 import DescargarRecibo from './src/screens/DescargarRecibo';
+import SolicitudesDenegadas from './src/screens/SolicitudesDenegadas';
 
 // ============================================
 // 📦 RECUPERACIÓN DE EQUIPOS
@@ -187,6 +190,8 @@ const ThemedNavigation = () => {
         <Stack.Screen name="RetroalimentacionServicio" component={RetroalimentacionServicio} options={{ title: 'Retroalimentación' }} />
         <Stack.Screen name="RevisionServicios" component={RevisionServicios} options={{ title: 'Revisar Servicios' }} />
         <Stack.Screen name="BuscarServicio" component={BuscarServicio} options={{ title: '🔍 Buscar Servicio' }} />
+        <Stack.Screen name="ServiciosGestion" component={ServiciosGestion} options={{ title: '📤 Servicios Gestión' }} />
+        <Stack.Screen name="RevisionGestion" component={RevisionGestion} options={{ title: '📊 Revisión Gestión' }} />
 
         <Stack.Screen name="CajasMenu" component={CajasMenu} options={{ title: 'Cajas' }} />
         <Stack.Screen name="IngresoCaja" component={IngresoCaja} options={{ title: 'Ingreso de Caja' }} />
@@ -236,6 +241,7 @@ const ThemedNavigation = () => {
         <Stack.Screen name="SolicitarRecibo" component={SolicitarRecibo} options={{ title: '📝 Solicitar Recibo' }} />
         <Stack.Screen name="SubirRecibo" component={SubirRecibo} options={{ title: '📤 Subir Recibo' }} />
         <Stack.Screen name="DescargarRecibo" component={DescargarRecibo} options={{ title: '📥 Descargar Recibo' }} />
+        <Stack.Screen name="SolicitudesDenegadas" component={SolicitudesDenegadas} options={{ title: 'Solicitudes Denegadas' }} />
 
         {/* RECUPERACIÓN DE EQUIPOS */}
         <Stack.Screen name="RecuperacionMenu" component={RecuperacionMenu} options={{ title: '📦 Recuperación de Equipos' }} />
