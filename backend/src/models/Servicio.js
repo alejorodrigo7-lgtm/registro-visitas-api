@@ -94,6 +94,16 @@ const servicioSchema = new mongoose.Schema({
     default: '',
   },
 
+  telefonoContacto: {
+    type: String,
+    default: '',
+  },
+  tipoContacto: {
+    type: String,
+    enum: ['', 'Llamada normal', 'WhatsApp llamada', 'WhatsApp mensaje'],
+    default: '',
+  },
+
   activo: {
     type: Boolean,
     default: true,

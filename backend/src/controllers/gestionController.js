@@ -100,6 +100,8 @@ exports.crearServicioGestion = async (req, res) => {
       barrio,
       direccion,
       telefono,
+      telefonoContacto,
+      tipoContacto,
       observaciones,
       imagen,
     } = req.body;
@@ -112,10 +114,10 @@ exports.crearServicioGestion = async (req, res) => {
 
     // Validaciones
     if (!cliente || !codigoIdentificador || !barrio || !direccion ||
-        !telefono || !observaciones || !imagen) {
+        !telefono || !telefonoContacto || !tipoContacto || !observaciones || !imagen) {
       return res.status(400).json({
         success: false,
-        message: 'Todos los campos son obligatorios (incluida la foto)',
+        message: 'Todos los campos son obligatorios (incluidos teléfono de contacto, tipo de contacto y foto)',
       });
     }
 
@@ -144,6 +146,8 @@ exports.crearServicioGestion = async (req, res) => {
       barrio,
       direccion,
       telefono,
+      telefonoContacto,
+      tipoContacto,
       nombreServicio: 'SIN INTERNET (FOCO ROJO)', // default
       telefonos: [telefono],
       observaciones,
