@@ -169,30 +169,56 @@ exports.subirTransferencia = async (req, res) => {
       estado: 'SUBIDA',
     });
 
-    // Notificar a TODOS los usuarios activos con push token
-    // (excepto al que subio la transferencia)
-    const usuariosNotificar = await User.find({
-      _id: { $ne: req.user._id },
+    // 1. Crear notificacion en CAMPANA para TODOS los usuarios (incluyendo al que sube)
+    const todosLosUsuarios = await User.find({
       activo: true,
-      expoPushToken: { $exists: true, $nin: [null, ''] },
     });
 
-    console.log(`📲 Notificando a ${usuariosNotificar.length} usuarios`);
+    console.log(`📢 Creando notificacion en campana para ${todosLosUsuarios.length} usuarios`);
 
-    for (const usuario of usuariosNotificar) {
-      await enviarNotificacionTransferencia(
-        usuario._id,
-        '💰 Nueva Transferencia',
-        `${responsable.nombre} subio la transferencia de ${nombreUsuario} por $${parseFloat(valor).toFixed(2)}`,
-        {
+    for (const usuario of todosLosUsuarios) {
+      await Notificacion.create({
+        titulo: '💰 Nueva Transferencia',
+        mensaje: `${responsable.nombre} subio la transferencia de ${nombreUsuario} por $${parseFloat(valor).toFixed(2)}`,
+        tipo: 'transferencia',
+        usuario: usuario._id,
+        datos: {
           transferenciaId: transferencia._id,
           nombreUsuario,
           valor: parseFloat(valor),
           estado: 'SUBIDA',
           tipo: 'NUEVA_TRANSFERENCIA',
           screen: 'RevisionTransferencias',
-        }
-      );
+        },
+      });
+    }
+
+    // 2. Enviar PUSH solo a otros usuarios (excepto al que sube)
+    const usuariosConPush = await User.find({
+      _id: { $ne: req.user._id },
+      activo: true,
+      expoPushToken: { $exists: true, $nin: [null, ''] },
+    });
+
+    console.log(`📲 Enviando push a ${usuariosConPush.length} usuarios`);
+
+    for (const usuario of usuariosConPush) {
+      try {
+        await pushService.enviarNotificacionPush(usuario._id, {
+          title: '💰 Nueva Transferencia',
+          body: `${responsable.nombre} subio la transferencia de ${nombreUsuario} por $${parseFloat(valor).toFixed(2)}`,
+          data: {
+            transferenciaId: transferencia._id,
+            nombreUsuario,
+            valor: parseFloat(valor),
+            estado: 'SUBIDA',
+            tipo: 'NUEVA_TRANSFERENCIA',
+            screen: 'RevisionTransferencias',
+          },
+        });
+      } catch (pushError) {
+        console.error(`❌ Error enviando push a ${usuario.email}:`, pushError.message);
+      }
     }
 
     console.log(`✅ Transferencia creada: ${transferencia._id}`);
