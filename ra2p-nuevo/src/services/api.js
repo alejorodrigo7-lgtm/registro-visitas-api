@@ -50,4 +50,28 @@ api.interceptors.response.use(
   }
 );
 
+// ============================================
+// NOTIFICACIONES - SERVICIOS
+// ============================================
+export const notificationService = {
+  // Obtener notificaciones del usuario
+  getNotifications: (params = {}) => {
+    const { limit = 100, offset = 0 } = params;
+    let url = `/notificaciones?limit=${limit}&skip=${offset}`;
+    return api.get(url);
+  },
+
+  // Contar no leídas
+  getUnreadCount: () => api.get('/notificaciones/no-leidas/count'),
+
+  // Marcar como leída
+  markAsRead: (id) => api.put(`/notificaciones/${id}/leer`),
+
+  // Marcar todas como leídas
+  markAllAsRead: () => api.put('/notificaciones/leer-todas'),
+
+  // Eliminar notificación
+  deleteNotification: (id) => api.delete(`/notificaciones/${id}`),
+};
+
 export default api;
