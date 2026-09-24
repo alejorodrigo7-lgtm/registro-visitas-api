@@ -274,6 +274,16 @@ const RevisionGestion = ({ navigation }) => {
                       {servicioSeleccionado.telefono}
                     </Text>
 
+                    <Text style={styles.modalDatoLabel}>Teléfono de contacto:</Text>
+                    <Text style={styles.modalDatoValor}>
+                      {servicioSeleccionado.telefonoContacto || 'No especificado'}
+                    </Text>
+
+                    <Text style={styles.modalDatoLabel}>Tipo de contacto:</Text>
+                    <Text style={styles.modalDatoValor}>
+                      {servicioSeleccionado.tipoContacto || 'No especificado'}
+                    </Text>
+
                     <Text style={styles.modalDatoLabel}>Descripción:</Text>
                     <Text style={styles.modalDatoValor}>
                       {servicioSeleccionado.observaciones}

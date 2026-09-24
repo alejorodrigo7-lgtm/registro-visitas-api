@@ -1,4 +1,4 @@
-import * as ImagePicker from 'expo-image-picker';
+﻿import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,6 +29,8 @@ const ServiciosGestion = ({ navigation }) => {
     barrio: '',
     direccion: '',
     telefono: '',
+    telefonoContacto: '',
+    tipoContacto: 'Llamada normal',
     observaciones: '',
     imagen: null,
   });
@@ -168,9 +170,43 @@ const ServiciosGestion = ({ navigation }) => {
     }
   };
 
+  const seleccionarTipoContacto = () => {
+    Alert.alert('Tipo de contacto', 'Selecciona una opción', [
+      {
+        text: 'Llamada normal',
+        onPress: () =>
+          setFormData((p) => ({ ...p, tipoContacto: 'Llamada normal' })),
+      },
+      {
+        text: 'WhatsApp llamada',
+        onPress: () =>
+          setFormData((p) => ({ ...p, tipoContacto: 'WhatsApp llamada' })),
+      },
+      {
+        text: 'WhatsApp mensaje',
+        onPress: () =>
+          setFormData((p) => ({ ...p, tipoContacto: 'WhatsApp mensaje' })),
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
   const handleSubmit = async () => {
     if (!formData.cliente || !formData.codigoIdentificador) {
       Alert.alert('Error', 'Debes seleccionar un cliente válido');
+      return;
+    }
+
+    if (
+      !formData.telefonoContacto ||
+      formData.telefonoContacto.length !== 9
+    ) {
+      Alert.alert('Error', 'El teléfono de contacto debe tener 9 dígitos');
+      return;
+    }
+
+    if (!formData.tipoContacto) {
+      Alert.alert('Error', 'Debes seleccionar el tipo de contacto');
       return;
     }
 
@@ -201,13 +237,15 @@ const ServiciosGestion = ({ navigation }) => {
         barrio: formData.barrio,
         direccion: formData.direccion,
         telefono: formData.telefono,
+        telefonoContacto: formData.telefonoContacto,
+        tipoContacto: formData.tipoContacto,
         observaciones: formData.observaciones,
         imagen: imagenUrl,
       };
 
       await gestionService.crearServicioGestion(dataToSend);
 
-      Alert.alert('✅ Enviado', 'Servicio enviado a revisión de gestión', [
+      Alert.alert('Enviado', 'Servicio enviado a revisión de gestión', [
         {
           text: 'OK',
           onPress: () => {
@@ -217,6 +255,8 @@ const ServiciosGestion = ({ navigation }) => {
               barrio: '',
               direccion: '',
               telefono: '',
+              telefonoContacto: '',
+              tipoContacto: 'Llamada normal',
               observaciones: '',
               imagen: null,
             });
@@ -236,7 +276,7 @@ const ServiciosGestion = ({ navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.form}>
-        <Text style={styles.title}>📤 Servicios Gestión</Text>
+        <Text style={styles.title}>Servicios Gestión</Text>
         <Text style={styles.subtitle}>
           Reporta el problema. Se enviará a revisión de gestión.
         </Text>
@@ -248,7 +288,7 @@ const ServiciosGestion = ({ navigation }) => {
           onChangeText={handleNombreChange}
           placeholder="Buscar por nombre..."
         />
-        {buscando && <Text style={styles.buscandoText}>🔍 Buscando...</Text>}
+        {buscando && <Text style={styles.buscandoText}>Buscando...</Text>}
 
         <Text style={styles.label}>Código/Identificador *</Text>
         <View style={styles.codigoContainer}>
@@ -260,7 +300,7 @@ const ServiciosGestion = ({ navigation }) => {
             keyboardType="numeric"
           />
           <TouchableOpacity style={styles.buscarButton} onPress={buscarPorCodigo}>
-            <Text style={styles.buscarButtonText}>🔍</Text>
+            <Text style={styles.buscarButtonText}>Buscar</Text>
           </TouchableOpacity>
         </View>
 
@@ -288,6 +328,29 @@ const ServiciosGestion = ({ navigation }) => {
           placeholder="Se autocompleta"
         />
 
+        <Text style={styles.label}>Teléfono de contacto (9 dígitos) *</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.telefonoContacto}
+          onChangeText={(text) =>
+            setFormData((prev) => ({
+              ...prev,
+              telefonoContacto: text.replace(/[^0-9]/g, '').slice(0, 9),
+            }))
+          }
+          placeholder="Ej: 995786159"
+          keyboardType="numeric"
+          maxLength={9}
+        />
+
+        <Text style={styles.label}>Tipo de contacto *</Text>
+        <TouchableOpacity
+          style={styles.pickerWrapper}
+          onPress={seleccionarTipoContacto}
+        >
+          <Text style={styles.pickerTrigger}>{formData.tipoContacto}</Text>
+        </TouchableOpacity>
+
         <Text style={styles.label}>Descripción del problema *</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
@@ -303,10 +366,10 @@ const ServiciosGestion = ({ navigation }) => {
         <Text style={styles.label}>Foto *</Text>
         <View style={styles.fotoContainer}>
           <TouchableOpacity style={styles.fotoButton} onPress={tomarFoto}>
-            <Text style={styles.fotoButtonText}>📷 Tomar Foto</Text>
+            <Text style={styles.fotoButtonText}>Tomar Foto</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.fotoButton} onPress={seleccionarFoto}>
-            <Text style={styles.fotoButtonText}>🖼️ Galería</Text>
+            <Text style={styles.fotoButtonText}>Galería</Text>
           </TouchableOpacity>
         </View>
         {formData.imagen && (
@@ -319,7 +382,7 @@ const ServiciosGestion = ({ navigation }) => {
                 setImagenBase64(null);
               }}
             >
-              <Text style={styles.eliminarFotoText}>✕ Eliminar</Text>
+              <Text style={styles.eliminarFotoText}>Eliminar</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -332,7 +395,7 @@ const ServiciosGestion = ({ navigation }) => {
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitButtonText}>📤 Enviar a Revisión</Text>
+            <Text style={styles.submitButtonText}>Enviar a Revisión</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -345,7 +408,7 @@ const ServiciosGestion = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>📋 Selecciona un cliente</Text>
+            <Text style={styles.modalTitle}>Selecciona un cliente</Text>
             <FlatList
               data={resultadosBusqueda}
               keyExtractor={(item) => item._id}
@@ -427,10 +490,22 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 10,
-    minWidth: 60,
+    minWidth: 80,
     alignItems: 'center',
   },
-  buscarButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
+  buscarButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
+  pickerWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    marginBottom: 15,
+    padding: 15,
+  },
+  pickerTrigger: {
+    fontSize: 16,
+    color: '#2D3436',
+  },
   fotoContainer: { flexDirection: 'row', gap: 10, marginBottom: 15 },
   fotoButton: {
     flex: 1,
