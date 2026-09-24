@@ -65,6 +65,35 @@ const servicioSchema = new mongoose.Schema({
     fecha: { type: Date },
   },
   
+  // ✅ CAMPOS NUEVOS: GESTIÓN
+  origen: {
+    type: String,
+    enum: ['tecnico', 'gestion'],
+    default: 'tecnico',
+  },
+  revisadoPorGestion: {
+    type: Boolean,
+    default: false,
+  },
+  gestionPor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  fechaGestion: {
+    type: Date,
+    default: null,
+  },
+  segundaObservacion: {
+    type: String,
+    default: '',
+  },
+  tipoGestion: {
+    type: String,
+    enum: ['', 'resuelto', 'visita_presencial'],
+    default: '',
+  },
+
   activo: {
     type: Boolean,
     default: true,
