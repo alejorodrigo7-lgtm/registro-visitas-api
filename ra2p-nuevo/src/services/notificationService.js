@@ -64,7 +64,7 @@ export async function registerForPushNotificationsAsync() {
     console.log('✅ 3. Token Expo obtenido:', token);
 
     // 4. Guardar token en el backend
-    const userJson = await AsyncStorage.getItem('@user');
+    const userJson = await AsyncStorage.getItem('user');
     console.log('📱 userJson:', userJson ? '✅ Existe' : '❌ No existe');
 
     if (userJson) {
