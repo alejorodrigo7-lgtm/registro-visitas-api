@@ -248,10 +248,17 @@ exports.getTransferencias = async (req, res) => {
     // ✅ TODOS los roles ven TODAS las transferencias
     // (Sin filtro por responsableId)
 
+    // ✅ Límite dinámico: CONFIRMADA/SUBIDA/EN_REVISION sin límite (pendientes),
+    // INGRESADA/DENEGADA máximo 100 (ya son finales)
+    const esEstadoPendiente = estado === 'CONFIRMADA' || estado === 'SUBIDA' || estado === 'EN_REVISION';
+    const limite = esEstadoPendiente ? 1000 : 100;
+
+    console.log(`📊 Límite aplicado: ${limite} (${esEstadoPendiente ? 'pendiente' : 'final'})`);
+
     const transferencias = await Transferencia.find(query)
       .populate('responsableId', 'nombre email rol')
       .sort({ createdAt: -1 })
-      .limit(100);
+      .limit(limite);
 
     res.json({
       success: true,
