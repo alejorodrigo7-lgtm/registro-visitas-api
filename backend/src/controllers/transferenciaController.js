@@ -586,6 +586,9 @@ exports.getTransferenciasByEstado = async (req, res) => {
 
     console.log('📊 Usando índice createdAt_-1 para ordenar...');
     
+    const esEstadoPendiente = estado === 'CONFIRMADA' || estado === 'SUBIDA' || estado === 'EN_REVISION';
+    const limite = esEstadoPendiente ? 1000 : 100;
+
     const transferencias = await Transferencia.find(query)
       .populate('responsableId', 'nombre email rol')
       .sort({ createdAt: -1 })
