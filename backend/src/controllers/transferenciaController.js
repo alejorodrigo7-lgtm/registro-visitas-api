@@ -532,6 +532,9 @@ exports.buscarTransferenciasRevision = async (req, res) => {
     // SIN LIMITE - buscar en TODA la base de datos
     console.log('🔍 Buscando transferencias:', JSON.stringify(query));
 
+    const esEstadoPendiente = estado === 'CONFIRMADA' || estado === 'SUBIDA' || estado === 'EN_REVISION';
+    const limite = esEstadoPendiente ? 1000 : 100;
+
     const transferencias = await Transferencia.find(query)
       .populate('responsableId', 'nombre email rol')
       .sort({ fechaTransferencia: -1 })
@@ -586,7 +589,7 @@ exports.getTransferenciasByEstado = async (req, res) => {
     const transferencias = await Transferencia.find(query)
       .populate('responsableId', 'nombre email rol')
       .sort({ createdAt: -1 })
-      .limit(100);
+      .limit(limite);
 
     console.log(`✅ Encontradas: ${transferencias.length}`);
     
