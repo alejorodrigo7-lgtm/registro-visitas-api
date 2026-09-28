@@ -133,7 +133,13 @@ const NotificacionesScreen = () => {
           {item.mensaje}
         </Text>
         <Text style={styles.notificationDate}>
-          {new Date(item.fecha).toLocaleString()}
+          {new Date(item.createdAt || item.data || Date.now()).toLocaleString('es-EC', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
         </Text>
       </View>
       {!item.leida && <View style={styles.unreadDot} />}
