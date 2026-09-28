@@ -273,11 +273,16 @@ const enviarNotificacionATodos = async (titulo, mensaje, datos = {}, roles = [],
 const notificarVisitaRegistrada = async (visita) => {
   try {
     const titulo = '📋 Nueva Visita Registrada';
-    const mensaje = `${visita.tecnicoNombre || 'Técnico'} registró una visita en ${visita.cliente}`;
+    // ✅ Mejorado: usar tecnicoNombre, o tecnico.nombre (populado), o 'Técnico' como último recurso
+    const nombreTecnico =
+      visita.tecnicoNombre ||
+      visita.tecnico?.nombre ||
+      'Técnico';
+    const mensaje = `${nombreTecnico} registró una visita en ${visita.cliente}`;
     const datos = {
       visitaId: visita._id.toString(),
       cliente: visita.cliente,
-      tecnico: visita.tecnicoNombre || 'Técnico',
+      tecnico: nombreTecnico,
       identificador: visita.identificador || '',
       tipoVisita: visita.tipo || 'Visita',
     };

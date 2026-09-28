@@ -167,6 +167,8 @@ exports.crearVisita = async (req, res) => {
 
     // ✅ ENVIAR NOTIFICACIÓN PUSH
     try {
+      // Poblar tecnico para asegurar que tenga el nombre
+      await visita.populate('tecnico', 'nombre email');
       await notificarVisitaRegistrada(visita);
       console.log(`📱 Notificación push enviada por visita ${visita._id}`);
     } catch (notifError) {

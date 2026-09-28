@@ -50,6 +50,10 @@ const visitaSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  tecnicoNombre: {
+    type: String,
+    default: '',
+  },
   ubicacion: {
     latitude: { type: Number },
     longitude: { type: Number },
