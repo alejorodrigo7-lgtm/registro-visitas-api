@@ -979,17 +979,9 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `====================================\n`;
         reporte += `📌 TOTALES\n`;
         reporte += `- Total Transferencias: ${stats.totalTransferencias}\n`;
-        reporte += `- Total Valor: $${(stats.totalValorTransferencias || 0).toFixed(2)}\n`;
-        reporte += `- Pendientes: ${stats.transferenciasPendientes}\n`;
-        reporte += `- Aprobadas: ${stats.transferenciasAprobadas}\n`;
-        reporte += `- Denegadas: ${stats.transferenciasDenegadas}\n\n`;
+        reporte += `- Total Valor: ${(stats.totalValorTransferencias || 0).toFixed(2)}\n\n`;
 
-        reporte += `📌 POR PERÍODO\n`;
-        reporte += `- Semana: ${stats.transferenciasSemana || 0} transf - $${(stats.valorTransferenciasSemana || 0).toFixed(2)}\n`;
-        reporte += `- Mes: ${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}\n`;
-        reporte += `- Hoy: ${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}\n\n`;
-
-        reporte += `🏦 POR BANCO + CUENTA\n`;
+                reporte += `🏦 POR BANCO + CUENTA\n`;
         reporte += `====================================\n`;
         const bancos = stats.transferenciasPorBanco || {};
         if (Object.keys(bancos).length === 0) {
