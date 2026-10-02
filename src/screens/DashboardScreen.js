@@ -322,9 +322,7 @@ const DashboardScreen = ({ navigation }) => {
               
               // Extraer nombre del banco
               const bancoMatch = t.bancoCuenta.match(/Banco\s+([A-Za-zÁÉÍÓÚñÑ\s]+)/i);
-              if (bancoMatch) {
-                bancoNombre = bancoMatch[1].trim().toUpperCase();
-              } else if (t.bancoCuenta.toLowerCase().includes('pichincha')) {
+              if (t.bancoCuenta.toLowerCase().includes('pichincha')) {
                 bancoNombre = 'PICHINCHA';
               } else if (t.bancoCuenta.toLowerCase().includes('guayaquil')) {
                 bancoNombre = 'GUAYAQUIL';
