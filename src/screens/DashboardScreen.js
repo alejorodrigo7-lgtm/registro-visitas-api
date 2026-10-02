@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   FlatList,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -26,11 +27,9 @@ const DashboardScreen = ({ navigation }) => {
   const [datePickerMode, setDatePickerMode] = useState('start');
   const [fechaInicio, setFechaInicio] = useState(new Date());
   const [fechaFin, setFechaFin] = useState(new Date());
-  
-  // ✅ Estado para el submenú
+
   const [subMenuActual, setSubMenuActual] = useState('resumen');
-  
-  // ✅ Estado para el modal de envío de correos
+
   const [modalCorreoVisible, setModalCorreoVisible] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
@@ -40,9 +39,7 @@ const DashboardScreen = ({ navigation }) => {
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
   const [tipoReporte, setTipoReporte] = useState('visitas');
 
-  // ✅ Estado para estadísticas
   const [stats, setStats] = useState({
-    // Recuperación de Equipos
     totalOrdenes: 0,
     ordenesAsignadas: 0,
     ordenesNoRetirado: 0,
@@ -54,8 +51,6 @@ const DashboardScreen = ({ navigation }) => {
     visitasMes: 0,
     clientesAtendidos: 0,
     promedioVisitas: 0,
-    
-    // Caja / Depósitos
     totalDepositos: 0,
     depositosPendientes: 0,
     depositosAprobados: 0,
@@ -64,14 +59,22 @@ const DashboardScreen = ({ navigation }) => {
     cajaAbierta: 0,
     cajaCerrada: 0,
     saldoTotalCaja: 0,
-    
-    // Transferencias
     totalTransferencias: 0,
+    totalValorTransferencias: 0,
     transferenciasPendientes: 0,
     transferenciasAprobadas: 0,
     transferenciasDenegadas: 0,
-    
-    // Servicios
+    transferenciasPorBanco: {},
+    transferenciasPorZona: {},
+    transferenciasSemana: 0,
+    valorTransferenciasSemana: 0,
+    transferenciasMes: 0,
+    valorTransferenciasMes: 0,
+    transferenciasHoy: 0,
+    valorTransferenciasHoy: 0,
+    evolucionTransferencias: [],
+    maxValorBanco: 0,
+    maxValorZona: 0,
     totalServicios: 0,
     serviciosActivos: 0,
     serviciosFinalizados: 0,
@@ -80,45 +83,29 @@ const DashboardScreen = ({ navigation }) => {
     serviciosSemana: 0,
     serviciosMes: 0,
     serviciosPorNombre: {},
-    
-    // Desconexiones
     totalDesconexiones: 0,
     desconexionesPendientes: 0,
     desconexionesEjecutadas: 0,
     reconexionesRealizadas: 0,
-    
-    // Recibos
     totalRecibos: 0,
     recibosPendientes: 0,
     recibosSubidos: 0,
-    
-    // Usuarios
     totalUsuarios: 0,
     totalCoordinadores: 0,
     totalAdmins: 0,
     totalTecnicos: 0,
     totalClientes: 0,
-    
-    // Asistencia
     totalAsistencias: 0,
     asistenciasHoy: 0,
     ausenciasRegistradas: 0,
-    
-    // Ubicaciones
     totalUbicaciones: 0,
     ubicacionesHoy: 0,
-    
-    // Bodegas
     totalBodegas: 0,
     totalMateriales: 0,
     materialesAsignados: 0,
-    
-    // Reportes
     totalReportes: 0,
     reportesPendientes: 0,
     reportesGenerados: 0,
-    
-    // Visitas completas
     totalVisitas: 0,
     totalCobrado: 0,
     visitasMes: 0,
@@ -133,14 +120,12 @@ const DashboardScreen = ({ navigation }) => {
       MANTENIMIENTO: 0,
       OTROS: 0,
     },
+    visitasPorUsuario: {},
+    visitasPorBarrio: {},
   });
 
   const [recentActivity, setRecentActivity] = useState([]);
 
-  const rolUsuario = user?.rol?.toLowerCase() || '';
-  const isAdminOrJefe = ['admin', 'jefe'].includes(rolUsuario);
-
-  // ✅ Formatear fecha
   const formatDate = (date) => {
     const d = new Date(date);
     return d.toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -151,37 +136,82 @@ const DashboardScreen = ({ navigation }) => {
     return d.toISOString().split('T')[0];
   };
 
-  // ✅ Cargar usuarios para el selector de correos
+  // ✅ FUNCIÓN AUXILIAR: PARSEAR FECHA SEGURA
+  const parseFechaSegura = (fecha) => {
+    try {
+      if (!fecha) return new Date();
+      const d = new Date(fecha);
+      if (isNaN(d.getTime())) return new Date();
+      return d;
+    } catch (error) {
+      console.error('Error parseando fecha:', fecha, error);
+      return new Date();
+    }
+  };
+
+  // ✅ FUNCIÓN AUXILIAR: FORMATEAR FECHA SEGURA
+  const formatFechaSegura = (fecha) => {
+    try {
+      const d = parseFechaSegura(fecha);
+      return d.toISOString().split('T')[0];
+    } catch (error) {
+      return new Date().toISOString().split('T')[0];
+    }
+  };
+
+  // ✅ Cargar TODOS los usuarios para el selector de correos
   const cargarUsuarios = async () => {
     try {
-      const response = await api.get('/users');
+      console.log('🔍 Cargando todos los usuarios...');
+      const response = await api.get('/usuarios');
+      console.log('📡 Respuesta de usuarios:', response.data?.success);
       if (response.data.success) {
         const users = response.data.data || [];
+        console.log(`✅ ${users.length} usuarios cargados`);
         setUsuarios(users);
         setUsuariosFiltrados(users);
       }
     } catch (error) {
-      console.error('Error al cargar usuarios:', error);
+      console.error('❌ Error al cargar usuarios:', error);
+      const usuariosPrueba = [
+        { _id: '1', nombre: 'Alejandro Abril', email: 'alejorodrigo7@gmail.com', rol: 'Admin' },
+        { _id: '2', nombre: 'Liliana Chuquimarca', email: 'lilianaelizabethchuquimarca@gmail.com', rol: 'Coordinador' },
+        { _id: '3', nombre: 'Byron Paucar', email: 'byron27caiza@gmail.com', rol: 'Tecnico' },
+        { _id: '4', nombre: 'Diego Osorio', email: 'charly_f10th@hotmail.com', rol: 'Coordinador' },
+        { _id: '5', nombre: 'Isabela Cordoba', email: 'cordobaisabelag@gmail.com', rol: 'Jefe' },
+        { _id: '6', nombre: 'Mary Cordoba', email: 'isabellacordobag@hotmail.com', rol: 'Jefe' },
+        { _id: '7', nombre: 'Coordinador prueba', email: 'coordinador@visitas.com', rol: 'Coordinador' },
+        { _id: '8', nombre: 'Técnico prueba', email: 'tecnico@visitas.com', rol: 'Tecnico' },
+      ];
+      setUsuarios(usuariosPrueba);
+      setUsuariosFiltrados(usuariosPrueba);
     }
   };
 
-  // ✅ Cargar TODAS las estadísticas
   const cargarDashboard = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       const hoy = new Date().toISOString().split('T')[0];
       const mes = new Date().getMonth();
+      const fechaInicioStr = formatDateAPI(fechaInicio);
+      const fechaFinStr = formatDateAPI(fechaFin);
+
+      console.log('═══════════════════════════════════════');
+      console.log(`📅 CARGANDO DASHBOARD`);
+      console.log(`📅 Fecha inicio: ${fechaInicioStr}`);
+      console.log(`📅 Fecha fin: ${fechaFinStr}`);
+      console.log('═══════════════════════════════════════');
 
       // ============================================
-      // 1. RECUPERACIÓN DE EQUIPOS
+      // 1. RECUPERACIÓN DE EQUIPOS - CON FECHAS
       // ============================================
       const [asignadas, noRetirado, retirado, anulado, reconectado] = await Promise.all([
-        api.get('/recuperacion/ordenes/estado/asignada'),
-        api.get('/recuperacion/ordenes/estado/no_retirado'),
-        api.get('/recuperacion/ordenes/estado/retirado'),
-        api.get('/recuperacion/ordenes/estado/anulado'),
-        api.get('/recuperacion/ordenes/estado/reconectado'),
+        api.get(`/recuperacion/ordenes/estado/asignada?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/no_retirado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/retirado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/anulado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+        api.get(`/recuperacion/ordenes/estado/reconectado?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
       ]);
 
       const totalOrdenes = 
@@ -191,15 +221,12 @@ const DashboardScreen = ({ navigation }) => {
         (anulado.data.data?.length || 0) +
         (reconectado.data.data?.length || 0);
 
-      const response = await api.get('/recuperacion/ordenes');
+      const response = await api.get(`/recuperacion/ordenes?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } }));
       const todasOrdenes = response.data.data || [];
 
-      const fechaInicioStr = formatDateAPI(fechaInicio);
-      const fechaFinStr = formatDateAPI(fechaFin);
-      
       const ordenesFiltradas = todasOrdenes.filter(o => {
-        const fechaCreacion = new Date(o.fechaSubida || o.createdAt);
-        const fechaCreacionStr = formatDateAPI(fechaCreacion);
+        const fechaCreacion = parseFechaSegura(o.fechaSubida || o.createdAt);
+        const fechaCreacionStr = formatFechaSegura(fechaCreacion);
         return fechaCreacionStr >= fechaInicioStr && fechaCreacionStr <= fechaFinStr;
       });
 
@@ -207,14 +234,14 @@ const DashboardScreen = ({ navigation }) => {
       const visitasHoy = ordenesFiltradas.filter(o => {
         const ultimaVisita = o.visitas?.[o.visitas.length - 1];
         if (!ultimaVisita) return false;
-        const fechaVisita = new Date(ultimaVisita.fechaVisita).toISOString().split('T')[0];
+        const fechaVisita = formatFechaSegura(ultimaVisita.fechaVisita);
         return fechaVisita === hoy;
       }).length;
 
       const visitasMes = ordenesFiltradas.filter(o => {
         const ultimaVisita = o.visitas?.[o.visitas.length - 1];
         if (!ultimaVisita) return false;
-        const fechaVisita = new Date(ultimaVisita.fechaVisita);
+        const fechaVisita = parseFechaSegura(ultimaVisita.fechaVisita);
         return fechaVisita.getMonth() === mes;
       }).length;
 
@@ -223,13 +250,13 @@ const DashboardScreen = ({ navigation }) => {
       const promedioVisitas = totalOrdenes > 0 ? Number((totalVisitas / totalOrdenes).toFixed(1)) : 0;
 
       // ============================================
-      // 2. CAJA / DEPÓSITOS
+      // 2. CAJA / DEPÓSITOS - CON FECHAS
       // ============================================
       let totalDepositos = 0, depositosPendientes = 0, depositosAprobados = 0, depositosRechazados = 0;
       let totalCaja = 0, cajaAbierta = 0, cajaCerrada = 0, saldoTotalCaja = 0;
 
       try {
-        const depositosRes = await api.get('/depositos');
+        const depositosRes = await api.get(`/depositos?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (depositosRes.data.success) {
           const depositos = depositosRes.data.data || [];
           totalDepositos = depositos.length;
@@ -240,7 +267,7 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       try {
-        const cajaRes = await api.get('/caja/cuadres');
+        const cajaRes = await api.get(`/caja/cuadres?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (cajaRes.data.success) {
           const cajaData = cajaRes.data.data || [];
           totalCaja = cajaData.length;
@@ -251,35 +278,156 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 3. TRANSFERENCIAS
+      // 3. TRANSFERENCIAS - CON FECHAS
       // ============================================
       let totalTransferencias = 0, transferenciasPendientes = 0, transferenciasAprobadas = 0, transferenciasDenegadas = 0;
+      let totalValorTransferencias = 0;
+      let transferenciasPorBanco = {};
+      let transferenciasPorZona = {};
+      let transferenciasSemana = 0, valorTransferenciasSemana = 0;
+      let transferenciasMes = 0, valorTransferenciasMes = 0;
+      let transferenciasHoy = 0, valorTransferenciasHoy = 0;
+      let evolucionTransferencias = [];
+      let maxValorBanco = 0;
+      let maxValorZona = 0;
 
       try {
-        const transferenciasRes = await api.get('/transferencias');
+        console.log('📡 Cargando transferencias...');
+        const transferenciasRes = await api.get(`/transferencias?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
+
         if (transferenciasRes.data.success) {
           const transferencias = transferenciasRes.data.data || [];
           totalTransferencias = transferencias.length;
           transferenciasPendientes = transferencias.filter(t => t.estado === 'pendiente').length;
           transferenciasAprobadas = transferencias.filter(t => t.estado === 'aprobado').length;
           transferenciasDenegadas = transferencias.filter(t => t.estado === 'denegado').length;
+
+          const hoyStr = new Date().toISOString().split('T')[0];
+          const mesActual = new Date().getMonth();
+          const semanaAtras = new Date();
+          semanaAtras.setDate(semanaAtras.getDate() - 7);
+
+          transferencias.forEach(t => {
+            // ✅ EXTRAER BANCO Y NÚMERO DE CUENTA COMPLETO
+            let bancoNombre = 'OTRO';
+            let numeroCuenta = '';
+            let bancoCompleto = '';
+            
+            if (t.bancoCuenta) {
+              // Extraer número de cuenta
+              const numMatch = t.bancoCuenta.match(/N[º°]\s*(\d+)/i) || t.bancoCuenta.match(/(\d{8,})/);
+              if (numMatch) {
+                numeroCuenta = numMatch[1];
+              }
+              
+              // Extraer nombre del banco
+              const bancoMatch = t.bancoCuenta.match(/Banco\s+([A-Za-zÁÉÍÓÚñÑ\s]+)/i);
+              if (bancoMatch) {
+                bancoNombre = bancoMatch[1].trim().toUpperCase();
+              } else if (t.bancoCuenta.toLowerCase().includes('pichincha')) {
+                bancoNombre = 'PICHINCHA';
+              } else if (t.bancoCuenta.toLowerCase().includes('guayaquil')) {
+                bancoNombre = 'GUAYAQUIL';
+              } else if (t.bancoCuenta.toLowerCase().includes('internacional')) {
+                bancoNombre = 'INTERNACIONAL';
+              } else if (t.bancoCuenta.toLowerCase().includes('produbanco')) {
+                bancoNombre = 'PRODUBANCO';
+              } else if (t.bancoCuenta.toLowerCase().includes('bolivariano')) {
+                bancoNombre = 'BOLIVARIANO';
+              } else {
+                bancoNombre = t.bancoCuenta.substring(0, 30).toUpperCase();
+              }
+              
+              // Construir clave única
+              bancoCompleto = numeroCuenta ? `${bancoNombre} (${numeroCuenta})` : bancoNombre;
+            }
+
+            const zona = t.zonaSector || 'SIN ZONA';
+            const valor = t.valor || 0;
+            const fecha = parseFechaSegura(t.fechaTransferencia || t.createdAt);
+            const fechaStr = formatFechaSegura(fecha);
+
+            totalValorTransferencias += valor;
+
+            // ✅ GUARDAR BANCO CON NÚMERO DE CUENTA
+            if (!transferenciasPorBanco[bancoCompleto]) {
+              transferenciasPorBanco[bancoCompleto] = { 
+                total: 0, 
+                totalValor: 0,
+                bancoNombre: bancoNombre,
+                numeroCuenta: numeroCuenta
+              };
+            }
+            transferenciasPorBanco[bancoCompleto].total += 1;
+            transferenciasPorBanco[bancoCompleto].totalValor += valor;
+
+            // ... resto del código igual
+
+            if (!transferenciasPorZona[zona]) {
+              transferenciasPorZona[zona] = { total: 0, totalValor: 0 };
+            }
+            transferenciasPorZona[zona].total += 1;
+            transferenciasPorZona[zona].totalValor += valor;
+
+            if (fechaStr === hoyStr) {
+              transferenciasHoy++;
+              valorTransferenciasHoy += valor;
+            }
+            if (fecha >= semanaAtras) {
+              transferenciasSemana++;
+              valorTransferenciasSemana += valor;
+            }
+            if (fecha.getMonth() === mesActual) {
+              transferenciasMes++;
+              valorTransferenciasMes += valor;
+            }
+          });
+
+          const valoresBanco = Object.values(transferenciasPorBanco).map(d => d.totalValor);
+          maxValorBanco = valoresBanco.length > 0 ? Math.max(...valoresBanco) : 0;
+
+          const valoresZona = Object.values(transferenciasPorZona).map(d => d.totalValor);
+          maxValorZona = valoresZona.length > 0 ? Math.max(...valoresZona) : 0;
+
+          const evolucionMap = {};
+          transferencias.forEach(t => {
+            const fecha = parseFechaSegura(t.fechaTransferencia || t.createdAt);
+            const fechaStr = formatFechaSegura(fecha);
+            const valor = t.valor || 0;
+
+            if (!evolucionMap[fechaStr]) {
+              evolucionMap[fechaStr] = { transferencias: 0, valor: 0 };
+            }
+            evolucionMap[fechaStr].transferencias += 1;
+            evolucionMap[fechaStr].valor += valor;
+          });
+
+          evolucionTransferencias = Object.entries(evolucionMap)
+            .map(([fecha, datos]) => ({ fecha: new Date(fecha), ...datos }))
+            .sort((a, b) => a.fecha - b.fecha);
+
+          console.log(`✅ Transferencias: ${totalTransferencias}, Bancos: ${Object.keys(transferenciasPorBanco).length}`);
         }
-      } catch (error) {}
+      } catch (error) {
+        console.error('❌ Error al cargar transferencias:', error);
+      }
 
       // ============================================
-      // 4. SERVICIOS - CORREGIDO CON ESTADÍSTICAS DETALLADAS
+      // 4. SERVICIOS - CON FECHAS
       // ============================================
       let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
       let serviciosHoy = 0, serviciosSemana = 0, serviciosMes = 0;
       let serviciosPorNombre = {};
 
       try {
-        // ✅ Usar endpoints por estado (funcionan correctamente)
+        console.log('🔍 Cargando servicios con fechas...');
+        console.log(`📅 Fechas: ${fechaInicioStr} a ${fechaFinStr}`);
+
         const [tomadosRes, ejecutadosRes, pendientesRes, retroalimentadosRes] = await Promise.all([
-          api.get('/servicios/estado/TOMADO'),
-          api.get('/servicios/estado/EJECUTADO'),
-          api.get('/servicios/estado/PENDIENTE'),
-          api.get('/servicios/estado/RETROALIMENTADO')
+          api.get(`/servicios/estado/TOMADO?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/EJECUTADO?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/PENDIENTE?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
+          api.get(`/servicios/estado/RETROALIMENTADO?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`).catch(() => ({ data: { data: [] } })),
         ]);
 
         const tomados = tomadosRes.data?.data || [];
@@ -287,85 +435,54 @@ const DashboardScreen = ({ navigation }) => {
         const pendientes = pendientesRes.data?.data || [];
         const retroalimentados = retroalimentadosRes.data?.data || [];
 
-        // Total de servicios (suma de todos los estados)
+        console.log(`✅ Servicios: TOMADO=${tomados.length}, EJECUTADO=${ejecutados.length}, PENDIENTE=${pendientes.length}, RETROALIMENTADO=${retroalimentados.length}`);
+
         totalServicios = tomados.length + ejecutados.length + pendientes.length + retroalimentados.length;
-
-        // TOMADO = Activos (servicios en proceso)
         serviciosActivos = tomados.length;
-
-        // EJECUTADO = Finalizados
         serviciosFinalizados = ejecutados.length;
-
-        // PENDIENTE = Pendientes
         serviciosPendientes = pendientes.length;
 
-        // ✅ COMBINAR TODOS LOS SERVICIOS PARA ESTADÍSTICAS TEMPORALES
         const todosLosServicios = [...tomados, ...ejecutados, ...pendientes, ...retroalimentados];
 
-        // ✅ Calcular servicios por período
         const hoyStr = new Date().toISOString().split('T')[0];
         const semanaAtras = new Date();
         semanaAtras.setDate(semanaAtras.getDate() - 7);
         const mesActual = new Date().getMonth();
 
-        // ✅ Contar servicios por período y por nombreServicio
         todosLosServicios.forEach(s => {
-          const fecha = new Date(s.createdAt || s.fechaCreacion || Date.now());
-          const fechaStr = fecha.toISOString().split('T')[0];
+          const fecha = parseFechaSegura(s.createdAt || s.fechaCreacion);
+          const fechaStr = formatFechaSegura(fecha);
           const nombreServicio = s.nombreServicio || 'Sin especificar';
 
-          // Inicializar contador por nombre
           if (!serviciosPorNombre[nombreServicio]) {
-            serviciosPorNombre[nombreServicio] = {
-              hoy: 0,
-              semana: 0,
-              mes: 0,
-            };
+            serviciosPorNombre[nombreServicio] = { hoy: 0, semana: 0, mes: 0 };
           }
 
-          // Hoy
           if (fechaStr === hoyStr) {
             serviciosHoy++;
             serviciosPorNombre[nombreServicio].hoy++;
           }
-
-          // Semana
           if (fecha >= semanaAtras) {
             serviciosSemana++;
             serviciosPorNombre[nombreServicio].semana++;
           }
-
-          // Mes
           if (fecha.getMonth() === mesActual) {
             serviciosMes++;
             serviciosPorNombre[nombreServicio].mes++;
           }
         });
 
-        console.log(`📊 Servicios: Total=${totalServicios}, Activos=${serviciosActivos}, Finalizados=${serviciosFinalizados}, Pendientes=${serviciosPendientes}`);
-        console.log(`📊 Servicios Hoy: ${serviciosHoy}, Semana: ${serviciosSemana}, Mes: ${serviciosMes}`);
-        console.log(`📊 Servicios por nombre:`, serviciosPorNombre);
-
       } catch (error) {
         console.error('❌ Error al cargar servicios:', error);
-        // Si falla, usar valores por defecto
-        totalServicios = 0;
-        serviciosActivos = 0;
-        serviciosFinalizados = 0;
-        serviciosPendientes = 0;
-        serviciosHoy = 0;
-        serviciosSemana = 0;
-        serviciosMes = 0;
-        serviciosPorNombre = {};
       }
 
       // ============================================
-      // 5. DESCONEXIONES
+      // 5. DESCONEXIONES - CON FECHAS
       // ============================================
       let totalDesconexiones = 0, desconexionesPendientes = 0, desconexionesEjecutadas = 0, reconexionesRealizadas = 0;
 
       try {
-        const desconexionesRes = await api.get('/desconexiones');
+        const desconexionesRes = await api.get(`/desconexiones?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (desconexionesRes.data.success) {
           const desconexiones = desconexionesRes.data.data || [];
           totalDesconexiones = desconexiones.length;
@@ -376,12 +493,12 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 6. RECIBOS
+      // 6. RECIBOS - CON FECHAS
       // ============================================
       let totalRecibos = 0, recibosPendientes = 0, recibosSubidos = 0;
 
       try {
-        const recibosRes = await api.get('/recibos');
+        const recibosRes = await api.get(`/recibos?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (recibosRes.data.success) {
           const recibos = recibosRes.data.data || [];
           totalRecibos = recibos.length;
@@ -391,12 +508,12 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 7. USUARIOS
+      // 7. USUARIOS - SIN FILTRO DE FECHAS
       // ============================================
       let totalUsuarios = 0, totalCoordinadores = 0, totalAdmins = 0, totalTecnicos = 0, totalClientes = 0;
 
       try {
-        const usersRes = await api.get('/users');
+        const usersRes = await api.get('/usuarios');
         if (usersRes.data.success) {
           const users = usersRes.data.data || [];
           totalUsuarios = users.length;
@@ -405,20 +522,22 @@ const DashboardScreen = ({ navigation }) => {
           totalTecnicos = users.filter(u => u.rol?.toLowerCase() === 'tecnico').length;
           totalClientes = users.filter(u => u.rol?.toLowerCase() === 'cliente').length;
         }
-      } catch (error) {}
+      } catch (error) {
+        console.error('❌ Error al cargar usuarios en dashboard:', error);
+      }
 
       // ============================================
-      // 8. ASISTENCIA
+      // 8. ASISTENCIA - CON FECHAS
       // ============================================
       let totalAsistencias = 0, asistenciasHoy = 0, ausenciasRegistradas = 0;
 
       try {
-        const asistenciaRes = await api.get('/asistencia');
+        const asistenciaRes = await api.get(`/asistencia?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (asistenciaRes.data.success) {
           const asistencias = asistenciaRes.data.data || [];
           totalAsistencias = asistencias.length;
           asistenciasHoy = asistencias.filter(a => {
-            const fecha = new Date(a.fecha).toISOString().split('T')[0];
+            const fecha = formatFechaSegura(a.fecha);
             return fecha === hoy;
           }).length;
           ausenciasRegistradas = asistencias.filter(a => a.estado === 'ausente').length;
@@ -426,24 +545,24 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 9. UBICACIONES
+      // 9. UBICACIONES - CON FECHAS
       // ============================================
       let totalUbicaciones = 0, ubicacionesHoy = 0;
 
       try {
-        const ubicacionesRes = await api.get('/ubicaciones');
+        const ubicacionesRes = await api.get(`/ubicaciones?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (ubicacionesRes.data.success) {
           const ubicaciones = ubicacionesRes.data.data || [];
           totalUbicaciones = ubicaciones.length;
           ubicacionesHoy = ubicaciones.filter(u => {
-            const fecha = new Date(u.createdAt || u.fecha).toISOString().split('T')[0];
+            const fecha = formatFechaSegura(u.createdAt || u.fecha);
             return fecha === hoy;
           }).length;
         }
       } catch (error) {}
 
       // ============================================
-      // 10. BODEGAS
+      // 10. BODEGAS - SIN FILTRO
       // ============================================
       let totalBodegas = 0, totalMateriales = 0, materialesAsignados = 0;
 
@@ -458,12 +577,12 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 11. REPORTES
+      // 11. REPORTES - CON FECHAS
       // ============================================
       let totalReportes = 0, reportesPendientes = 0, reportesGenerados = 0;
 
       try {
-        const reportesRes = await api.get('/reportes');
+        const reportesRes = await api.get(`/reportes?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
         if (reportesRes.data.success) {
           const reportes = reportesRes.data.data || [];
           totalReportes = reportes.length;
@@ -473,56 +592,116 @@ const DashboardScreen = ({ navigation }) => {
       } catch (error) {}
 
       // ============================================
-      // 12. VISITAS COMPLETAS
+      // 12. VISITAS - CON FECHAS
       // ============================================
       let totalVisitasData = 0, totalCobradoData = 0;
       let visitasMesCount = 0, cobradoMesCount = 0;
       let visitasSemanaCount = 0, cobradoSemanaCount = 0;
       let visitasHoyCount = 0, cobradoHoyCount = 0;
       let visitasPorTipo = { COBRO: 0, INSTALACION: 0, MANTENIMIENTO: 0, OTROS: 0 };
+      let visitasPorUsuario = {};
+      let visitasPorBarrio = {};
 
       try {
-        const visitasRes = await api.get('/visitas');
+        console.log('📡 Cargando visitas con fechas...');
+        const visitasRes = await api.get(`/visitas?fechaInicio=${fechaInicioStr}&fechaFin=${fechaFinStr}`);
+        console.log('📡 Visitas recibidas:', visitasRes.data?.data?.length || 0);
+
         if (visitasRes.data.success) {
           const visitas = visitasRes.data.data || [];
           totalVisitasData = visitas.length;
-          
+
           const hoyStr = new Date().toISOString().split('T')[0];
           const mesActual = new Date().getMonth();
           const semanaAtras = new Date();
           semanaAtras.setDate(semanaAtras.getDate() - 7);
-          
-          visitas.forEach(v => {
-            const fecha = new Date(v.fecha);
-            const fechaStr = fecha.toISOString().split('T')[0];
+
+          let coordinadores = [];
+          try {
+            const usersRes = await api.get('/usuarios');
+            if (usersRes.data.success) {
+              coordinadores = usersRes.data.data
+                .filter(u => u.rol?.toLowerCase() === 'coordinador')
+                .map(u => u.nombre);
+              console.log('📡 Coordinadores encontrados:', coordinadores);
+            }
+          } catch (error) {
+            console.error('❌ Error cargando coordinadores:', error);
+          }
+
+          visitas.forEach((v, index) => {
+            const fecha = parseFechaSegura(v.fecha);
+            const fechaStr = formatFechaSegura(fecha);
             const esCobro = v.tipo === 'Cobro';
             const monto = v.monto || 0;
-            
+
+            const usuario = v.usuario?.nombre || v.tecnico?.nombre || v.creadoPor?.nombre || 'Sin asignar';
+
+            const esCoordinador = coordinadores.some(c =>
+              usuario.toLowerCase().includes(c.toLowerCase()) ||
+              c.toLowerCase().includes(usuario.toLowerCase())
+            );
+
+            if (!esCoordinador && coordinadores.length > 0) {
+              return;
+            }
+
+            if (!visitasPorUsuario[usuario]) {
+              visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0, cobradoSemana: 0, cobradoMes: 0 };
+            }
+
             let tipo = v.tipo || 'OTROS';
             let tipoMapeado = 'OTROS';
             if (tipo === 'Cobro') tipoMapeado = 'COBRO';
             else if (tipo === 'Instalación') tipoMapeado = 'INSTALACION';
             else if (tipo === 'Mantenimiento') tipoMapeado = 'MANTENIMIENTO';
-            
+
             visitasPorTipo[tipoMapeado] = (visitasPorTipo[tipoMapeado] || 0) + 1;
-            
+
             if (esCobro) totalCobradoData += monto;
-            
+
             if (fecha.getMonth() === mesActual) {
               visitasMesCount++;
-              if (esCobro) cobradoMesCount += monto;
+              visitasPorUsuario[usuario].mes++;
+              if (esCobro) {
+                cobradoMesCount += monto;
+                visitasPorUsuario[usuario].cobradoMes = (visitasPorUsuario[usuario].cobradoMes || 0) + monto;
+              }
             }
-            
+
             if (fecha >= semanaAtras) {
               visitasSemanaCount++;
-              if (esCobro) cobradoSemanaCount += monto;
+              visitasPorUsuario[usuario].semana++;
+              if (esCobro) {
+                cobradoSemanaCount += monto;
+                visitasPorUsuario[usuario].cobradoSemana = (visitasPorUsuario[usuario].cobradoSemana || 0) + monto;
+              }
             }
-            
+
             if (fechaStr === hoyStr) {
               visitasHoyCount++;
+              visitasPorUsuario[usuario].hoy++;
               if (esCobro) cobradoHoyCount += monto;
             }
+
+            visitasPorUsuario[usuario].total++;
+
+            // NUEVO: Agrupar por barrio
+            const barrio = v.barrio || 'Sin barrio';
+            if (!visitasPorBarrio[barrio]) {
+              visitasPorBarrio[barrio] = { total: 0, cobrado: 0 };
+            }
+            visitasPorBarrio[barrio].total++;
+            if (esCobro) {
+              visitasPorBarrio[barrio].cobrado = (visitasPorBarrio[barrio].cobrado || 0) + monto;
+            }
           });
+
+          const usuariosOrdenados = Object.entries(visitasPorUsuario)
+            .sort((a, b) => b[1].total - a[1].total);
+          visitasPorUsuario = Object.fromEntries(usuariosOrdenados);
+
+          console.log('📊 visitasPorUsuario FINAL:', Object.keys(visitasPorUsuario).length, 'usuarios');
         }
       } catch (error) {
         console.error('Error al cargar visitas:', error);
@@ -531,8 +710,8 @@ const DashboardScreen = ({ navigation }) => {
       // ============================================
       // 13. ACTIVIDAD RECIENTE
       // ============================================
-      const sorted = [...ordenesFiltradas].sort((a, b) => 
-        new Date(b.fechaSubida || b.createdAt) - new Date(a.fechaSubida || a.createdAt)
+      const sorted = [...ordenesFiltradas].sort((a, b) =>
+        parseFechaSegura(b.fechaSubida || b.createdAt) - parseFechaSegura(a.fechaSubida || a.createdAt)
       );
       setRecentActivity(sorted.slice(0, 5));
 
@@ -560,9 +739,21 @@ const DashboardScreen = ({ navigation }) => {
         cajaCerrada,
         saldoTotalCaja,
         totalTransferencias,
+        totalValorTransferencias,
         transferenciasPendientes,
         transferenciasAprobadas,
         transferenciasDenegadas,
+        transferenciasPorBanco,
+        transferenciasPorZona,
+        transferenciasSemana,
+        valorTransferenciasSemana,
+        transferenciasMes,
+        valorTransferenciasMes,
+        transferenciasHoy,
+        valorTransferenciasHoy,
+        evolucionTransferencias,
+        maxValorBanco,
+        maxValorZona,
         totalServicios,
         serviciosActivos,
         serviciosFinalizados,
@@ -603,10 +794,14 @@ const DashboardScreen = ({ navigation }) => {
         visitasHoy: visitasHoyCount,
         cobradoHoy: cobradoHoyCount,
         visitasPorTipo,
+        visitasPorUsuario,
+        visitasPorBarrio,
       });
 
+      console.log('✅ Dashboard cargado correctamente');
+
     } catch (error) {
-      console.error('Error cargando dashboard:', error);
+      console.error('❌ Error cargando dashboard:', error);
       Alert.alert('Error', 'No se pudieron cargar los datos del dashboard');
     } finally {
       setLoading(false);
@@ -648,13 +843,12 @@ const DashboardScreen = ({ navigation }) => {
     setTimeout(() => cargarDashboard(), 100);
   };
 
-  // ✅ Buscar usuarios por nombre o email
   const buscarUsuarios = (texto) => {
     setBusquedaUsuario(texto);
     if (texto.trim() === '') {
       setUsuariosFiltrados(usuarios);
     } else {
-      const filtrados = usuarios.filter(u => 
+      const filtrados = usuarios.filter(u =>
         u.nombre?.toLowerCase().includes(texto.toLowerCase()) ||
         u.email?.toLowerCase().includes(texto.toLowerCase())
       );
@@ -662,7 +856,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ Seleccionar/Deseleccionar usuario
   const toggleUsuarioSeleccionado = (usuario) => {
     const exists = usuariosSeleccionados.find(u => u._id === usuario._id);
     if (exists) {
@@ -672,7 +865,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ Abrir modal de envío de correos
   const abrirModalCorreo = (tipo) => {
     setTipoReporte(tipo);
     setUsuariosSeleccionados([]);
@@ -682,7 +874,6 @@ const DashboardScreen = ({ navigation }) => {
     setModalCorreoVisible(true);
   };
 
-  // ✅ Enviar estadísticas por correo
   const enviarEstadisticasPorCorreo = async () => {
     const emails = [
       ...usuariosSeleccionados.map(u => u.email),
@@ -697,10 +888,8 @@ const DashboardScreen = ({ navigation }) => {
     setEnviandoCorreo(true);
 
     try {
-      // Generar reporte según el tipo
-      let reporte = generarReporte(tipoReporte);
-      
-      // Enviar al backend
+      const reporte = generarReporte(tipoReporte);
+
       const response = await api.post('/email/enviar-reporte', {
         to: emails,
         subject: `📊 Reporte de ${getTituloReporte(tipoReporte)} - ${new Date().toLocaleDateString('es-EC')}`,
@@ -713,42 +902,61 @@ const DashboardScreen = ({ navigation }) => {
         setUsuariosSeleccionados([]);
         setEmailAdicional('');
       } else {
-        Alert.alert('Error', 'No se pudo enviar el reporte');
+        Alert.alert('Error', response.data.message || 'No se pudo enviar el reporte');
       }
     } catch (error) {
-      console.error('Error al enviar reporte:', error);
+      console.error('❌ Error al enviar reporte:', error);
       Alert.alert('Error', error.response?.data?.message || 'Error al enviar el reporte');
     } finally {
       setEnviandoCorreo(false);
     }
   };
 
-  // ✅ Generar reporte según el tipo
+  // ✅ GENERAR REPORTE CON FECHAS EN EL TÍTULO
   const generarReporte = (tipo) => {
     const fecha = new Date().toLocaleDateString('es-EC');
+    const fechaInicioStr = formatDate(fechaInicio);
+    const fechaFinStr = formatDate(fechaFin);
+    
+    // ✅ TÍTULO CON FECHAS SELECCIONADAS
     let reporte = `📊 REPORTE DE ${getTituloReporte(tipo).toUpperCase()} - RA²P\n`;
-    reporte += `====================================\n`;
-    reporte += `Fecha: ${fecha}\n\n`;
+    reporte += `📅 DEL ${fechaInicioStr.toUpperCase()} AL ${fechaFinStr.toUpperCase()}\n`;
+    reporte += `════════════════════════════════════\n`;
+    reporte += `Fecha de generación: ${fecha}\n`;
+    reporte += `════════════════════════════════════\n\n`;
 
     switch (tipo) {
       case 'visitas':
-        reporte += `📌 TOTALES GENERALES\n`;
+        // TOTAL GENERAL DEL RANGO
+        reporte += `📌 TOTAL GENERAL DEL RANGO\n`;
         reporte += `- Total Visitas: ${stats.totalVisitas}\n`;
         reporte += `- Total Cobrado: $${stats.totalCobrado.toFixed(2)}\n\n`;
-        reporte += `📆 ESTE MES\n`;
-        reporte += `- Visitas del Mes: ${stats.visitasMes}\n`;
-        reporte += `- Cobrado del Mes: $${stats.cobradoMes.toFixed(2)}\n\n`;
-        reporte += `📅 ÚLTIMA SEMANA\n`;
-        reporte += `- Visitas de la Semana: ${stats.visitasSemana}\n`;
-        reporte += `- Cobrado de la Semana: $${stats.cobradoSemana.toFixed(2)}\n\n`;
-        reporte += `📌 HOY\n`;
-        reporte += `- Visitas de Hoy: ${stats.visitasHoy}\n`;
-        reporte += `- Cobrado de Hoy: $${stats.cobradoHoy.toFixed(2)}\n\n`;
-        reporte += `📋 POR TIPO DE VISITA\n`;
-        reporte += `- COBRO: ${stats.visitasPorTipo?.COBRO || 0}\n`;
-        reporte += `- INSTALACIÓN: ${stats.visitasPorTipo?.INSTALACION || 0}\n`;
-        reporte += `- MANTENIMIENTO: ${stats.visitasPorTipo?.MANTENIMIENTO || 0}\n`;
-        reporte += `- OTROS: ${stats.visitasPorTipo?.OTROS || 0}\n`;
+
+        // POR BARRIO
+        reporte += `📍 POR BARRIO\n`;
+        reporte += `====================================\n`;
+        const barriosReporte = stats.visitasPorBarrio || {};
+        if (Object.keys(barriosReporte).length === 0) {
+          reporte += `- No hay visitas en el rango seleccionado\n`;
+        } else {
+          const barriosOrdenados = Object.entries(barriosReporte).sort((a, b) => b[1].total - a[1].total);
+          for (const [barrio, datos] of barriosOrdenados) {
+            reporte += `- ${barrio}: ${datos.total} visitas | $${(datos.cobrado || 0).toFixed(2)}\n`;
+          }
+        }
+        reporte += `\n`;
+
+        // VISITAS POR COORDINADOR
+        reporte += `👤 VISITAS POR COORDINADOR\n`;
+        reporte += `====================================\n`;
+        const usuariosReporte = stats.visitasPorUsuario || {};
+        if (Object.keys(usuariosReporte).length === 0) {
+          reporte += `- No hay visitas de coordinadores registradas\n`;
+        } else {
+          for (const [nombre, datos] of Object.entries(usuariosReporte)) {
+            reporte += `- ${nombre}: Total ${datos.total} | Cobrado $${(datos.cobradoMes || 0).toFixed(2)}\n`;
+          }
+        }
         break;
 
       case 'cajas':
@@ -763,13 +971,49 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Caja Cerrada: ${stats.cajaCerrada}\n`;
         reporte += `- Saldo Total: $${stats.saldoTotalCaja.toFixed(2)}\n`;
         break;
-
       case 'transferencias':
         reporte += `🔄 TRANSFERENCIAS\n`;
+        reporte += `====================================\n`;
+        reporte += `📌 TOTALES\n`;
         reporte += `- Total Transferencias: ${stats.totalTransferencias}\n`;
+        reporte += `- Total Valor: $${(stats.totalValorTransferencias || 0).toFixed(2)}\n`;
         reporte += `- Pendientes: ${stats.transferenciasPendientes}\n`;
         reporte += `- Aprobadas: ${stats.transferenciasAprobadas}\n`;
-        reporte += `- Denegadas: ${stats.transferenciasDenegadas}\n`;
+        reporte += `- Denegadas: ${stats.transferenciasDenegadas}\n\n`;
+
+        reporte += `📌 POR PERÍODO\n`;
+        reporte += `- Semana: ${stats.transferenciasSemana || 0} transf - $${(stats.valorTransferenciasSemana || 0).toFixed(2)}\n`;
+        reporte += `- Mes: ${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}\n`;
+        reporte += `- Hoy: ${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}\n\n`;
+
+        reporte += `🏦 POR BANCO + CUENTA\n`;
+        reporte += `====================================\n`;
+        const bancos = stats.transferenciasPorBanco || {};
+        if (Object.keys(bancos).length === 0) {
+          reporte += `- No hay transferencias registradas\n`;
+        } else {
+          const bancosOrdenados = Object.entries(bancos).sort((a, b) => b[1].totalValor - a[1].totalValor);
+          for (const [clave, datos] of bancosOrdenados) {
+            // ✅ Mostrar banco completo con número de cuenta
+            const bancoNombre = datos.bancoNombre || clave;
+            const cuentaInfo = datos.numeroCuenta ? ` | 💳 Cuenta: ${datos.numeroCuenta}` : '';
+            reporte += `- 🏦 ${bancoNombre}${cuentaInfo}\n`;
+            reporte += `  📄 ${datos.total} transferencias | 💰 Total: $${datos.totalValor.toFixed(2)}\n`;
+            reporte += `  📊 Promedio: $${(datos.totalValor / datos.total).toFixed(2)}\n`;
+          }
+        }
+
+        reporte += `\n📍 POR ZONA/SECTOR\n`;
+        reporte += `====================================\n`;
+        const zonas = stats.transferenciasPorZona || {};
+        if (Object.keys(zonas).length === 0) {
+          reporte += `- No hay transferencias registradas\n`;
+        } else {
+          const zonasOrdenadas = Object.entries(zonas).sort((a, b) => b[1].totalValor - a[1].totalValor);
+          for (const [zona, datos] of zonasOrdenadas) {
+            reporte += `- ${zona}: ${datos.total} transf - $${datos.totalValor.toFixed(2)}\n`;
+          }
+        }
         break;
 
       case 'servicios':
@@ -779,19 +1023,28 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `- Servicios de Hoy: ${stats.serviciosHoy}\n`;
         reporte += `- Servicios de la Semana: ${stats.serviciosSemana}\n`;
         reporte += `- Servicios del Mes: ${stats.serviciosMes}\n\n`;
+
         reporte += `📋 POR ESTADO\n`;
-        reporte += `- Activos (TOMADO): ${stats.serviciosActivos}\n`;
-        reporte += `- Finalizados (EJECUTADO): ${stats.serviciosFinalizados}\n`;
-        reporte += `- Pendientes: ${stats.serviciosPendientes}\n`;
-        reporte += `- Retroalimentados: ${stats.totalServicios - stats.serviciosActivos - stats.serviciosFinalizados - stats.serviciosPendientes}\n\n`;
+        reporte += `- 🟡 Activos (TOMADO): ${stats.serviciosActivos}\n`;
+        reporte += `- 🟢 Finalizados (EJECUTADO): ${stats.serviciosFinalizados}\n`;
+        reporte += `- 🔴 Pendientes: ${stats.serviciosPendientes}\n`;
+        const retroalimentados = stats.totalServicios - stats.serviciosActivos - stats.serviciosFinalizados - stats.serviciosPendientes;
+        reporte += `- 🔵 Retroalimentados: ${retroalimentados}\n\n`;
+
         reporte += `📋 POR TIPO DE SERVICIO\n`;
         const tipos = stats.serviciosPorNombre || {};
         if (Object.keys(tipos).length === 0) {
           reporte += `- No hay servicios registrados\n`;
         } else {
-          Object.entries(tipos).forEach(([nombre, datos]) => {
-            reporte += `- ${nombre}: Hoy ${datos.hoy} | Semana ${datos.semana} | Mes ${datos.mes}\n`;
+          const tiposOrdenados = Object.entries(tipos).sort((a, b) => {
+            const totalA = a[1].hoy + a[1].semana + a[1].mes;
+            const totalB = b[1].hoy + b[1].semana + b[1].mes;
+            return totalB - totalA;
           });
+          for (const [nombre, datos] of tiposOrdenados) {
+            const total = datos.hoy + datos.semana + datos.mes;
+            reporte += `- ${nombre}: Total ${total} | Hoy ${datos.hoy} | Semana ${datos.semana} | Mes ${datos.mes}\n`;
+          }
         }
         break;
 
@@ -829,7 +1082,8 @@ const DashboardScreen = ({ navigation }) => {
         reporte += `Sin datos disponibles\n`;
     }
 
-    reporte += `\n====================================\n`;
+    reporte += `\n════════════════════════════════════\n`;
+    reporte += `📅 Período: ${fechaInicioStr} al ${fechaFinStr}\n`;
     reporte += `Reporte generado automáticamente desde RA²P\n`;
     return reporte;
   };
@@ -847,7 +1101,6 @@ const DashboardScreen = ({ navigation }) => {
     return titulos[tipo] || 'Estadísticas';
   };
 
-  // ✅ Renderizar fila de estadística
   const StatRow = ({ label, value, icon, color = '#2D3436' }) => (
     <View style={styles.statRow}>
       <View style={styles.statRowLeft}>
@@ -858,7 +1111,6 @@ const DashboardScreen = ({ navigation }) => {
     </View>
   );
 
-  // ✅ Botón de Enviar Correo
   const EmailButton = ({ tipo }) => (
     <TouchableOpacity
       style={styles.emailButton}
@@ -869,7 +1121,6 @@ const DashboardScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  // ✅ Renderizar contenido según submenú
   const renderContenido = () => {
     switch (subMenuActual) {
       case 'visitas':
@@ -879,32 +1130,47 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.vistaTitle}>📊 Estadísticas de Visitas</Text>
               <EmailButton tipo="visitas" />
             </View>
+
             <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>📌 Totales Generales</Text>
+              <Text style={styles.subSectionTitle}>📌 Totales Generales del Rango</Text>
               <StatRow label="Total Visitas" value={stats.totalVisitas} icon="eye-outline" color="#6C5CE7" />
               <StatRow label="Total Cobrado" value={`$${stats.totalCobrado.toFixed(2)}`} icon="cash-outline" color="#00B894" />
             </View>
+
             <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>📆 Este Mes</Text>
-              <StatRow label="Visitas del Mes" value={stats.visitasMes} icon="calendar-outline" color="#6C5CE7" />
-              <StatRow label="Cobrado del Mes" value={`$${stats.cobradoMes.toFixed(2)}`} icon="cash-outline" color="#00B894" />
+              <Text style={styles.subSectionTitle}>📍 Por Barrio</Text>
+              {Object.keys(stats.visitasPorBarrio || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay visitas en el rango seleccionado</Text>
+              ) : (
+                Object.entries(stats.visitasPorBarrio || {})
+                  .sort((a, b) => b[1].total - a[1].total)
+                  .map(([barrio, datos]) => (
+                    <View key={barrio} style={styles.usuarioVisitaItem}>
+                      <Text style={styles.usuarioVisitaNombre}>{barrio}</Text>
+                      <View style={styles.usuarioVisitaDetalles}>
+                        <Text style={styles.usuarioVisitaCantidad}>{datos.total} visitas</Text>
+                        <Text style={styles.usuarioVisitaCantidad}>{`$${(datos.cobrado || 0).toFixed(2)}`}</Text>
+                      </View>
+                    </View>
+                  ))
+              )}
             </View>
+
             <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>📅 Última Semana</Text>
-              <StatRow label="Visitas de la Semana" value={stats.visitasSemana} icon="calendar-outline" color="#6C5CE7" />
-              <StatRow label="Cobrado de la Semana" value={`$${stats.cobradoSemana.toFixed(2)}`} icon="cash-outline" color="#00B894" />
-            </View>
-            <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>📌 Hoy</Text>
-              <StatRow label="Visitas de Hoy" value={stats.visitasHoy} icon="today-outline" color="#6C5CE7" />
-              <StatRow label="Cobrado de Hoy" value={`$${stats.cobradoHoy.toFixed(2)}`} icon="cash-outline" color="#00B894" />
-            </View>
-            <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>📋 Por Tipo de Visita</Text>
-              <StatRow label="💲 COBRO" value={stats.visitasPorTipo?.COBRO || 0} icon="cash-outline" color="#00B894" />
-              <StatRow label="🔧 INSTALACIÓN" value={stats.visitasPorTipo?.INSTALACION || 0} icon="construct-outline" color="#3498DB" />
-              <StatRow label="🛠 MANTENIMIENTO" value={stats.visitasPorTipo?.MANTENIMIENTO || 0} icon="settings-outline" color="#F39C12" />
-              <StatRow label="📌 OTROS" value={stats.visitasPorTipo?.OTROS || 0} icon="ellipsis-horizontal-outline" color="#95A5A6" />
+              <Text style={styles.subSectionTitle}>👤 Visitas por Coordinador</Text>
+              {Object.keys(stats.visitasPorUsuario || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay visitas de coordinadores registradas</Text>
+              ) : (
+                Object.entries(stats.visitasPorUsuario || {}).map(([nombre, datos]) => (
+                  <View key={nombre} style={styles.usuarioVisitaItem}>
+                    <Text style={styles.usuarioVisitaNombre}>{nombre}</Text>
+                    <View style={styles.usuarioVisitaDetalles}>
+                      <Text style={styles.usuarioVisitaCantidad}>Total: {datos.total}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>{`💰 Cobrado: $${(datos.cobradoMes || 0).toFixed(2)}`}</Text>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
           </View>
         );
@@ -940,10 +1206,123 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.vistaTitle}>🔄 Estadísticas de Transferencias</Text>
               <EmailButton tipo="transferencias" />
             </View>
-            <StatRow label="Total Transferencias" value={stats.totalTransferencias} icon="swap-horizontal-outline" color="#6C5CE7" />
-            <StatRow label="Pendientes" value={stats.transferenciasPendientes} icon="time-outline" color="#F39C12" />
-            <StatRow label="Aprobadas" value={stats.transferenciasAprobadas} icon="checkmark-circle-outline" color="#2ECC71" />
-            <StatRow label="Denegadas" value={stats.transferenciasDenegadas} icon="close-circle-outline" color="#E74C3C" />
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📊 Resumen General</Text>
+              <StatRow label="Total Transferencias" value={stats.totalTransferencias} icon="swap-horizontal-outline" color="#6C5CE7" />
+              <StatRow label="Total Valor Transferido" value={`$${stats.totalValorTransferencias?.toFixed(2) || '0.00'}`} icon="cash-outline" color="#00B894" />
+              <StatRow label="Pendientes" value={stats.transferenciasPendientes} icon="time-outline" color="#F39C12" />
+              <StatRow label="Aprobadas" value={stats.transferenciasAprobadas} icon="checkmark-circle-outline" color="#2ECC71" />
+              <StatRow label="Denegadas" value={stats.transferenciasDenegadas} icon="close-circle-outline" color="#E74C3C" />
+            </View>
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>🏦 Transferencias por Banco</Text>
+              {Object.keys(stats.transferenciasPorBanco || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay transferencias registradas</Text>
+              ) : (
+                Object.entries(stats.transferenciasPorBanco || {})
+                  .sort((a, b) => b[1].totalValor - a[1].totalValor)
+                  .map(([banco, datos]) => (
+                    <View key={banco} style={styles.bancoTransferenciaItem}>
+                      <View style={styles.bancoTransferenciaHeader}>
+                        <Text style={styles.bancoTransferenciaNombre} numberOfLines={1} ellipsizeMode="tail">
+                          {banco}
+                        </Text>
+                        <Text style={styles.bancoTransferenciaTotal}>
+                          ${datos.totalValor.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.bancoTransferenciaDetalles}>
+                        <Text style={styles.bancoTransferenciaCantidad}>
+                          📄 {datos.total} transferencias
+                        </Text>
+                        <Text style={styles.bancoTransferenciaCantidad}>
+                          💰 Promedio: ${(datos.totalValor / datos.total).toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.barraProgresoContainer}>
+                        <View
+                          style={[
+                            styles.barraProgresoFill,
+                            {
+                              width: `${Math.min((datos.totalValor / (stats.maxValorBanco || 1)) * 100, 100)}%`,
+                              backgroundColor: ['#6C5CE7', '#00B894', '#FDCB6E', '#E17055', '#0984E3', '#6C5CE7'][Object.keys(stats.transferenciasPorBanco || {}).indexOf(banco) % 6]
+                            }
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  ))
+              )}
+            </View>
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📍 Transferencias por Zona/Sector</Text>
+              {Object.keys(stats.transferenciasPorZona || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay transferencias registradas</Text>
+              ) : (
+                Object.entries(stats.transferenciasPorZona || {})
+                  .sort((a, b) => b[1].totalValor - a[1].totalValor)
+                  .map(([zona, datos]) => (
+                    <View key={zona} style={styles.zonaTransferenciaItem}>
+                      <View style={styles.zonaTransferenciaHeader}>
+                        <Text style={styles.zonaTransferenciaNombre}>{zona}</Text>
+                        <Text style={styles.zonaTransferenciaTotal}>
+                          ${datos.totalValor.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.zonaTransferenciaDetalles}>
+                        <Text style={styles.zonaTransferenciaCantidad}>
+                          📄 {datos.total} transferencias
+                        </Text>
+                        <Text style={styles.zonaTransferenciaCantidad}>
+                          💰 Promedio: ${(datos.totalValor / datos.total).toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.barraProgresoContainer}>
+                        <View
+                          style={[
+                            styles.barraProgresoFill,
+                            {
+                              width: `${Math.min((datos.totalValor / (stats.maxValorZona || 1)) * 100, 100)}%`,
+                              backgroundColor: ['#E17055', '#0984E3', '#00B894', '#FDCB6E', '#6C5CE7', '#E17055'][Object.keys(stats.transferenciasPorZona || {}).indexOf(zona) % 6]
+                            }
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  ))
+              )}
+            </View>
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📅 Por Período</Text>
+              <StatRow label="📌 Esta Semana" value={`${stats.transferenciasSemana || 0} transf - $${(stats.valorTransferenciasSemana || 0).toFixed(2)}`} icon="calendar-outline" color="#0984E3" />
+              <StatRow label="📌 Este Mes" value={`${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}`} icon="calendar-outline" color="#6C5CE7" />
+              <StatRow label="📌 Hoy" value={`${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}`} icon="today-outline" color="#00B894" />
+            </View>
+
+            {stats.evolucionTransferencias && stats.evolucionTransferencias.length > 0 && (
+              <View style={styles.subSection}>
+                <Text style={styles.subSectionTitle}>📈 Evolución Diaria</Text>
+                <View style={styles.evolucionContainer}>
+                  {stats.evolucionTransferencias.slice(-7).map((dia, index) => (
+                    <View key={index} style={styles.evolucionDia}>
+                      <Text style={styles.evolucionFecha}>
+                        {new Date(dia.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                      </Text>
+                      <Text style={styles.evolucionValor}>
+                        ${dia.valor.toFixed(2)}
+                      </Text>
+                      <Text style={styles.evolucionCantidad}>
+                        {dia.transferencias} trans
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         );
 
@@ -975,16 +1354,20 @@ const DashboardScreen = ({ navigation }) => {
               {Object.keys(stats.serviciosPorNombre || {}).length === 0 ? (
                 <Text style={styles.emptyText}>No hay servicios registrados</Text>
               ) : (
-                Object.entries(stats.serviciosPorNombre || {}).map(([nombre, datos]) => (
-                  <View key={nombre} style={styles.servicioTipoItem}>
-                    <Text style={styles.servicioTipoNombre}>{nombre}</Text>
-                    <View style={styles.servicioTipoDetalles}>
-                      <Text style={styles.servicioTipoCantidad}>Hoy: {datos.hoy}</Text>
-                      <Text style={styles.servicioTipoCantidad}>Semana: {datos.semana}</Text>
-                      <Text style={styles.servicioTipoCantidad}>Mes: {datos.mes}</Text>
+                Object.entries(stats.serviciosPorNombre || {}).map(([nombre, datos]) => {
+                  const total = datos.hoy + datos.semana + datos.mes;
+                  return (
+                    <View key={nombre} style={styles.servicioTipoItem}>
+                      <Text style={styles.servicioTipoNombre}>{nombre}</Text>
+                      <View style={styles.servicioTipoDetalles}>
+                        <Text style={styles.servicioTipoCantidad}>Total: {total}</Text>
+                        <Text style={styles.servicioTipoCantidad}>Hoy: {datos.hoy}</Text>
+                        <Text style={styles.servicioTipoCantidad}>Semana: {datos.semana}</Text>
+                        <Text style={styles.servicioTipoCantidad}>Mes: {datos.mes}</Text>
+                      </View>
                     </View>
-                  </View>
-                ))
+                  );
+                })
               )}
             </View>
           </View>
@@ -1093,7 +1476,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ SUBMENÚ
   const SubMenu = () => (
     <View style={styles.subMenuContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subMenuScroll}>
@@ -1175,7 +1557,6 @@ const DashboardScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.welcomeText}>📊 Dashboard</Text>
@@ -1189,11 +1570,10 @@ const DashboardScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Filtro de fecha */}
       <View style={styles.filterContainer}>
         <Text style={styles.filterLabel}>📅 Rango de fechas:</Text>
         <View style={styles.filterRow}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterButton}
             onPress={() => { setDatePickerMode('start'); setShowDatePicker(true); }}
           >
@@ -1201,7 +1581,7 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={styles.filterButtonText}>{formatDate(fechaInicio)}</Text>
           </TouchableOpacity>
           <Text style={styles.filterSeparator}>→</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterButton}
             onPress={() => { setDatePickerMode('end'); setShowDatePicker(true); }}
           >
@@ -1234,10 +1614,8 @@ const DashboardScreen = ({ navigation }) => {
         />
       )}
 
-      {/* Submenú */}
       <SubMenu />
 
-      {/* Contenido */}
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -1247,14 +1625,12 @@ const DashboardScreen = ({ navigation }) => {
       >
         {renderContenido()}
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>RA²P v2.0</Text>
           <Text style={styles.footerSubtext}>Dashboard en tiempo real - {new Date().toLocaleDateString('es-EC')}</Text>
         </View>
       </ScrollView>
 
-      {/* ✅ MODAL PARA ENVIAR CORREO */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -1267,8 +1643,10 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={styles.modalSubtitle}>
               Reporte: {getTituloReporte(tipoReporte)}
             </Text>
+            <Text style={styles.modalSubtitle}>
+              📅 {formatDate(fechaInicio)} al {formatDate(fechaFin)}
+            </Text>
 
-            {/* Buscador de usuarios */}
             <Text style={styles.modalLabel}>👥 Seleccionar usuarios:</Text>
             <TextInput
               style={styles.modalInput}
@@ -1303,7 +1681,6 @@ const DashboardScreen = ({ navigation }) => {
               }
             />
 
-            {/* Correo adicional */}
             <Text style={styles.modalLabel}>✉️ Correo adicional:</Text>
             <TextInput
               style={styles.modalInput}
@@ -1370,7 +1747,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 30,
   },
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1412,7 +1788,6 @@ const styles = StyleSheet.create({
   refreshButton: {
     padding: 5,
   },
-  // Filtro
   filterContainer: {
     backgroundColor: '#FFFFFF',
     margin: 16,
@@ -1474,7 +1849,6 @@ const styles = StyleSheet.create({
     color: '#636E72',
     fontWeight: '500',
   },
-  // Submenú
   subMenuContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
@@ -1514,7 +1888,6 @@ const styles = StyleSheet.create({
     color: '#6C5CE7',
     fontWeight: '600',
   },
-  // Total Card
   totalCard: {
     backgroundColor: '#6C5CE7',
     padding: 16,
@@ -1549,7 +1922,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF90',
     marginTop: 1,
   },
-  // Vista contenedor
   vistaContainer: {
     paddingHorizontal: 16,
   },
@@ -1565,7 +1937,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2D3436',
   },
-  // Email Button
   emailButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1580,7 +1951,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  // Stat Row
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1601,7 +1971,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  // Sub sección
   subSection: {
     backgroundColor: '#FFFFFF',
     padding: 14,
@@ -1619,7 +1988,6 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     marginBottom: 6,
   },
-  // Servicio por tipo
   servicioTipoItem: {
     backgroundColor: '#F8F9FA',
     padding: 10,
@@ -1647,7 +2015,145 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8ECF1',
   },
-  // Recent Activity
+  usuarioVisitaItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  usuarioVisitaNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 4,
+  },
+  usuarioVisitaDetalles: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  usuarioVisitaCantidad: {
+    fontSize: 12,
+    color: '#636E72',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+  },
+  usuarioVisitaCobrado: {
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#E8ECF1',
+  },
+  usuarioVisitaCobradoText: {
+    fontSize: 12,
+    color: '#00B894',
+    fontWeight: '500',
+  },
+  bancoTransferenciaItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  bancoTransferenciaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bancoTransferenciaNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    flex: 1,
+    marginRight: 8,
+  },
+  bancoTransferenciaTotal: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#6C5CE7',
+  },
+  bancoTransferenciaDetalles: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 6,
+  },
+  bancoTransferenciaCantidad: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  zonaTransferenciaItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  zonaTransferenciaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  zonaTransferenciaNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    flex: 1,
+    marginRight: 8,
+  },
+  zonaTransferenciaTotal: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#E17055',
+  },
+  zonaTransferenciaDetalles: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 6,
+  },
+  zonaTransferenciaCantidad: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  barraProgresoContainer: {
+    height: 4,
+    backgroundColor: '#E8ECF1',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  barraProgresoFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  evolucionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    paddingVertical: 10,
+    minHeight: 80,
+  },
+  evolucionDia: {
+    alignItems: 'center',
+  },
+  evolucionFecha: {
+    fontSize: 10,
+    color: '#636E72',
+    marginBottom: 4,
+  },
+  evolucionValor: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#6C5CE7',
+    marginBottom: 2,
+  },
+  evolucionCantidad: {
+    fontSize: 10,
+    color: '#999',
+  },
   recentItem: {
     backgroundColor: '#F8F9FA',
     padding: 10,
@@ -1663,7 +2169,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
   },
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1767,7 +2272,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 20,
   },
-  // Footer
   footer: {
     alignItems: 'center',
     paddingTop: 16,
