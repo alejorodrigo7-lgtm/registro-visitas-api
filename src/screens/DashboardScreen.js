@@ -647,7 +647,7 @@ const DashboardScreen = ({ navigation }) => {
             }
 
             if (!visitasPorUsuario[usuario]) {
-              visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0, cobradoSemana: 0, cobradoMes: 0 };
+              visitasPorUsuario[usuario] = { hoy: 0, semana: 0, mes: 0, total: 0, cobradoTotal: 0, cobradoSemana: 0, cobradoMes: 0 };
             }
 
             let tipo = v.tipo || 'OTROS';
@@ -658,7 +658,10 @@ const DashboardScreen = ({ navigation }) => {
 
             visitasPorTipo[tipoMapeado] = (visitasPorTipo[tipoMapeado] || 0) + 1;
 
-            if (esCobro) totalCobradoData += monto;
+            if (esCobro) {
+              totalCobradoData += monto;
+              visitasPorUsuario[usuario].cobradoTotal = (visitasPorUsuario[usuario].cobradoTotal || 0) + monto;
+            }
 
             if (fecha.getMonth() === mesActual) {
               visitasMesCount++;
@@ -954,7 +957,7 @@ const DashboardScreen = ({ navigation }) => {
           reporte += `- No hay visitas de coordinadores registradas\n`;
         } else {
           for (const [nombre, datos] of Object.entries(usuariosReporte)) {
-            reporte += `- ${nombre}: Total ${datos.total} | Cobrado $${(datos.cobradoMes || 0).toFixed(2)}\n`;
+            reporte += `- ${nombre}: Total ${datos.total} | Cobrado ${(datos.cobradoTotal || 0).toFixed(2)}\n`;
           }
         }
         break;
@@ -1166,7 +1169,7 @@ const DashboardScreen = ({ navigation }) => {
                     <Text style={styles.usuarioVisitaNombre}>{nombre}</Text>
                     <View style={styles.usuarioVisitaDetalles}>
                       <Text style={styles.usuarioVisitaCantidad}>Total: {datos.total}</Text>
-                      <Text style={styles.usuarioVisitaCantidad}>{`💰 Cobrado: $${(datos.cobradoMes || 0).toFixed(2)}`}</Text>
+                      <Text style={styles.usuarioVisitaCantidad}>{`💰 Cobrado: ${(datos.cobradoTotal || 0).toFixed(2)}`}</Text>
                     </View>
                   </View>
                 ))
