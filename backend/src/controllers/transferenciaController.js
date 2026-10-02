@@ -247,12 +247,11 @@ exports.getTransferencias = async (req, res) => {
 
     // Filtro por rango de fechas (getTransferencias)
     if (fechaInicio && fechaFin) {
-      const inicio = new Date(fechaInicio);
-      inicio.setHours(0, 0, 0, 0);
-      const fin = new Date(fechaFin);
-      fin.setHours(23, 59, 59, 999);
+      // ⚠️ Usar zona horaria de Ecuador (UTC-5) para evitar desfase
+      const inicio = new Date(`${fechaInicio}T00:00:00.000-05:00`);
+      const fin = new Date(`${fechaFin}T23:59:59.999-05:00`);
       query.fechaTransferencia = { $gte: inicio, $lte: fin };
-      console.log(`📅 [getTransferencias] Filtro: ${fechaInicio} a ${fechaFin}`);
+      console.log(`📅 [getTransferencias] Filtro: ${inicio.toISOString()} a ${fin.toISOString()}`);
     }
 
     // ✅ TODOS los roles ven TODAS las transferencias
