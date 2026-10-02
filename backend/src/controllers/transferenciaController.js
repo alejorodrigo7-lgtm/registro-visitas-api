@@ -238,11 +238,21 @@ exports.subirTransferencia = async (req, res) => {
 // ============================================
 exports.getTransferencias = async (req, res) => {
   try {
-    const { estado } = req.query;
+    const { estado, fechaInicio, fechaFin } = req.query;
     let query = {};
 
     if (estado) {
       query.estado = estado;
+    }
+
+    // Filtro por rango de fechas (getTransferencias)
+    if (fechaInicio && fechaFin) {
+      const inicio = new Date(fechaInicio);
+      inicio.setHours(0, 0, 0, 0);
+      const fin = new Date(fechaFin);
+      fin.setHours(23, 59, 59, 999);
+      query.fechaTransferencia = { $gte: inicio, $lte: fin };
+      console.log(`📅 [getTransferencias] Filtro: ${fechaInicio} a ${fechaFin}`);
     }
 
     // ✅ TODOS los roles ven TODAS las transferencias
