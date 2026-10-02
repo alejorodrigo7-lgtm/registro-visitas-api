@@ -1203,12 +1203,9 @@ const DashboardScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>📊 Resumen General</Text>
+              <Text style={styles.subSectionTitle}>📊 Resumen General del Rango</Text>
               <StatRow label="Total Transferencias" value={stats.totalTransferencias} icon="swap-horizontal-outline" color="#6C5CE7" />
               <StatRow label="Total Valor Transferido" value={`$${stats.totalValorTransferencias?.toFixed(2) || '0.00'}`} icon="cash-outline" color="#00B894" />
-              <StatRow label="Pendientes" value={stats.transferenciasPendientes} icon="time-outline" color="#F39C12" />
-              <StatRow label="Aprobadas" value={stats.transferenciasAprobadas} icon="checkmark-circle-outline" color="#2ECC71" />
-              <StatRow label="Denegadas" value={stats.transferenciasDenegadas} icon="close-circle-outline" color="#E74C3C" />
             </View>
 
             <View style={styles.subSection}>
@@ -1291,33 +1288,7 @@ const DashboardScreen = ({ navigation }) => {
               )}
             </View>
 
-            <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>📅 Por Período</Text>
-              <StatRow label="📌 Esta Semana" value={`${stats.transferenciasSemana || 0} transf - $${(stats.valorTransferenciasSemana || 0).toFixed(2)}`} icon="calendar-outline" color="#0984E3" />
-              <StatRow label="📌 Este Mes" value={`${stats.transferenciasMes || 0} transf - $${(stats.valorTransferenciasMes || 0).toFixed(2)}`} icon="calendar-outline" color="#6C5CE7" />
-              <StatRow label="📌 Hoy" value={`${stats.transferenciasHoy || 0} transf - $${(stats.valorTransferenciasHoy || 0).toFixed(2)}`} icon="today-outline" color="#00B894" />
-            </View>
-
-            {stats.evolucionTransferencias && stats.evolucionTransferencias.length > 0 && (
-              <View style={styles.subSection}>
-                <Text style={styles.subSectionTitle}>📈 Evolución Diaria</Text>
-                <View style={styles.evolucionContainer}>
-                  {stats.evolucionTransferencias.slice(-7).map((dia, index) => (
-                    <View key={index} style={styles.evolucionDia}>
-                      <Text style={styles.evolucionFecha}>
-                        {new Date(dia.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                      </Text>
-                      <Text style={styles.evolucionValor}>
-                        ${dia.valor.toFixed(2)}
-                      </Text>
-                      <Text style={styles.evolucionCantidad}>
-                        {dia.transferencias} trans
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
+            {/* Por Período y Evolución Diaria eliminados */}
           </View>
         );
 
