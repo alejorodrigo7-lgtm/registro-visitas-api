@@ -9,34 +9,39 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  Platform,
+  Modal,
+  FlatList,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
+const MESES = [
+  { num: 1, nombre: 'Enero' },
+  { num: 2, nombre: 'Febrero' },
+  { num: 3, nombre: 'Marzo' },
+  { num: 4, nombre: 'Abril' },
+  { num: 5, nombre: 'Mayo' },
+  { num: 6, nombre: 'Junio' },
+  { num: 7, nombre: 'Julio' },
+  { num: 8, nombre: 'Agosto' },
+  { num: 9, nombre: 'Septiembre' },
+  { num: 10, nombre: 'Octubre' },
+  { num: 11, nombre: 'Noviembre' },
+  { num: 12, nombre: 'Diciembre' },
+];
+
 const IngresoOficinaTola = ({ navigation }) => {
   const { token } = useAuth();
-  const [fecha, setFecha] = useState(new Date());
-  const [mostrarPicker, setMostrarPicker] = useState(false);
+  const hoy = new Date();
+  const mesActual = hoy.getMonth() + 1;
+  const anioActual = hoy.getFullYear();
+
+  const [mes, setMes] = useState(mesActual);
+  const [modalVisible, setModalVisible] = useState(false);
   const [valor, setValor] = useState('');
   const [guardando, setGuardando] = useState(false);
 
-  const formatFecha = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + dd;
-  };
-
-  const formatFechaVisible = (d) => {
-    return d.toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
-  };
-
-  const onChangeFecha = (event, selectedDate) => {
-    setMostrarPicker(Platform.OS === 'ios');
-    if (selectedDate) setFecha(selectedDate);
-  };
+  const nombreMes = MESES.find(m => m.num === mes)?.nombre || '';
 
   const guardar = async () => {
     if (!valor || isNaN(Number(valor)) || Number(valor) < 0) {
@@ -48,14 +53,13 @@ const IngresoOficinaTola = ({ navigation }) => {
     try {
       const resp = await api.post('/ingresos-oficinas', {
         tipo: 'tola',
-        fecha: formatFecha(fecha),
+        mes: mes,
         valor: Number(valor),
       });
 
       if (resp.data.success) {
-        Alert.alert('OK', 'Ingreso Oficina Tola registrado correctamente');
+        Alert.alert('OK', 'Ingreso Oficina Tola registrado para ' + nombreMes);
         setValor('');
-        setFecha(new Date());
       } else {
         Alert.alert('Error', resp.data.message || 'No se pudo guardar');
       }
@@ -71,18 +75,10 @@ const IngresoOficinaTola = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.card}>
-          <Text style={styles.label}>Fecha</Text>
-          <TouchableOpacity style={styles.inputFecha} onPress={() => setMostrarPicker(true)}>
-            <Text style={styles.inputFechaText}>{formatFechaVisible(fecha)}</Text>
+          <Text style={styles.label}>Mes</Text>
+          <TouchableOpacity style={styles.inputFecha} onPress={() => setModalVisible(true)}>
+            <Text style={styles.inputFechaText}>{nombreMes} {anioActual}</Text>
           </TouchableOpacity>
-          {mostrarPicker && (
-            <DateTimePicker
-              value={fecha}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onChangeFecha}
-            />
-          )}
 
           <Text style={[styles.label, { marginTop: 20 }]}>Valor (USD)</Text>
           <TextInput
@@ -107,6 +103,36 @@ const IngresoOficinaTola = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Seleccionar mes</Text>
+            <FlatList
+              data={MESES}
+              keyExtractor={(item) => String(item.num)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.modalItem, item.num === mes && styles.modalItemActive]}
+                  onPress={() => { setMes(item.num); setModalVisible(false); }}
+                >
+                  <Text style={[styles.modalItemText, item.num === mes && styles.modalItemTextActive]}>
+                    {item.nombre} {anioActual}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalVisible(false)}>
+              <Text style={styles.modalCancelarText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -153,6 +179,29 @@ const styles = StyleSheet.create({
   },
   botonDisabled: { backgroundColor: '#B2BEC3' },
   botonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+    maxHeight: '70%',
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#2D3436', textAlign: 'center', marginBottom: 15 },
+  modalItem: { paddingVertical: 14, paddingHorizontal: 24 },
+  modalItemActive: { backgroundColor: '#E8F8F5' },
+  modalItemText: { fontSize: 16, color: '#2D3436' },
+  modalItemTextActive: { color: '#00B894', fontWeight: '700' },
+  modalCancelar: {
+    marginTop: 10,
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: '#F1F2F6',
+    alignItems: 'center',
+  },
+  modalCancelarText: { fontSize: 15, color: '#636E72', fontWeight: '600' },
 });
 
 export default IngresoOficinaTola;

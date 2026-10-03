@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,46 +8,70 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  Platform,
+  Modal,
   FlatList,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+
+const MESES = [
+  { num: 1, nombre: 'Enero' },
+  { num: 2, nombre: 'Febrero' },
+  { num: 3, nombre: 'Marzo' },
+  { num: 4, nombre: 'Abril' },
+  { num: 5, nombre: 'Mayo' },
+  { num: 6, nombre: 'Junio' },
+  { num: 7, nombre: 'Julio' },
+  { num: 8, nombre: 'Agosto' },
+  { num: 9, nombre: 'Septiembre' },
+  { num: 10, nombre: 'Octubre' },
+  { num: 11, nombre: 'Noviembre' },
+  { num: 12, nombre: 'Diciembre' },
+];
 
 const RevisionIngresosOficinas = ({ navigation }) => {
   const { user } = useAuth();
   const isAdmin = user?.rol === 'Admin';
 
   const hoy = new Date();
-  const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const mesActual = hoy.getMonth() + 1;
+  const anioActual = hoy.getFullYear();
 
-  const [fechaInicio, setFechaInicio] = useState(primerDiaMes);
-  const [fechaFin, setFechaFin] = useState(hoy);
-  const [mostrarInicio, setMostrarInicio] = useState(false);
-  const [mostrarFin, setMostrarFin] = useState(false);
+  const [mesDesde, setMesDesde] = useState(1);
+  const [mesHasta, setMesHasta] = useState(mesActual);
+  const [modalDesde, setModalDesde] = useState(false);
+  const [modalHasta, setModalHasta] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [registros, setRegistros] = useState([]);
   const [resumen, setResumen] = useState(null);
 
-  const formatFecha = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + dd;
+  const nombreMesDesde = MESES.find(m => m.num === mesDesde)?.nombre || '';
+  const nombreMesHasta = MESES.find(m => m.num === mesHasta)?.nombre || '';
+
+  const formatFechaISO = (mes) => {
+    const m = String(mes).padStart(2, '0');
+    return anioActual + '-' + m + '-01';
   };
 
-  const formatFechaVisible = (d) => {
-    return d.toLocaleDateString('es-EC', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const formatFechaFinISO = (mes) => {
+    const ultimoDia = new Date(anioActual, mes, 0).getDate();
+    const m = String(mes).padStart(2, '0');
+    const d = String(ultimoDia).padStart(2, '0');
+    return anioActual + '-' + m + '-' + d;
   };
 
   const buscar = async () => {
+    if (mesDesde > mesHasta) {
+      Alert.alert('Error', 'El mes Desde no puede ser mayor al mes Hasta');
+      return;
+    }
+
     setCargando(true);
     try {
       const resp = await api.get('/ingresos-oficinas', {
         params: {
-          fechaInicio: formatFecha(fechaInicio),
-          fechaFin: formatFecha(fechaFin),
+          fechaInicio: formatFechaISO(mesDesde),
+          fechaFin: formatFechaFinISO(mesHasta),
         },
       });
 
@@ -68,7 +92,7 @@ const RevisionIngresosOficinas = ({ navigation }) => {
   const eliminar = (id) => {
     Alert.alert(
       'Confirmar',
-      '¿Eliminar este ingreso?',
+      'Eliminar este ingreso?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -92,49 +116,32 @@ const RevisionIngresosOficinas = ({ navigation }) => {
     );
   };
 
-  const renderItem = ({ item }) => {
+  const renderItem = (item) => {
     const fecha = new Date(item.fecha);
-    const fechaStr = fecha.toLocaleDateString('es-EC', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
+    const mesItem = fecha.getMonth() + 1;
+    const nombreMesItem = MESES.find(m => m.num === mesItem)?.nombre || '';
+    const anioItem = fecha.getFullYear();
 
     return (
-      <View style={styles.itemCard}>
+      <View key={item._id} style={styles.itemCard}>
         <View style={styles.itemHeader}>
-          <View
-            style={[
-              styles.badge,
-              item.tipo === 'tola' ? styles.badgeTola : styles.badgeOtra,
-            ]}
-          >
-            <Text style={styles.badgeText}>
-              {item.tipo === 'tola' ? 'TOLA' : 'OTRA'}
-            </Text>
+          <View style={[styles.badge, item.tipo === 'tola' ? styles.badgeTola : styles.badgeOtra]}>
+            <Text style={styles.badgeText}>{item.tipo === 'tola' ? 'TOLA' : 'OTRA'}</Text>
           </View>
           <Text style={styles.itemValor}>${Number(item.valor).toFixed(2)}</Text>
         </View>
-
-        <Text style={styles.itemFecha}>Fecha: {fechaStr}</Text>
-
+        <Text style={styles.itemFecha}>Mes: {nombreMesItem} {anioItem}</Text>
         {item.tipo === 'otra' && item.nombreOficina ? (
           <Text style={styles.itemOficina}>Oficina: {item.nombreOficina}</Text>
         ) : null}
-
         {item.tipo === 'otra' && item.observacion ? (
           <Text style={styles.itemObservacion}>Obs: {item.observacion}</Text>
         ) : null}
-
         <Text style={styles.itemRegistradoPor}>
           Registrado por: {item.registradoPorNombre || item.registradoPor?.nombre || '-'}
         </Text>
-
         {isAdmin && (
-          <TouchableOpacity
-            style={styles.botonEliminar}
-            onPress={() => eliminar(item._id)}
-          >
+          <TouchableOpacity style={styles.botonEliminar} onPress={() => eliminar(item._id)}>
             <Text style={styles.botonEliminarText}>Eliminar</Text>
           </TouchableOpacity>
         )}
@@ -142,92 +149,79 @@ const RevisionIngresosOficinas = ({ navigation }) => {
     );
   };
 
+  const renderModal = (visible, setVisible, titulo, seleccionado, setSeleccionado, colorActivo) => (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={() => setVisible(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>{titulo}</Text>
+          <FlatList
+            data={MESES}
+            keyExtractor={(item) => String(item.num)}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.modalItem, item.num === seleccionado && { backgroundColor: colorActivo + '20' }]}
+                onPress={() => { setSeleccionado(item.num); setVisible(false); }}
+              >
+                <Text style={[styles.modalItemText, item.num === seleccionado && { color: colorActivo, fontWeight: '700' }]}>
+                  {item.nombre} {anioActual}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+          <TouchableOpacity style={styles.modalCancelar} onPress={() => setVisible(false)}>
+            <Text style={styles.modalCancelarText}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Filtro por fecha</Text>
-
+          <Text style={styles.cardTitle}>Filtro por mes</Text>
           <View style={styles.filaFechas}>
             <View style={styles.colFecha}>
               <Text style={styles.label}>Desde</Text>
-              <TouchableOpacity style={styles.inputFecha} onPress={() => setMostrarInicio(true)}>
-                <Text style={styles.inputFechaText}>{formatFechaVisible(fechaInicio)}</Text>
+              <TouchableOpacity style={styles.inputFecha} onPress={() => setModalDesde(true)}>
+                <Text style={styles.inputFechaText}>{nombreMesDesde}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.colFecha}>
               <Text style={styles.label}>Hasta</Text>
-              <TouchableOpacity style={styles.inputFecha} onPress={() => setMostrarFin(true)}>
-                <Text style={styles.inputFechaText}>{formatFechaVisible(fechaFin)}</Text>
+              <TouchableOpacity style={styles.inputFecha} onPress={() => setModalHasta(true)}>
+                <Text style={styles.inputFechaText}>{nombreMesHasta}</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          {mostrarInicio && (
-            <DateTimePicker
-              value={fechaInicio}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(e, d) => { setMostrarInicio(Platform.OS === 'ios'); if (d) setFechaInicio(d); }}
-            />
-          )}
-          {mostrarFin && (
-            <DateTimePicker
-              value={fechaFin}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(e, d) => { setMostrarFin(Platform.OS === 'ios'); if (d) setFechaFin(d); }}
-            />
-          )}
-
-          <TouchableOpacity
-            style={[styles.boton, cargando && styles.botonDisabled]}
-            onPress={buscar}
-            disabled={cargando}
-          >
-            {cargando ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.botonText}>BUSCAR</Text>
-            )}
+          <TouchableOpacity style={[styles.boton, cargando && styles.botonDisabled]} onPress={buscar} disabled={cargando}>
+            {cargando ? <ActivityIndicator color="#fff" /> : <Text style={styles.botonText}>BUSCAR</Text>}
           </TouchableOpacity>
         </View>
 
         {resumen && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Resumen del rango</Text>
-
             <View style={styles.resumenRow}>
               <Text style={styles.resumenLabel}>Oficina TOLA</Text>
-              <Text style={styles.resumenValor}>
-                {resumen.tola.cantidad} reg - ${Number(resumen.tola.total).toFixed(2)}
-              </Text>
+              <Text style={styles.resumenValor}>{resumen.tola.cantidad} reg - ${Number(resumen.tola.total).toFixed(2)}</Text>
             </View>
-
             <View style={styles.resumenRow}>
               <Text style={styles.resumenLabel}>Otras Oficinas</Text>
-              <Text style={styles.resumenValor}>
-                {resumen.otras.cantidad} reg - ${Number(resumen.otras.total).toFixed(2)}
-              </Text>
+              <Text style={styles.resumenValor}>{resumen.otras.cantidad} reg - ${Number(resumen.otras.total).toFixed(2)}</Text>
             </View>
-
             <View style={[styles.resumenRow, styles.resumenTotalRow]}>
               <Text style={styles.resumenTotalLabel}>TOTAL GENERAL</Text>
-              <Text style={styles.resumenTotalValor}>
-                ${Number(resumen.totalGeneral).toFixed(2)}
-              </Text>
+              <Text style={styles.resumenTotalValor}>${Number(resumen.totalGeneral).toFixed(2)}</Text>
             </View>
           </View>
         )}
 
         {registros.length > 0 && (
           <View style={styles.listaContainer}>
-            <Text style={styles.listaTitulo}>
-              Registros ({registros.length})
-            </Text>
-            {registros.map((item) => (
-              <View key={item._id}>{renderItem({ item })}</View>
-            ))}
+            <Text style={styles.listaTitulo}>Registros ({registros.length})</Text>
+            {registros.map((item) => renderItem(item))}
           </View>
         )}
 
@@ -236,8 +230,10 @@ const RevisionIngresosOficinas = ({ navigation }) => {
             <Text style={styles.vacioText}>No hay ingresos en este rango</Text>
           </View>
         )}
-
       </ScrollView>
+
+      {renderModal(modalDesde, setModalDesde, 'Mes Desde', mesDesde, setMesDesde, '#00B894')}
+      {renderModal(modalHasta, setModalHasta, 'Mes Hasta', mesHasta, setMesHasta, '#0984E3')}
     </SafeAreaView>
   );
 };
@@ -315,11 +311,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   badgeTola: { backgroundColor: '#00B894' },
   badgeOtra: { backgroundColor: '#0984E3' },
   badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
@@ -336,11 +328,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   botonEliminarText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
-  vacio: {
-    padding: 30,
+  vacio: { padding: 30, alignItems: 'center' },
+  vacioText: { fontSize: 14, color: '#B2BEC3' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+    maxHeight: '70%',
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#2D3436', textAlign: 'center', marginBottom: 15 },
+  modalItem: { paddingVertical: 14, paddingHorizontal: 24 },
+  modalItemText: { fontSize: 16, color: '#2D3436' },
+  modalCancelar: {
+    marginTop: 10,
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: '#F1F2F6',
     alignItems: 'center',
   },
-  vacioText: { fontSize: 14, color: '#B2BEC3' },
+  modalCancelarText: { fontSize: 15, color: '#636E72', fontWeight: '600' },
 });
 
 export default RevisionIngresosOficinas;
