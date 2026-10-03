@@ -75,6 +75,55 @@ const CajasMenu = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
+        {/* NUEVOS: INGRESOS OFICINAS - Jefe y Admin */}
+        {isJefeOrAdmin && (
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('IngresoOficinaTola')}
+          >
+            <View style={[styles.iconContainer, styles.iconTola]}>
+              <Icon name="business" size={24} color="#FFFFFF" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuTitle}>Ingreso Oficina Tola</Text>
+              <Text style={styles.menuDescription}>Registrar ingreso de Oficina Tola</Text>
+            </View>
+            <Icon name="chevron-right" size={24} color="#B2BEC3" />
+          </TouchableOpacity>
+        )}
+
+        {isJefeOrAdmin && (
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('IngresoOtrasOficinas')}
+          >
+            <View style={[styles.iconContainer, styles.iconOtras]}>
+              <Icon name="store" size={24} color="#FFFFFF" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuTitle}>Ingreso Otras Oficinas</Text>
+              <Text style={styles.menuDescription}>Registrar ingreso de otras oficinas</Text>
+            </View>
+            <Icon name="chevron-right" size={24} color="#B2BEC3" />
+          </TouchableOpacity>
+        )}
+
+        {isJefeOrAdmin && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.menuItemRevision]}
+            onPress={() => navigation.navigate('RevisionIngresosOficinas')}
+          >
+            <View style={[styles.iconContainer, styles.iconRevision]}>
+              <Icon name="assessment" size={24} color="#FFFFFF" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuTitle}>Revision Ingresos</Text>
+              <Text style={styles.menuDescription}>Revisar ingresos por rango de fechas</Text>
+            </View>
+            <Icon name="chevron-right" size={24} color="#B2BEC3" />
+          </TouchableOpacity>
+        )}
+
         {/* Edición de Cajas - Solo Admin */}
         {isAdmin && (
           <TouchableOpacity
@@ -190,6 +239,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#636E72',
     marginTop: 2,
+  },
+  iconTola: {
+    backgroundColor: '#00B894',
+  },
+  iconOtras: {
+    backgroundColor: '#0984E3',
+  },
+  iconRevision: {
+    backgroundColor: '#6C5CE7',
+  },
+  menuItemRevision: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#6C5CE7',
   },
   adminMenuItem: {
     backgroundColor: '#E8F0FE',
