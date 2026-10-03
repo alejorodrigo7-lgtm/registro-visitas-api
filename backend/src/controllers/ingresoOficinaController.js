@@ -16,13 +16,13 @@ const getRangoFechas = (fechaInicio, fechaFin) => {
 // ============================================
 const crearIngreso = async (req, res) => {
   try {
-    const { tipo, fecha, valor, nombreOficina, observacion } = req.body;
+    const { tipo, mes, valor, nombreOficina, observacion } = req.body;
 
     if (!tipo || !['tola', 'otra'].includes(tipo)) {
       return res.status(400).json({ success: false, message: 'El tipo debe ser "tola" u "otra"' });
     }
-    if (!fecha) {
-      return res.status(400).json({ success: false, message: 'La fecha es obligatoria' });
+    if (!mes || isNaN(Number(mes)) || Number(mes) < 1 || Number(mes) > 12) {
+      return res.status(400).json({ success: false, message: 'El mes es obligatorio (1-12)' });
     }
     if (valor === undefined || valor === null || valor === '') {
       return res.status(400).json({ success: false, message: 'El valor es obligatorio' });
@@ -31,7 +31,10 @@ const crearIngreso = async (req, res) => {
       return res.status(400).json({ success: false, message: 'El nombre de la oficina es obligatorio para "Otras Oficinas"' });
     }
 
-    const fechaDate = new Date(fecha + 'T12:00:00.000-05:00');
+    // Calcular fecha: dia 1 del mes elegido, año actual del sistema
+    const anioActual = new Date().getFullYear();
+    const mesNum = Number(mes);
+    const fechaDate = new Date(anioActual, mesNum - 1, 1, 12, 0, 0);
 
     const nuevo = new IngresoOficina({
       tipo,
@@ -45,7 +48,7 @@ const crearIngreso = async (req, res) => {
 
     await nuevo.save();
 
-    console.log('[IngresoOficina] Creado: tipo=' + tipo + ' valor=' + valor + ' por ' + req.user.email);
+    console.log('[IngresoOficina] Creado: tipo=' + tipo + ' mes=' + mes + ' valor=' + valor + ' por ' + req.user.email);
 
     res.status(201).json({
       success: true,
