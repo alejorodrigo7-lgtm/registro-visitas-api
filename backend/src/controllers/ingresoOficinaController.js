@@ -16,7 +16,7 @@ const getRangoFechas = (fechaInicio, fechaFin) => {
 // ============================================
 const crearIngreso = async (req, res) => {
   try {
-    const { tipo, mes, valor, nombreOficina, observacion } = req.body;
+    const { tipo, mes, valor, nombreOficina, observacion, zonaSector } = req.body;
 
     if (!tipo || !['tola', 'otra'].includes(tipo)) {
       return res.status(400).json({ success: false, message: 'El tipo debe ser "tola" u "otra"' });
@@ -30,6 +30,10 @@ const crearIngreso = async (req, res) => {
     if (tipo === 'otra' && (!nombreOficina || nombreOficina.trim() === '')) {
       return res.status(400).json({ success: false, message: 'El nombre de la oficina es obligatorio para "Otras Oficinas"' });
     }
+    const zonasValidas = ['TOLA', 'SAN JOSE DE CHILIBULO', 'MAGDALENA'];
+    if (tipo === 'otra' && (!zonaSector || !zonasValidas.includes(zonaSector))) {
+      return res.status(400).json({ success: false, message: 'La zona/sector es obligatoria para "Otras Oficinas" (TOLA, SAN JOSE DE CHILIBULO o MAGDALENA)' });
+    }
 
     // Calcular fecha: dia 1 del mes elegido, año actual del sistema
     const anioActual = new Date().getFullYear();
@@ -40,6 +44,7 @@ const crearIngreso = async (req, res) => {
       tipo,
       fecha: fechaDate,
       valor: Number(valor),
+      zonaSector: tipo === 'tola' ? 'TOLA' : zonaSector,
       nombreOficina: tipo === 'otra' ? nombreOficina.trim() : null,
       observacion: tipo === 'otra' ? (observacion || '').trim() : null,
       registradoPor: req.user._id,
@@ -48,7 +53,7 @@ const crearIngreso = async (req, res) => {
 
     await nuevo.save();
 
-    console.log('[IngresoOficina] Creado: tipo=' + tipo + ' mes=' + mes + ' valor=' + valor + ' por ' + req.user.email);
+    console.log('[IngresoOficina] Creado: tipo=' + tipo + ' zona=' + (tipo === 'tola' ? 'TOLA' : zonaSector) + ' mes=' + mes + ' valor=' + valor + ' por ' + req.user.email);
 
     res.status(201).json({
       success: true,

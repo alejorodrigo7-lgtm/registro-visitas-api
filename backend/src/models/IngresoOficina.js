@@ -12,6 +12,16 @@ const ingresoOficinaSchema = new mongoose.Schema({
   },
 
   // ============================================
+  // ZONA / SECTOR
+  // ============================================
+  zonaSector: {
+    type: String,
+    enum: ['TOLA', 'SAN JOSE DE CHILIBULO', 'MAGDALENA'],
+    default: null,
+    index: true
+  },
+
+  // ============================================
   // FECHA DEL INGRESO
   // ============================================
   fecha: {
@@ -78,6 +88,7 @@ const ingresoOficinaSchema = new mongoose.Schema({
 // ============================================
 ingresoOficinaSchema.index({ tipo: 1, fecha: -1 });
 ingresoOficinaSchema.index({ fecha: -1 });
+ingresoOficinaSchema.index({ zonaSector: 1, fecha: -1 });
 
 // ============================================
 // ACTUALIZAR updatedAt
