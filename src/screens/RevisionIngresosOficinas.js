@@ -131,6 +131,9 @@ const RevisionIngresosOficinas = ({ navigation }) => {
           <Text style={styles.itemValor}>${Number(item.valor).toFixed(2)}</Text>
         </View>
         <Text style={styles.itemFecha}>Mes: {nombreMesItem} {anioItem}</Text>
+        {item.zonaSector ? (
+          <Text style={styles.itemZona}>Zona: {item.zonaSector}</Text>
+        ) : null}
         {item.tipo === 'otra' && item.nombreOficina ? (
           <Text style={styles.itemOficina}>Oficina: {item.nombreOficina}</Text>
         ) : null}
@@ -318,6 +321,7 @@ const styles = StyleSheet.create({
   itemValor: { fontSize: 18, fontWeight: '800', color: '#2D3436' },
   itemFecha: { fontSize: 13, color: '#636E72', marginBottom: 3 },
   itemOficina: { fontSize: 13, color: '#2D3436', marginBottom: 3 },
+  itemZona: { fontSize: 13, color: '#E17055', fontWeight: '600', marginBottom: 3 },
   itemObservacion: { fontSize: 12, color: '#636E72', fontStyle: 'italic', marginBottom: 3 },
   itemRegistradoPor: { fontSize: 11, color: '#B2BEC3', marginTop: 4 },
   botonEliminar: {

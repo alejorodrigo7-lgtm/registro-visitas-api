@@ -30,14 +30,22 @@ const MESES = [
   { num: 12, nombre: 'Diciembre' },
 ];
 
+const ZONAS = [
+  'TOLA',
+  'SAN JOSE DE CHILIBULO',
+  'MAGDALENA',
+];
+
 const IngresoOtrasOficinas = ({ navigation }) => {
   const { token } = useAuth();
   const hoy = new Date();
   const mesActual = hoy.getMonth() + 1;
   const anioActual = hoy.getFullYear();
 
+  const [zonaSector, setZonaSector] = useState('TOLA');
+  const [modalZona, setModalZona] = useState(false);
   const [mes, setMes] = useState(mesActual);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMes, setModalMes] = useState(false);
   const [valor, setValor] = useState('');
   const [nombreOficina, setNombreOficina] = useState('');
   const [observacion, setObservacion] = useState('');
@@ -46,6 +54,10 @@ const IngresoOtrasOficinas = ({ navigation }) => {
   const nombreMes = MESES.find(m => m.num === mes)?.nombre || '';
 
   const guardar = async () => {
+    if (!zonaSector) {
+      Alert.alert('Error', 'Selecciona una zona/sector');
+      return;
+    }
     if (!nombreOficina || nombreOficina.trim() === '') {
       Alert.alert('Error', 'Ingresa el nombre de la oficina');
       return;
@@ -61,15 +73,17 @@ const IngresoOtrasOficinas = ({ navigation }) => {
         tipo: 'otra',
         mes: mes,
         valor: Number(valor),
+        zonaSector: zonaSector,
         nombreOficina: nombreOficina.trim(),
         observacion: observacion.trim(),
       });
 
       if (resp.data.success) {
-        Alert.alert('OK', 'Ingreso registrado para ' + nombreMes);
+        Alert.alert('OK', 'Ingreso registrado para ' + zonaSector + ' en ' + nombreMes);
         setValor('');
         setNombreOficina('');
         setObservacion('');
+        setZonaSector('TOLA');
       } else {
         Alert.alert('Error', resp.data.message || 'No se pudo guardar');
       }
@@ -85,8 +99,13 @@ const IngresoOtrasOficinas = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.card}>
-          <Text style={styles.label}>Mes</Text>
-          <TouchableOpacity style={styles.inputFecha} onPress={() => setModalVisible(true)}>
+          <Text style={styles.label}>Zona / Sector</Text>
+          <TouchableOpacity style={styles.inputFecha} onPress={() => setModalZona(true)}>
+            <Text style={styles.inputFechaText}>{zonaSector}</Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.label, { marginTop: 20 }]}>Mes</Text>
+          <TouchableOpacity style={styles.inputFecha} onPress={() => setModalMes(true)}>
             <Text style={styles.inputFechaText}>{nombreMes} {anioActual}</Text>
           </TouchableOpacity>
 
@@ -135,10 +154,40 @@ const IngresoOtrasOficinas = ({ navigation }) => {
       </ScrollView>
 
       <Modal
-        visible={modalVisible}
+        visible={modalZona}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => setModalZona(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Seleccionar zona</Text>
+            <FlatList
+              data={ZONAS}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.modalItem, item === zonaSector && styles.modalItemActiveZona]}
+                  onPress={() => { setZonaSector(item); setModalZona(false); }}
+                >
+                  <Text style={[styles.modalItemText, item === zonaSector && styles.modalItemTextActiveZona]}>
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalZona(false)}>
+              <Text style={styles.modalCancelarText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={modalMes}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalMes(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -149,7 +198,7 @@ const IngresoOtrasOficinas = ({ navigation }) => {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.modalItem, item.num === mes && styles.modalItemActive]}
-                  onPress={() => { setMes(item.num); setModalVisible(false); }}
+                  onPress={() => { setMes(item.num); setModalMes(false); }}
                 >
                   <Text style={[styles.modalItemText, item.num === mes && styles.modalItemTextActive]}>
                     {item.nombre} {anioActual}
@@ -157,7 +206,7 @@ const IngresoOtrasOficinas = ({ navigation }) => {
                 </TouchableOpacity>
               )}
             />
-            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalMes(false)}>
               <Text style={styles.modalCancelarText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -226,8 +275,10 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '700', color: '#2D3436', textAlign: 'center', marginBottom: 15 },
   modalItem: { paddingVertical: 14, paddingHorizontal: 24 },
   modalItemActive: { backgroundColor: '#E8F4FD' },
+  modalItemActiveZona: { backgroundColor: '#FFF3E0' },
   modalItemText: { fontSize: 16, color: '#2D3436' },
   modalItemTextActive: { color: '#0984E3', fontWeight: '700' },
+  modalItemTextActiveZona: { color: '#E17055', fontWeight: '700' },
   modalCancelar: {
     marginTop: 10,
     marginHorizontal: 20,
