@@ -69,6 +69,7 @@ const solicitudReciboRoutes = require('./routes/solicitudReciboRoutes');
 const recuperacionRoutes = require('./routes/recuperacionRoutes');
 const gestionRoutes = require('./routes/gestionRoutes');
 const ingresoOficinaRoutes = require('./routes/ingresoOficinaRoutes');
+const ingresoMensualRoutes = require('./routes/ingresoMensualRoutes');
 
 // ✅ NUEVO: IMPORTAR RUTAS DE TICKETS
 const ticketRoutes = require('./routes/ticketRoutes');
@@ -212,6 +213,7 @@ app.use('/api/solicitudes-recibo', solicitudReciboRoutes);
 app.use('/api/recuperacion', recuperacionRoutes);
 app.use('/api/gestion', gestionRoutes);
 app.use('/api/ingresos-oficinas', ingresoOficinaRoutes);
+app.use('/api/ingreso-mensual', ingresoMensualRoutes);
 
 // ✅ NUEVO: RUTA DE TICKETS
 app.use('/api/tickets', ticketRoutes);
