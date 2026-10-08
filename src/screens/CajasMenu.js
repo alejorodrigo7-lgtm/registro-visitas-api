@@ -1,4 +1,4 @@
-import {
+﻿import {
     SafeAreaView,
     ScrollView,
     StyleSheet,
@@ -56,7 +56,7 @@ const CajasMenu = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
-        {/* 🆕 CUADRE DE CAJA - Jefe y Admin */}
+        {/* Cuadre de Caja - Jefe y Admin */}
         {isJefeOrAdmin && (
           <TouchableOpacity
             style={[styles.menuItem, styles.menuItemCuadre]}
@@ -75,7 +75,7 @@ const CajasMenu = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
-        {/* NUEVOS: INGRESOS OFICINAS - Jefe y Admin */}
+        {/* Ingreso Oficina Tola - Jefe y Admin */}
         {isJefeOrAdmin && (
           <TouchableOpacity
             style={styles.menuItem}
@@ -92,6 +92,7 @@ const CajasMenu = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
+        {/* Ingreso Otras Oficinas - Jefe y Admin */}
         {isJefeOrAdmin && (
           <TouchableOpacity
             style={styles.menuItem}
@@ -108,6 +109,7 @@ const CajasMenu = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
+        {/* Revision Ingresos - Jefe y Admin */}
         {isJefeOrAdmin && (
           <TouchableOpacity
             style={[styles.menuItem, styles.menuItemRevision]}
@@ -119,6 +121,23 @@ const CajasMenu = ({ navigation }) => {
             <View style={styles.menuTextContainer}>
               <Text style={styles.menuTitle}>Revision Ingresos</Text>
               <Text style={styles.menuDescription}>Revisar ingresos por rango de fechas</Text>
+            </View>
+            <Icon name="chevron-right" size={24} color="#B2BEC3" />
+          </TouchableOpacity>
+        )}
+
+        {/* Ingreso Mensual - Jefe y Admin */}
+        {isJefeOrAdmin && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.menuItemIngresoMensual]}
+            onPress={() => navigation.navigate('IngresoMensual')}
+          >
+            <View style={[styles.iconContainer, styles.iconIngresoMensual]}>
+              <Icon name="summarize" size={24} color="#FFFFFF" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuTitle}>Ingreso Mensual</Text>
+              <Text style={styles.menuDescription}>Consolidado mensual por zona/sector</Text>
             </View>
             <Icon name="chevron-right" size={24} color="#B2BEC3" />
           </TouchableOpacity>
@@ -257,6 +276,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F0FE',
     borderWidth: 1,
     borderColor: '#0984E3',
+  },
+  menuItemIngresoMensual: {
+    backgroundColor: '#FFF',
+    borderLeftWidth: 4,
+    borderLeftColor: '#6C5CE7',
+  },
+  iconIngresoMensual: {
+    backgroundColor: '#6C5CE7',
   },
 });
 

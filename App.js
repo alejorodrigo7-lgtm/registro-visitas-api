@@ -74,6 +74,7 @@ import RevisarDepositos from './src/screens/RevisarDepositos';
 import CuadreCajas from './src/screens/CuadreCajas';
 // NUEVOS: Ingresos Oficinas
 import IngresoOficinaTola from './src/screens/IngresoOficinaTola';
+import IngresoMensual from './src/screens/IngresoMensual';
 import IngresoOtrasOficinas from './src/screens/IngresoOtrasOficinas';
 import RevisionIngresosOficinas from './src/screens/RevisionIngresosOficinas';
 
@@ -211,6 +212,7 @@ const ThemedNavigation = () => {
 
         {/* NUEVOS: INGRESOS OFICINAS */}
         <Stack.Screen name="IngresoOficinaTola" component={IngresoOficinaTola} options={{ title: 'Ingreso Oficina Tola' }} />
+        <Stack.Screen name="IngresoMensual" component={IngresoMensual} options={{ title: 'Ingreso Mensual' }} />
         <Stack.Screen name="IngresoOtrasOficinas" component={IngresoOtrasOficinas} options={{ title: 'Ingreso Otras Oficinas' }} />
         <Stack.Screen name="RevisionIngresosOficinas" component={RevisionIngresosOficinas} options={{ title: 'Revision Ingresos' }} />
 
