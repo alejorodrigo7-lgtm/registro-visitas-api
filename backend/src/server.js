@@ -408,7 +408,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`  ✅ /api/email (NUEVO)`);
   logger.info(`  /api/upload`);
   
-  iniciarCierreAutomatico();
+  // iniciarCierreAutomatico(); // DESACTIVADO: el cierre ahora es manual
 });
 
 // ============================================
