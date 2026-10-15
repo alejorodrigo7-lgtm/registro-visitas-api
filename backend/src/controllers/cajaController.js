@@ -431,8 +431,8 @@ exports.getCuadre = async (req, res) => {
       if (cuadre.cerrado) {
         console.log(`📊 Cuadre CERRADO - No se modifica`);
       } 
-      else if (cuadre.ingresos.length === 0 && cuadre.pagos.length === 0 && cuadre.saldoDisponible === 0) {
-        console.log(`📊 Cuadre abierto sin movimientos y saldo 0, verificando herencia...`);
+      else if (cuadre.ingresos.length === 0 && cuadre.pagos.length === 0) {
+        console.log(`📊 Cuadre abierto sin movimientos, verificando herencia del dia anterior...`);
         
         const saldoAnterior = await obtenerSaldoDiaAnterior(zona, fecha);
         console.log(`📊 Saldo anterior obtenido: ${saldoAnterior}`);
@@ -632,6 +632,39 @@ exports.cerrarCuadre = async (req, res) => {
     cuadre.cerrado = true;
     cuadre.fechaCierre = new Date();
     await cuadre.save();
+
+    // ============================================
+    // ACTUALIZAR SALDO INICIAL DEL DIA SIGUIENTE
+    // ============================================
+    try {
+      const fechaPartes = cuadre.fecha.split('-');
+      const fechaObj = new Date(parseInt(fechaPartes[0]), parseInt(fechaPartes[1]) - 1, parseInt(fechaPartes[2]));
+      fechaObj.setDate(fechaObj.getDate() + 1);
+      const y = fechaObj.getFullYear();
+      const m = String(fechaObj.getMonth() + 1).padStart(2, '0');
+      const d = String(fechaObj.getDate()).padStart(2, '0');
+      const fechaSiguiente = y + '-' + m + '-' + d;
+
+      const cuadreSiguiente = await CuadreCaja.findOne({
+        zona: cuadre.zona,
+        fecha: fechaSiguiente,
+        cerrado: false
+      });
+
+      if (cuadreSiguiente && cuadreSiguiente.ingresos.length === 0 && cuadreSiguiente.pagos.length === 0) {
+        const saldoFinalAnterior = cuadre.saldoDisponible;
+        console.log('[cerrarCuadre] Actualizando saldo del dia siguiente (' + fechaSiguiente + '): ' + cuadreSiguiente.saldoInicial + ' -> ' + saldoFinalAnterior);
+        cuadreSiguiente.saldoInicial = saldoFinalAnterior;
+        cuadreSiguiente.saldoDisponible = saldoFinalAnterior;
+        await cuadreSiguiente.save();
+      } else if (cuadreSiguiente) {
+        console.log('[cerrarCuadre] Cuadre del dia siguiente (' + fechaSiguiente + ') tiene movimientos, no se modifica');
+      } else {
+        console.log('[cerrarCuadre] No existe cuadre del dia siguiente (' + fechaSiguiente + '), se creara al consultarlo');
+      }
+    } catch (err) {
+      console.error('[cerrarCuadre] Error actualizando saldo siguiente:', err);
+    }
     
     console.log(`✅ Cuadre CERRADO para ${cuadre.zona} - ${cuadre.fecha}`);
     console.log(`✅ Saldo Final: ${cuadre.saldoDisponible}`);
