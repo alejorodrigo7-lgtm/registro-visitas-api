@@ -353,13 +353,13 @@ const CuadreCajas = ({ navigation }) => {
     setMostrarDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
       setFechaSeleccionada(selectedDate);
-      setTimeout(() => cargarCuadres(), 100);
+      // El useEffect de abajo detecta el cambio y recarga
     }
   };
 
   useEffect(() => {
     cargarCuadres();
-  }, []);
+  }, [fechaSeleccionada]);
 
   const onRefresh = () => {
     setRefreshing(true);
