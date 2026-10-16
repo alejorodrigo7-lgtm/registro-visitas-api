@@ -197,10 +197,11 @@ exports.subirTransferencia = async (req, res) => {
     const usuariosConPush = await User.find({
       _id: { $ne: req.user._id },
       activo: true,
+      rol: { $in: ['Admin', 'Jefe', 'Coordinador'] },
       expoPushToken: { $exists: true, $nin: [null, ''] },
     });
 
-    console.log(`📲 Enviando push a ${usuariosConPush.length} usuarios`);
+    console.log(`Enviando push a ${usuariosConPush.length} usuarios (Admin/Jefe/Coordinador)`);
 
     for (const usuario of usuariosConPush) {
       try {
