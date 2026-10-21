@@ -11,7 +11,7 @@ const notificacionSchema = new mongoose.Schema({
   },
   tipo: {
     type: String,
-    enum: ['visita', 'servicio', 'transferencia', 'sistema', 'alerta_horario', 'SERVICIO', 'BODEGA', 'ALERTA', 'DESCONEXION', 'RECONEXION', 'ASISTENCIA', 'GENERAL', 'PRUEBA'],
+    enum: ['visita', 'servicio', 'transferencia', 'sistema', 'alerta_horario', 'SERVICIO', 'BODEGA', 'ALERTA', 'DESCONEXION', 'RECONEXION', 'ASISTENCIA', 'GENERAL', 'PRUEBA', 'RECIBO'],
     required: true,
   },
   leida: {

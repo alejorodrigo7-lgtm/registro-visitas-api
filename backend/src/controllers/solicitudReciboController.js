@@ -1,6 +1,41 @@
 const SolicitudRecibo = require('../models/SolicitudRecibo');
+const Notificacion = require('../models/Notificacion');
+const pushService = require('../services/pushService');
 const User = require('../models/User');
 const Cliente = require('../models/Cliente');
+
+// ============================================
+// HELPER: enviar notificacion de recibo (campana + push)
+// ============================================
+const enviarNotificacionRecibo = async (usuarioId, titulo, mensaje, data = {}, enviarPush = true) => {
+  try {
+    // 1. Guardar en campana
+    await Notificacion.create({
+      titulo,
+      mensaje,
+      tipo: 'RECIBO',
+      usuario: usuarioId,
+      datos: { ...data, tipo: 'RECIBO' },
+    });
+
+    // 2. Enviar push si corresponde
+    if (enviarPush) {
+      try {
+        await pushService.enviarNotificacionPush(usuarioId, {
+          title: titulo,
+          body: mensaje,
+          data: { ...data, tipo: 'RECIBO' },
+        });
+      } catch (pushError) {
+        console.error('Error al enviar push de recibo:', pushError.message);
+      }
+    }
+
+    console.log('Notificacion de recibo enviada a usuario ' + usuarioId);
+  } catch (error) {
+    console.error('Error en enviarNotificacionRecibo:', error.message);
+  }
+};
 
 // Obtener todas las solicitudes
 const getSolicitudes = async (req, res) => {
@@ -52,7 +87,7 @@ const getSolicitudes = async (req, res) => {
 const crearSolicitud = async (req, res) => {
   try {
     const { cliente, observaciones } = req.body;
-    const usuarioId = req.user.id;
+    const usuarioId = req.user._id;
 
     if (!cliente || !cliente.nombre || !cliente.codigo) {
       return res.status(400).json({ success: false, message: 'Nombre y código del cliente son requeridos' });
@@ -79,6 +114,62 @@ const crearSolicitud = async (req, res) => {
 
     await nuevaSolicitud.save();
 
+    // ============================================
+    // NOTIFICACIONES: campana a TODOS + push a Admin/Jefe/Coordinador
+    // ============================================
+    try {
+      // 1. CAMPANA a TODOS los usuarios activos
+      const todosLosUsuarios = await User.find({ activo: true });
+      console.log('Creando notificacion de solicitud de recibo en campana para ' + todosLosUsuarios.length + ' usuarios');
+
+      for (const usuarioNotif of todosLosUsuarios) {
+        await Notificacion.create({
+          titulo: '📄 Nueva Solicitud de Recibo',
+          mensaje: usuario.nombre + ' solicito un recibo para ' + cliente.nombre,
+          tipo: 'RECIBO',
+          usuario: usuarioNotif._id,
+          datos: {
+            solicitudId: nuevaSolicitud._id,
+            clienteNombre: cliente.nombre,
+            clienteCodigo: cliente.codigo,
+            solicitadoPor: usuario.nombre,
+            estado: 'SOLICITADO',
+            tipo: 'NUEVA_SOLICITUD_RECIBO',
+            screen: 'SubirRecibo',
+          },
+        });
+      }
+
+      // 2. PUSH solo a Admin/Jefe/Coordinador (excepto al que crea)
+      const usuariosConPush = await User.find({
+        _id: { $ne: usuario._id },
+        activo: true,
+        rol: { $in: ['Admin', 'Jefe', 'Coordinador'] },
+        expoPushToken: { $exists: true, $nin: [null, ''] },
+      });
+
+      console.log('Enviando push de solicitud de recibo a ' + usuariosConPush.length + ' usuarios (Admin/Jefe/Coordinador)');
+
+      for (const usuarioPush of usuariosConPush) {
+        try {
+          await pushService.enviarNotificacionPush(usuarioPush._id, {
+            title: '📄 Nueva Solicitud de Recibo',
+            body: usuario.nombre + ' solicito un recibo para ' + cliente.nombre,
+            data: {
+              solicitudId: nuevaSolicitud._id,
+              clienteNombre: cliente.nombre,
+              estado: 'SOLICITADO',
+              tipo: 'NUEVA_SOLICITUD_RECIBO',
+              screen: 'SubirRecibo',
+            },
+          });
+        } catch (pushError) {
+          console.error('Error enviando push a ' + usuarioPush.email + ':', pushError.message);
+        }
+      }
+    } catch (notifError) {
+      console.error('Error enviando notificaciones de solicitud:', notifError.message);
+    }
     res.status(201).json({
       success: true,
       message: 'Solicitud creada exitosamente',
@@ -95,7 +186,7 @@ const aprobarSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
     const { archivosNombre = [], archivosBase64 = [], archivosPublicId = [] } = req.body;
-    const usuarioId = req.user.id;
+    const usuarioId = req.user._id;
 
     console.log('📤 ===== APROBANDO SOLICITUD =====');
     console.log('📤 Solicitud ID:', id);
@@ -176,6 +267,30 @@ const aprobarSolicitud = async (req, res) => {
 
     console.log(`✅ Solicitud aprobada con ${archivosBase64Limpios.length} archivo(s)`);
 
+    // ============================================
+    // NOTIFICACION: push + campana al SOLICITANTE
+    // (el email se envia DESPUES, no se toca)
+    // ============================================
+    try {
+      const solicitadoPorId = solicitud.solicitadoPor?.usuarioId;
+      if (solicitadoPorId) {
+        await enviarNotificacionRecibo(
+          solicitadoPorId,
+          '✅ Recibo Aprobado',
+          'Tu solicitud de recibo para ' + solicitud.cliente.nombre + ' fue aprobada. Ya podes descargarlo.',
+          {
+            solicitudId: solicitud._id,
+            clienteNombre: solicitud.cliente.nombre,
+            clienteCodigo: solicitud.cliente.codigo,
+            estado: 'APROBADO',
+            tipo: 'RECIBO_APROBADO',
+            screen: 'DescargarRecibo',
+          }
+        );
+      }
+    } catch (notifError) {
+      console.error('Error notificando aprobacion de recibo:', notifError.message);
+    }
     // ✅ ENVIAR CORREO SOLO AL SOLICITANTE
     try {
       const emailService = require('../services/emailService');
@@ -228,7 +343,7 @@ const denegarSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
     const { motivo } = req.body;
-    const usuarioId = req.user.id;
+    const usuarioId = req.user._id;
 
     console.log('📤 Denegando solicitud:', id);
 
@@ -259,6 +374,31 @@ const denegarSolicitud = async (req, res) => {
 
     console.log('✅ Solicitud denegada');
 
+    // ============================================
+    // NOTIFICACION: push + campana al SOLICITANTE
+    // (el email se envia DESPUES, no se toca)
+    // ============================================
+    try {
+      const solicitadoPorId = solicitud.solicitadoPor?.usuarioId;
+      if (solicitadoPorId) {
+        await enviarNotificacionRecibo(
+          solicitadoPorId,
+          '❌ Recibo Denegado',
+          'Tu solicitud de recibo para ' + solicitud.cliente.nombre + ' fue denegada. Motivo: ' + (solicitud.motivoDenegacion || 'Sin motivo'),
+          {
+            solicitudId: solicitud._id,
+            clienteNombre: solicitud.cliente.nombre,
+            clienteCodigo: solicitud.cliente.codigo,
+            estado: 'DENEGADO',
+            motivoDenegacion: solicitud.motivoDenegacion || '',
+            tipo: 'RECIBO_DENEGADO',
+            screen: 'SolicitudesDenegadas',
+          }
+        );
+      }
+    } catch (notifError) {
+      console.error('Error notificando denegacion de recibo:', notifError.message);
+    }
     // ✅ ENVIAR CORREO DE DENEGACIÓN SOLO AL SOLICITANTE
     try {
       const emailService = require('../services/emailService');
