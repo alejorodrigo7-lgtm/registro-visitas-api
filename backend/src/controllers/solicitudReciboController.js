@@ -273,20 +273,49 @@ const aprobarSolicitud = async (req, res) => {
     // ============================================
     try {
       const solicitadoPorId = solicitud.solicitadoPor?.usuarioId;
+
+      // 1. CAMPANA a TODOS los usuarios activos
+      const todosLosUsuarios = await User.find({ activo: true });
+      console.log('Creando notificacion de recibo aprobado en campana para ' + todosLosUsuarios.length + ' usuarios');
+
+      for (const usuarioNotif of todosLosUsuarios) {
+        try {
+          await Notificacion.create({
+            titulo: '✅ Recibo Aprobado',
+            mensaje: 'La solicitud de recibo de ' + solicitud.cliente.nombre + ' fue aprobada',
+            tipo: 'RECIBO',
+            usuario: usuarioNotif._id,
+            datos: {
+              solicitudId: solicitud._id,
+              clienteNombre: solicitud.cliente.nombre,
+              clienteCodigo: solicitud.cliente.codigo,
+              estado: 'APROBADO',
+              tipo: 'RECIBO_APROBADO_TODOS',
+              screen: 'DescargarRecibo',
+            },
+          });
+        } catch (notifErr) {
+          console.error('Error creando notif para ' + usuarioNotif.email + ':', notifErr.message);
+        }
+      }
+
+      // 2. PUSH solo al SOLICITANTE
       if (solicitadoPorId) {
-        await enviarNotificacionRecibo(
-          solicitadoPorId,
-          '✅ Recibo Aprobado',
-          'Tu solicitud de recibo para ' + solicitud.cliente.nombre + ' fue aprobada. Ya podes descargarlo.',
-          {
-            solicitudId: solicitud._id,
-            clienteNombre: solicitud.cliente.nombre,
-            clienteCodigo: solicitud.cliente.codigo,
-            estado: 'APROBADO',
-            tipo: 'RECIBO_APROBADO',
-            screen: 'DescargarRecibo',
-          }
-        );
+        try {
+          await pushService.enviarNotificacionPush(solicitadoPorId, {
+            title: '✅ Recibo Aprobado',
+            body: 'Tu solicitud de recibo para ' + solicitud.cliente.nombre + ' fue aprobada. Ya podes descargarlo.',
+            data: {
+              solicitudId: solicitud._id,
+              clienteNombre: solicitud.cliente.nombre,
+              estado: 'APROBADO',
+              tipo: 'RECIBO_APROBADO',
+              screen: 'DescargarRecibo',
+            },
+          });
+        } catch (pushErr) {
+          console.error('Error enviando push al solicitante:', pushErr.message);
+        }
       }
     } catch (notifError) {
       console.error('Error notificando aprobacion de recibo:', notifError.message);
@@ -380,21 +409,51 @@ const denegarSolicitud = async (req, res) => {
     // ============================================
     try {
       const solicitadoPorId = solicitud.solicitadoPor?.usuarioId;
+
+      // 1. CAMPANA a TODOS los usuarios activos
+      const todosLosUsuarios = await User.find({ activo: true });
+      console.log('Creando notificacion de recibo denegado en campana para ' + todosLosUsuarios.length + ' usuarios');
+
+      for (const usuarioNotif of todosLosUsuarios) {
+        try {
+          await Notificacion.create({
+            titulo: '❌ Recibo Denegado',
+            mensaje: 'La solicitud de recibo de ' + solicitud.cliente.nombre + ' fue denegada',
+            tipo: 'RECIBO',
+            usuario: usuarioNotif._id,
+            datos: {
+              solicitudId: solicitud._id,
+              clienteNombre: solicitud.cliente.nombre,
+              clienteCodigo: solicitud.cliente.codigo,
+              estado: 'DENEGADO',
+              motivoDenegacion: solicitud.motivoDenegacion || '',
+              tipo: 'RECIBO_DENEGADO_TODOS',
+              screen: 'SolicitudesDenegadas',
+            },
+          });
+        } catch (notifErr) {
+          console.error('Error creando notif para ' + usuarioNotif.email + ':', notifErr.message);
+        }
+      }
+
+      // 2. PUSH solo al SOLICITANTE
       if (solicitadoPorId) {
-        await enviarNotificacionRecibo(
-          solicitadoPorId,
-          '❌ Recibo Denegado',
-          'Tu solicitud de recibo para ' + solicitud.cliente.nombre + ' fue denegada. Motivo: ' + (solicitud.motivoDenegacion || 'Sin motivo'),
-          {
-            solicitudId: solicitud._id,
-            clienteNombre: solicitud.cliente.nombre,
-            clienteCodigo: solicitud.cliente.codigo,
-            estado: 'DENEGADO',
-            motivoDenegacion: solicitud.motivoDenegacion || '',
-            tipo: 'RECIBO_DENEGADO',
-            screen: 'SolicitudesDenegadas',
-          }
-        );
+        try {
+          await pushService.enviarNotificacionPush(solicitadoPorId, {
+            title: '❌ Recibo Denegado',
+            body: 'Tu solicitud de recibo para ' + solicitud.cliente.nombre + ' fue denegada. Motivo: ' + (solicitud.motivoDenegacion || 'Sin motivo'),
+            data: {
+              solicitudId: solicitud._id,
+              clienteNombre: solicitud.cliente.nombre,
+              estado: 'DENEGADO',
+              motivoDenegacion: solicitud.motivoDenegacion || '',
+              tipo: 'RECIBO_DENEGADO',
+              screen: 'SolicitudesDenegadas',
+            },
+          });
+        } catch (pushErr) {
+          console.error('Error enviando push al solicitante:', pushErr.message);
+        }
       }
     } catch (notifError) {
       console.error('Error notificando denegacion de recibo:', notifError.message);
