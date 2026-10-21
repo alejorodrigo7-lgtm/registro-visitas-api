@@ -17,6 +17,20 @@ import api from '../services/api';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
+// ============================================
+// HELPER: obtener archivo (soporta archivos[] y archivo)
+// ============================================
+const obtenerArchivo = (solicitud) => {
+  if (solicitud.archivos && solicitud.archivos.length > 0) {
+    return solicitud.archivos[0];
+  }
+  if (solicitud.archivo && solicitud.archivo.url) {
+    return solicitud.archivo;
+  }
+  return null;
+};
+
+
 const DescargarRecibo = ({ navigation }) => {
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -41,11 +55,12 @@ const DescargarRecibo = ({ navigation }) => {
         
         // ✅ Verificar los archivos
         response.data.data.forEach((s, i) => {
-          if (s.archivo && s.archivo.url) {
-            const url = s.archivo.url;
+          const archivoData = obtenerArchivo(s);
+          if (archivoData && archivoData.url) {
+            const url = archivoData.url;
             const esBase64 = url.length > 100 && !url.startsWith('http') && !url.startsWith('file://');
             const esFile = url.startsWith('file://');
-            console.log(`📄 Recibo ${i+1}: ${s.archivo.nombre} - ${esBase64 ? 'Base64' : esFile ? 'FILE' : 'URL'} (${url.length} chars)`);
+            console.log('Recibo ' + (i+1) + ': ' + archivoData.nombre + ' - ' + (esBase64 ? 'Base64' : esFile ? 'FILE' : 'URL') + ' (' + url.length + ' chars)');
           }
         });
       }
@@ -65,27 +80,49 @@ const DescargarRecibo = ({ navigation }) => {
     fetchSolicitudes();
   }, [fetchSolicitudes]);
 
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredSolicitudes(solicitudes);
-    } else {
-      const filtered = solicitudes.filter(s =>
-        s.cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.cliente.codigo.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredSolicitudes(filtered);
+  // Buscar en el backend (sin limite, en TODA la BD)
+  const buscarEnBackend = async () => {
+    const termino = searchTerm.trim();
+    
+    setLoading(true);
+    try {
+      let url = '/solicitudes-recibo?estado=APROBADO';
+      if (termino) {
+        url += '&busqueda=' + encodeURIComponent(termino);
+      }
+      
+      console.log('🔍 Buscando:', url);
+      const response = await api.get(url);
+      
+      if (response.data.success) {
+        const data = response.data.data || [];
+        setFilteredSolicitudes(data);
+        console.log(`✅ Encontradas: ${data.length} solicitudes`);
+      }
+    } catch (error) {
+      console.error('Error buscando:', error);
+      Alert.alert('Error', 'No se pudo buscar');
+    } finally {
+      setLoading(false);
     }
-  }, [searchTerm, solicitudes]);
+  };
+
+  // Limpiar busqueda (volver a mostrar todos)
+  const limpiarBusqueda = () => {
+    setSearchTerm('');
+    setFilteredSolicitudes(solicitudes);
+  };
 
   // ✅ DESCARGAR ARCHIVO - SOPORTE PARA Base64, URL y FILE
   const handleDownload = async (solicitud) => {
-    if (!solicitud.archivo || !solicitud.archivo.url) {
+    const archivo = obtenerArchivo(solicitud);
+    if (!archivo || !archivo.url) {
       Alert.alert('Error', 'Este recibo no tiene archivo adjunto');
       return;
     }
 
-    const url = solicitud.archivo.url;
-    const fileName = solicitud.archivo.nombre || `recibo_${solicitud.cliente.codigo}.pdf`;
+    const url = archivo.url;
+    const fileName = archivo.nombre || `recibo_${solicitud.cliente.codigo}.pdf`;
     const fileUri = FileSystem.documentDirectory + fileName;
 
     console.log('📥 === INICIANDO DESCARGA ===');
@@ -218,11 +255,11 @@ const DescargarRecibo = ({ navigation }) => {
         </Text>
       </View>
 
-      {item.archivo && item.archivo.nombre && (
+      {obtenerArchivo(item) && (
         <View style={styles.archivoInfo}>
           <Ionicons name="document-text" size={16} color="#4CAF50" />
           <Text style={styles.archivoNombre} numberOfLines={1}>
-            📄 {item.archivo.nombre}
+            📄 {obtenerArchivo(item).nombre}
           </Text>
         </View>
       )}
@@ -274,12 +311,17 @@ const DescargarRecibo = ({ navigation }) => {
           placeholderTextColor="#999"
           value={searchTerm}
           onChangeText={setSearchTerm}
+          onSubmitEditing={buscarEnBackend}
+          returnKeyType="search"
         />
         {searchTerm.length > 0 && (
           <TouchableOpacity onPress={() => setSearchTerm('')}>
             <Ionicons name="close-circle" size={20} color="#999" />
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={styles.searchButton} onPress={buscarEnBackend}>
+          <Text style={styles.searchButtonText}>Buscar</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -328,6 +370,18 @@ const styles = StyleSheet.create({
     height: 45
   },
   searchIcon: { marginRight: 10 },
+  searchButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 6,
+  },
+  searchButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   searchInput: { flex: 1, fontSize: 15, color: '#2C3E50', paddingVertical: 8 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 10, fontSize: 16, color: '#666' },
