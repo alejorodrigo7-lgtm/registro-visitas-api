@@ -21,6 +21,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as MailComposer from 'expo-mail-composer';
 
 const CuadreCajas = ({ navigation }) => {
   const { user } = useAuth();
@@ -402,6 +403,68 @@ const CuadreCajas = ({ navigation }) => {
     }
   };
 
+  // ============================================
+  // ABRIR APP DE CORREO CON HTML DEL REPORTE
+  // ============================================
+  const abrirCorreoConReporte = async () => {
+    const fecha = formatFecha(fechaSeleccionada);
+
+    try {
+      setLoading(true);
+
+      // 1. Verificar que haya app de correo configurada
+      const isAvailable = await MailComposer.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert(
+          'Sin app de correo',
+          'No hay una app de correo configurada en este dispositivo.\n\nInstala Gmail, Outlook o similar e intenta de nuevo.'
+        );
+        return;
+      }
+
+      // 2. Pedir el HTML al backend
+      const response = await api.post('/cajas/cuadre/resumen-html', { fecha });
+
+      if (!response.data.success) {
+        Alert.alert('Error', response.data.message);
+        return;
+      }
+
+      // 3. Convertir el HTML a un formato mas simple para email
+      // (algunos clientes de correo no renderizan CSS complejo)
+      const htmlOriginal = response.data.data.html;
+      
+      // Extraer solo el body (sin head, sin styles complejos)
+      let htmlSimple = htmlOriginal;
+      
+      // Reemplazar los emojis corruptos por texto
+      htmlSimple = htmlSimple.replace(/ðŸ“Š/g, '📊');
+      htmlSimple = htmlSimple.replace(/ðŸ“/g, '📍');
+      htmlSimple = htmlSimple.replace(/ðŸ“¥/g, '📥');
+      htmlSimple = htmlSimple.replace(/ðŸ“¤/g, '📤');
+      htmlSimple = htmlSimple.replace(/ðŸ’°/g, '💰');
+      
+      // 4. Abrir la app de correo con el HTML
+      await MailComposer.composeAsync({
+        recipients: [
+          'alejorodrigo7@gmail.com',
+          'cordobaisabelag@gmail.com',
+          'isabellacordobag@hotmail.com'
+        ],
+        subject: 'Resumen de Caja - ' + fecha,
+        body: htmlSimple,
+        isHtml: true,
+      });
+
+      console.log('App de correo abierta con el reporte');
+    } catch (error) {
+      console.error('Error abriendo correo:', error);
+      Alert.alert('Error', error.message || 'No se pudo abrir la app de correo');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const cambiarFecha = (event, selectedDate) => {
     setMostrarDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
@@ -586,6 +649,15 @@ const CuadreCajas = ({ navigation }) => {
           >
             <Ionicons name="document-text" size={20} color="#FFFFFF" />
             <Text style={styles.btnGlobalText}>Generar Reporte PDF</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.btnGlobal, styles.btnAbrirCorreo]}
+            onPress={abrirCorreoConReporte}
+            disabled={loading}
+          >
+            <Ionicons name="mail-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.btnGlobalText}>Abrir en App de Correo</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1021,6 +1093,9 @@ const styles = StyleSheet.create({
   },
   btnGenerarPDF: {
     backgroundColor: '#00B894',
+  },
+  btnAbrirCorreo: {
+    backgroundColor: '#0984E3',
   },
   btnEnviar: {
     backgroundColor: '#0984E3',
