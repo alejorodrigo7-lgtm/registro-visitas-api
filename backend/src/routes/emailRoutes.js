@@ -54,6 +54,12 @@ router.post('/enviar-reporte', protect, async (req, res) => {
       </html>
     `;
 
+// ============================================================
+    // ENVIO DESHABILITADO TEMPORALMENTE (re-activar si se necesita)
+    // El dashboard ahora abre la app de correo nativa (mailto) desde el celular.
+    // Para reactivar: descomentar el require de emailService arriba y este bloque.
+    // ============================================================
+    /*
     const result = await emailService.enviarCorreo({
       to: to,
       subject: subject,
@@ -73,6 +79,13 @@ router.post('/enviar-reporte', protect, async (req, res) => {
         message: result.message || 'Error al enviar correo'
       });
     }
+    */
+
+    // Endpoint deshabilitado: devolvemos 410 Gone
+    return res.status(410).json({
+      success: false,
+      message: 'Envio por backend deshabilitado. Usa la app de correo nativa (mailto).'
+    });
   } catch (error) {
     console.error('❌ Error en /enviar-reporte:', error);
     res.status(500).json({
