@@ -913,6 +913,54 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
+  // ============================================
+  // ✅ ABRIR APP DE CORREO CON EL REPORTE (sin backend de email)
+  // Reemplaza a enviarEstadisticasPorCorreo() para no depender de SendGrid.
+  // Para reactivar el envío por backend: descomentar enviarEstadisticasPorCorreo arriba
+  // y volver a llamarla desde el botón del modal.
+  // ============================================
+  const abrirCorreoConReporte = async () => {
+    const emails = [
+      ...usuariosSeleccionados.map(u => u.email),
+      emailAdicional
+    ].filter(e => e && e.trim() !== '');
+
+    if (emails.length === 0) {
+      Alert.alert('Error', 'Selecciona al menos un usuario o ingresa un correo adicional');
+      return;
+    }
+
+    try {
+      // 1. Generar el reporte en texto plano (ya lo hace generarReporte)
+      const reporte = generarReporte(tipoReporte);
+
+      // 2. Construir mailto: con destinatarios, asunto y cuerpo
+      const asunto = encodeURIComponent(
+        '📊 Reporte de ' + getTituloReporte(tipoReporte) + ' - ' + new Date().toLocaleDateString('es-EC')
+      );
+      const cuerpo = encodeURIComponent(reporte);
+      const destinatarios = emails.join(',');
+      const url = 'mailto:' + destinatarios + '?subject=' + asunto + '&body=' + cuerpo;
+
+      // 3. Abrir la app de correo nativa
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) {
+        Alert.alert('Error', 'No hay app de correo configurada en este dispositivo');
+        return;
+      }
+      await Linking.openURL(url);
+      console.log('✅ App de correo abierta con el reporte');
+
+      // 4. Cerrar el modal y limpiar selección
+      setModalCorreoVisible(false);
+      setUsuariosSeleccionados([]);
+      setEmailAdicional('');
+    } catch (error) {
+      console.error('❌ Error abriendo app de correo:', error);
+      Alert.alert('Error', error.message || 'No se pudo abrir la app de correo');
+    }
+  };
+
   // ✅ GENERAR REPORTE CON FECHAS EN EL TÍTULO
   const generarReporte = (tipo) => {
     const fecha = new Date().toLocaleDateString('es-EC');
@@ -1675,13 +1723,13 @@ const DashboardScreen = ({ navigation }) => {
 
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalEnviar]}
-                onPress={enviarEstadisticasPorCorreo}
+                onPress={abrirCorreoConReporte}
                 disabled={enviandoCorreo}
               >
                 {enviandoCorreo ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalButtonText}>📧 Enviar</Text>
+                  <Text style={styles.modalButtonText}>📧 Abrir en App de Correo</Text>
                 )}
               </TouchableOpacity>
             </View>
