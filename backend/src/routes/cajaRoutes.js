@@ -51,6 +51,9 @@ router.post('/cuadre/:id/pago', authorize('Jefe', 'Admin'), cajaController.agreg
 // Cerrar cuadre del día para una zona
 router.put('/cuadre/:id/cerrar', authorize('Jefe', 'Admin'), cajaController.cerrarCuadre);
 
+// Generar HTML del resumen (para compartir manualmente, sin enviar email)
+router.post('/cuadre/resumen-html', authorize('Jefe', 'Admin'), cajaController.getResumenHTML);
+
 // Enviar correo con resumen de las 3 zonas
 router.post('/cuadre/enviar-correo', authorize('Jefe', 'Admin'), cajaController.enviarCorreoResumen);
 

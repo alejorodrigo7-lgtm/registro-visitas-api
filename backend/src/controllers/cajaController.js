@@ -683,6 +683,190 @@ exports.cerrarCuadre = async (req, res) => {
 // ============================================
 // ✅ ENVIAR CORREO CON RESUMEN DE LAS 3 ZONAS CON DETALLE DE MOVIMIENTOS (A 3 DESTINATARIOS)
 // ============================================
+// ============================================
+// GENERAR HTML DEL RESUMEN DE CUADRE
+// ============================================
+function generarHTMLResumen(cuadres, fecha, nuevoIntento) {
+  let resumen = `
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; color: #2D3436; }
+        h2 { color: #6C5CE7; }
+        h3 { color: #2D3436; margin-top: 20px; }
+        h4 { color: #636E72; margin-top: 10px; margin-bottom: 5px; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        td, th { padding: 8px; border: 1px solid #DFE6E9; }
+        .total { font-weight: bold; background-color: #F0F0F0; }
+        .ingreso { color: #00B894; }
+        .egreso { color: #FF6B6B; }
+        .sin-movimientos { color: #B2BEC3; font-style: italic; }
+        hr { border: 1px solid #DFE6E9; margin: 20px 0; }
+        .total-general { text-align: center; color: #6C5CE7; font-size: 20px; }
+        .estado { font-weight: bold; }
+        .cerrado { color: #00B894; }
+        .detalle-movimientos { margin: 10px 0; padding: 10px; background-color: #F8F9FA; border-radius: 8px; }
+        ul { margin: 5px 0; padding-left: 20px; }
+        li { margin: 3px 0; }
+        .footer { text-align: center; color: #636E72; font-size: 12px; margin-top: 20px; border-top: 1px solid #DFE6E9; padding-top: 20px; }
+        .destinatarios { background-color: #E8F0FE; padding: 10px; border-radius: 8px; margin: 10px 0; }
+        .imagen-egreso { max-width: 200px; max-height: 150px; border-radius: 8px; margin: 5px 0; border: 1px solid #DFE6E9; }
+      </style>
+    </head>
+    <body>
+      <h2>RESUMEN DE CAJA - ${fecha}</h2>
+      <hr>
+  `;
+
+  let totalGeneral = 0;
+
+  for (const cuadre of cuadres) {
+    const totalIngresos = cuadre.ingresos.reduce((sum, i) => sum + i.monto, 0);
+    const totalPagos = cuadre.pagos.reduce((sum, p) => sum + p.monto, 0);
+
+    let detalleIngresos = '';
+    if (cuadre.ingresos && cuadre.ingresos.length > 0) {
+      detalleIngresos = '<ul>';
+      for (const ingreso of cuadre.ingresos) {
+        detalleIngresos += `<li class="ingreso">+${ingreso.monto.toFixed(2)} - ${ingreso.tipo} ${ingreso.concepto ? `(${ingreso.concepto})` : ''}</li>`;
+      }
+      detalleIngresos += '</ul>';
+    } else {
+      detalleIngresos = '<p class="sin-movimientos">Sin ingresos</p>';
+    }
+
+    let detalleEgresos = '';
+    if (cuadre.pagos && cuadre.pagos.length > 0) {
+      detalleEgresos = '<ul>';
+      for (const pago of cuadre.pagos) {
+        const imagenHtml = pago.imagen ? `<br><img src="${pago.imagen}" class="imagen-egreso" />` : '';
+        detalleEgresos += `<li class="egreso">-${pago.monto.toFixed(2)} - ${pago.descripcion || 'Sin descripcion'}${imagenHtml}</li>`;
+      }
+      detalleEgresos += '</ul>';
+    } else {
+      detalleEgresos = '<p class="sin-movimientos">Sin egresos</p>';
+    }
+
+    resumen += `
+      <h3>${cuadre.zona}</h3>
+      <table>
+        <tr>
+          <td><strong>Saldo Inicial:</strong></td>
+          <td>${cuadre.saldoInicial.toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td><strong>Total Ingresos:</strong></td>
+          <td class="ingreso">+${totalIngresos.toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td><strong>Total Egresos:</strong></td>
+          <td class="egreso">-${totalPagos.toFixed(2)}</td>
+        </tr>
+        <tr class="total">
+          <td><strong>Saldo Disponible:</strong></td>
+          <td>${cuadre.saldoDisponible.toFixed(2)}</td>
+        </tr>
+      </table>
+
+      <div class="detalle-movimientos">
+        <h4>Detalle de Ingresos:</h4>
+        ${detalleIngresos}
+
+        <h4>Detalle de Egresos:</h4>
+        ${detalleEgresos}
+      </div>
+
+      <p><span class="estado">Estado:</span> <span class="cerrado">CERRADO</span></p>
+      <hr>
+    `;
+
+    totalGeneral += cuadre.saldoDisponible;
+  }
+
+  resumen += `
+    <h3 class="total-general">TOTAL GENERAL: ${totalGeneral.toFixed(2)}</h3>
+
+    <p class="footer">
+      Este resumen incluye el detalle de todos los movimientos del dia<br>
+      Sistema de Cuadre de Caja RA2P
+    </p>
+    </body>
+    </html>
+  `;
+
+  return { html: resumen, totalGeneral };
+}
+
+// ============================================
+// NUEVO ENDPOINT: Generar HTML del resumen (sin enviar)
+// ============================================
+exports.getResumenHTML = async (req, res) => {
+  try {
+    const { fecha } = req.body;
+
+    if (!fecha) {
+      return res.status(400).json({ success: false, message: 'La fecha es requerida' });
+    }
+
+    const zonas = ['TOLA', 'CHILIBULO', 'MAGDALENA'];
+    const cuadres = await Promise.all(
+      zonas.map(zona => CuadreCaja.findOne({ zona, fecha }))
+    );
+
+    const zonasSinCuadre = [];
+    const zonasNoCerradas = [];
+    const zonasCerradas = [];
+
+    for (let i = 0; i < zonas.length; i++) {
+      if (!cuadres[i]) {
+        zonasSinCuadre.push(zonas[i]);
+      } else if (!cuadres[i].cerrado) {
+        zonasNoCerradas.push(zonas[i]);
+      } else {
+        zonasCerradas.push(zonas[i]);
+      }
+    }
+
+    if (zonasSinCuadre.length > 0 || zonasNoCerradas.length > 0) {
+      let mensajeError = 'Para generar el reporte, TODAS las zonas deben estar CERRADAS.\n\n';
+
+      if (zonasSinCuadre.length > 0) {
+        mensajeError += 'Zonas SIN CUADRE: ' + zonasSinCuadre.join(', ') + '\n';
+      }
+      if (zonasNoCerradas.length > 0) {
+        mensajeError += 'Zonas ABIERTAS: ' + zonasNoCerradas.join(', ') + '\n';
+      }
+      if (zonasCerradas.length > 0) {
+        mensajeError += 'Zonas CERRADAS: ' + zonasCerradas.join(', ');
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: mensajeError,
+        data: { zonasSinCuadre, zonasNoCerradas, zonasCerradas },
+      });
+    }
+
+    const intentos = cuadres.reduce((sum, c) => sum + (c.intentosCorreo || 0), 0);
+    const nuevoIntento = intentos + 1;
+
+    const { html, totalGeneral } = generarHTMLResumen(cuadres, fecha, nuevoIntento);
+
+    res.json({
+      success: true,
+      data: {
+        html,
+        totalGeneral,
+        fecha,
+        intento: nuevoIntento,
+      },
+    });
+  } catch (error) {
+    console.error('Error en getResumenHTML:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 exports.enviarCorreoResumen = async (req, res) => {
   try {
     const { fecha } = req.body;
