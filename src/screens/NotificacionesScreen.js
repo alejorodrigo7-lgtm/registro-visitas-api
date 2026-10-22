@@ -114,6 +114,14 @@ const NotificacionesScreen = () => {
       'transferencia': '📤',
       'servicio': '🛠️',
       'sistema': '🔔',
+      'DESCONEXION': '🔌',
+      'RECONEXION': '🔄',
+      'RECIBO': '📄',
+      'SERVICIO': '🛠️',
+      'BODEGA': '📦',
+      'ALERTA': '⚠️',
+      'ASISTENCIA': '📍',
+      'GENERAL': '🔔',
     };
     return icons[tipo] || '🔔';
   };
