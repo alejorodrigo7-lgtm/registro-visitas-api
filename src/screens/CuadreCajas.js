@@ -11,6 +11,7 @@ import {
   Modal,
   ActivityIndicator,
   RefreshControl,
+  Linking,
   Platform,
   Image,
 } from 'react-native';
@@ -21,7 +22,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as MailComposer from 'expo-mail-composer';
 
 const CuadreCajas = ({ navigation }) => {
   const { user } = useAuth();
@@ -355,6 +355,43 @@ const CuadreCajas = ({ navigation }) => {
   // ============================================
   // GENERAR REPORTE PDF (sin enviar email)
   // ============================================
+  // ============================================
+  // CONVERTIR HTML A TEXTO PLANO (para email)
+  // ============================================
+  const convertirHTMLaTexto = (html) => {
+    let texto = html;
+
+    // Quitar head y styles
+    texto = texto.replace(/<head[\s\S]*?<\/head>/gi, '');
+
+    // Convertir saltos de linea
+    texto = texto.replace(/<br\s*\/?>/gi, '\n');
+    texto = texto.replace(/<\/p>/gi, '\n');
+    texto = texto.replace(/<\/tr>/gi, '\n');
+    texto = texto.replace(/<\/h[1-6]>/gi, '\n');
+    texto = texto.replace(/<\/li>/gi, '\n');
+
+    // Separador entre celdas
+    texto = texto.replace(/<\/td>/gi, ' | ');
+
+    // Quitar todos los tags HTML
+    texto = texto.replace(/<[^>]+>/g, '');
+
+    // Reemplazar entidades HTML
+    texto = texto.replace(/&nbsp;/g, ' ');
+    texto = texto.replace(/&amp;/g, '&');
+    texto = texto.replace(/&lt;/g, '<');
+    texto = texto.replace(/&gt;/g, '>');
+    texto = texto.replace(/&quot;/g, '"');
+
+    // Limpiar espacios y lineas
+    texto = texto.replace(/[ \t]+/g, ' ');
+    texto = texto.replace(/\n{3,}/g, '\n\n');
+    texto = texto.trim();
+
+    return texto;
+  };
+
   const generarReportePDF = async () => {
     const fecha = formatFecha(fechaSeleccionada);
 
@@ -412,17 +449,7 @@ const CuadreCajas = ({ navigation }) => {
     try {
       setLoading(true);
 
-      // 1. Verificar que haya app de correo configurada
-      const isAvailable = await MailComposer.isAvailableAsync();
-      if (!isAvailable) {
-        Alert.alert(
-          'Sin app de correo',
-          'No hay una app de correo configurada en este dispositivo.\n\nInstala Gmail, Outlook o similar e intenta de nuevo.'
-        );
-        return;
-      }
-
-      // 2. Pedir el HTML al backend
+      // 1. Pedir el HTML al backend
       const response = await api.post('/cajas/cuadre/resumen-html', { fecha });
 
       if (!response.data.success) {
@@ -430,33 +457,25 @@ const CuadreCajas = ({ navigation }) => {
         return;
       }
 
-      // 3. Convertir el HTML a un formato mas simple para email
-      // (algunos clientes de correo no renderizan CSS complejo)
-      const htmlOriginal = response.data.data.html;
-      
-      // Extraer solo el body (sin head, sin styles complejos)
-      let htmlSimple = htmlOriginal;
-      
-      // Reemplazar los emojis corruptos por texto
-      htmlSimple = htmlSimple.replace(/ðŸ“Š/g, '📊');
-      htmlSimple = htmlSimple.replace(/ðŸ“/g, '📍');
-      htmlSimple = htmlSimple.replace(/ðŸ“¥/g, '📥');
-      htmlSimple = htmlSimple.replace(/ðŸ“¤/g, '📤');
-      htmlSimple = htmlSimple.replace(/ðŸ’°/g, '💰');
-      
-      // 4. Abrir la app de correo con el HTML
-      await MailComposer.composeAsync({
-        recipients: [
-          'alejorodrigo7@gmail.com',
-          'cordobaisabelag@gmail.com',
-          'isabellacordobag@hotmail.com'
-        ],
-        subject: 'Resumen de Caja - ' + fecha,
-        body: htmlSimple,
-        isHtml: true,
-      });
+      // 2. Convertir HTML a texto plano formateado
+      const html = response.data.data.html;
+      const textoPlano = convertirHTMLaTexto(html);
 
-      console.log('App de correo abierta con el reporte');
+      // 3. Construir el cuerpo del correo
+      const asunto = encodeURIComponent('Resumen de Caja - ' + fecha);
+      const cuerpo = encodeURIComponent(textoPlano);
+
+      // 4. Abrir la app de correo nativa
+      const url = 'mailto:alejorodrigo7@gmail.com?cc=cordobaisabelag@gmail.com,isabellacordobag@hotmail.com&subject=' + asunto + '&body=' + cuerpo;
+
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) {
+        Alert.alert('Error', 'No hay app de correo configurada en este dispositivo');
+        return;
+      }
+
+      await Linking.openURL(url);
+      console.log('App de correo abierta');
     } catch (error) {
       console.error('Error abriendo correo:', error);
       Alert.alert('Error', error.message || 'No se pudo abrir la app de correo');
