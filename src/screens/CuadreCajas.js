@@ -19,6 +19,8 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 const CuadreCajas = ({ navigation }) => {
   const { user } = useAuth();
@@ -349,6 +351,57 @@ const CuadreCajas = ({ navigation }) => {
     );
   };
 
+  // ============================================
+  // GENERAR REPORTE PDF (sin enviar email)
+  // ============================================
+  const generarReportePDF = async () => {
+    const fecha = formatFecha(fechaSeleccionada);
+
+    try {
+      setLoading(true);
+
+      // 1. Pedir el HTML al backend
+      const response = await api.post('/cajas/cuadre/resumen-html', { fecha });
+
+      if (!response.data.success) {
+        Alert.alert('Error', response.data.message);
+        return;
+      }
+
+      const { html } = response.data.data;
+
+      // 2. Convertir HTML a PDF
+      const { uri } = await Print.printToFileAsync({
+        html: html,
+        base64: false,
+      });
+
+      console.log('PDF generado en:', uri);
+
+      // 3. Compartir el PDF
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Resumen de Caja - ' + fecha,
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert(
+          'PDF generado',
+          'El reporte se guardo en: ' + uri + '\n\nPodes compartirlo manualmente.'
+        );
+      }
+    } catch (error) {
+      console.error('Error generando reporte PDF:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || error.message || 'No se pudo generar el reporte'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const cambiarFecha = (event, selectedDate) => {
     setMostrarDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
@@ -524,6 +577,15 @@ const CuadreCajas = ({ navigation }) => {
           >
             <Ionicons name="document-text" size={20} color="#FFFFFF" />
             <Text style={styles.btnGlobalText}>📋 Ver Resumen</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.btnGlobal, styles.btnGenerarPDF]}
+            onPress={generarReportePDF}
+            disabled={loading}
+          >
+            <Ionicons name="document-text" size={20} color="#FFFFFF" />
+            <Text style={styles.btnGlobalText}>Generar Reporte PDF</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -956,6 +1018,9 @@ const styles = StyleSheet.create({
   },
   btnResumen: {
     backgroundColor: '#6C5CE7',
+  },
+  btnGenerarPDF: {
+    backgroundColor: '#00B894',
   },
   btnEnviar: {
     backgroundColor: '#0984E3',
