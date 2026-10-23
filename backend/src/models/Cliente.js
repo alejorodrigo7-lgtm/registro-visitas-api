@@ -31,6 +31,11 @@ const clienteSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  productos: [{
+    tipo: { type: String, enum: ['INTERNET', 'TELEVISION'], required: true },
+    codigo: { type: String, required: true },
+    valor: { type: Number, required: true, min: 0 },
+  }],
   createdAt: {
     type: Date,
     default: Date.now,

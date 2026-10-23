@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 process.env.TZ = 'America/Guayaquil';
 
 const express = require('express');
@@ -70,6 +70,7 @@ const recuperacionRoutes = require('./routes/recuperacionRoutes');
 const gestionRoutes = require('./routes/gestionRoutes');
 const ingresoOficinaRoutes = require('./routes/ingresoOficinaRoutes');
 const ingresoMensualRoutes = require('./routes/ingresoMensualRoutes');
+const reciboImpresionRoutes = require('./routes/reciboImpresionRoutes');
 
 // ✅ NUEVO: IMPORTAR RUTAS DE TICKETS
 const ticketRoutes = require('./routes/ticketRoutes');
@@ -214,6 +215,7 @@ app.use('/api/recuperacion', recuperacionRoutes);
 app.use('/api/gestion', gestionRoutes);
 app.use('/api/ingresos-oficinas', ingresoOficinaRoutes);
 app.use('/api/ingreso-mensual', ingresoMensualRoutes);
+app.use('/api/recibos-impresion', reciboImpresionRoutes);
 
 // ✅ NUEVO: RUTA DE TICKETS
 app.use('/api/tickets', ticketRoutes);
