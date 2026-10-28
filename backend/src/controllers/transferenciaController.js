@@ -66,28 +66,36 @@ const comprimirImagen = async (imagen) => {
 // 📲 ENVIAR NOTIFICACIÓN DE TRANSFERENCIA
 // ============================================
 const enviarNotificacionTransferencia = async (usuarioId, titulo, mensaje, data = {}) => {
+  console.log('📲 [enviarNotificacionTransferencia] INICIO - usuarioId:', usuarioId, '(tipo:', typeof usuarioId, ')');
   try {
-    await Notificacion.create({
+    const mongoose = require('mongoose');
+    if (!usuarioId || !mongoose.Types.ObjectId.isValid(usuarioId)) {
+      console.error('❌ usuarioId invalido:', usuarioId);
+      throw new Error('usuarioId invalido: ' + usuarioId);
+    }
+    const notifCreada = await Notificacion.create({
       titulo,
       mensaje,
       tipo: 'transferencia',
       usuario: usuarioId,
+      destinatario: usuarioId,
       datos: data,
     });
-
+    console.log('   ✅ Notificacion creada:', notifCreada._id, '- estado:', data.estado);
     try {
       await pushService.enviarNotificacionPush(usuarioId, {
         title: titulo,
         body: mensaje,
         data: { ...data, tipo: 'transferencia' },
       });
+      console.log('   ✅ Push enviado a:', usuarioId);
     } catch (pushError) {
-      console.error('❌ Error al enviar push de transferencia:', pushError.message);
+      console.error('   ❌ Error push:', pushError.message);
     }
-
-    console.log(`✅ Notificación de transferencia enviada a usuario ${usuarioId}`);
   } catch (error) {
-    console.error('❌ Error en enviarNotificacionTransferencia:', error.message);
+    console.error('❌ Error enviarNotificacionTransferencia:');
+    console.error('   message:', error.message);
+    console.error('   name:', error.name);
   }
 };
 
