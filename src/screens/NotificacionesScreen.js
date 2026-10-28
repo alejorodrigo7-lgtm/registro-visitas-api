@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -42,9 +43,11 @@ const NotificacionesScreen = () => {
     }
   };
 
-  useEffect(() => {
-    loadNotifications();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+    }, [])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

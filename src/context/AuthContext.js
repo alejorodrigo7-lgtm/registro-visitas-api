@@ -1,12 +1,14 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
+import * as Notifications from 'expo-notifications';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // ============================================
   // LOGIN
@@ -46,6 +48,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ============================================
+  // ============================================
+  // REFRESCAR CONTADOR DE NOTIFICACIONES NO LEIDAS
+  // ============================================
+  const refreshUnreadCount = async () => {
+    try {
+      const response = await api.get('/notificaciones/no-leidas/count');
+      if (response.data.success) {
+        setUnreadCount(response.data.count || 0);
+      }
+    } catch (error) {
+      console.error('Error obteniendo contador:', error.message);
+    }
+  };
+
   // LOGOUT
   // ============================================
   const logout = async () => {
@@ -80,6 +96,36 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
+  // Refrescar contador cuando el usuario se loguea + escuchar pushes
+  useEffect(() => {
+    if (user) {
+      refreshUnreadCount();
+
+      // Interval de respaldo (por si falla el listener)
+      const interval = setInterval(refreshUnreadCount, 30000);
+
+      // Listener de push en foreground: actualiza el badge al instante
+      const notificationListener = Notifications.addNotificationReceivedListener(() => {
+        console.log('Push recibido, refrescando badge...');
+        refreshUnreadCount();
+      });
+
+      // Listener cuando el usuario toca la notificacion
+      const responseListener = Notifications.addNotificationResponseReceivedListener(() => {
+        console.log('Notificacion tocada, refrescando badge...');
+        refreshUnreadCount();
+      });
+
+      return () => {
+        clearInterval(interval);
+        Notifications.removeNotificationSubscription(notificationListener);
+        Notifications.removeNotificationSubscription(responseListener);
+      };
+    } else {
+      setUnreadCount(0);
+    }
+  }, [user]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -88,6 +134,8 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         isAuthenticated: !!user,
+        unreadCount,
+        refreshUnreadCount,
       }}
     >
       {children}
