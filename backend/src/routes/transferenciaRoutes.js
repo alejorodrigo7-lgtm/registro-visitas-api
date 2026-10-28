@@ -15,23 +15,25 @@ const validarDocumentoUnico = async (req, res, next) => {
     }
     
     const Transferencia = require('../models/Transferencia');
-    const existe = await Transferencia.findOne({ 
-      numeroDocumento: numeroDocumento.trim() 
+    const existe = await Transferencia.findOne({
+      numeroDocumento: numeroDocumento.trim(),
+      estado: { $ne: 'DENEGADA' }
     });
-    
+
     if (existe) {
       return res.status(400).json({
         success: false,
-        message: `El número de documento ${numeroDocumento} ya existe en otra transferencia`,
+        message: 'El numero de documento ' + numeroDocumento + ' ya existe en otra transferencia activa',
         campo: 'numeroDocumento',
         transferenciaExistente: {
           id: existe._id,
           fecha: existe.fechaTransferencia,
-          nombre: existe.nombreUsuario
+          nombre: existe.nombreUsuario,
+          estado: existe.estado
         }
       });
     }
-    
+
     next();
   } catch (error) {
     console.error('❌ Error validando documento:', error);
