@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
@@ -276,6 +276,9 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           },
         },
       ]
+    );
+  };
+
 
   // ✅ NUEVA: abrir modal de denegacion (pide observacion)
   const abrirModalDenegar = (id) => {
@@ -387,6 +390,9 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           </View>
         )}
       </TouchableOpacity>
+    );
+  };
+
 
   if (loading) {
     return (
@@ -639,7 +645,6 @@ const ConfirmacionTransferencias = ({ navigation }) => {
           </ScrollView>
         </View>
       </Modal>
-    </View>
       {/* ✅ NUEVO MODAL: DENEGAR CON OBSERVACION */}
       <Modal
         visible={modalDenegarVisible}
@@ -1194,6 +1199,3 @@ const styles = StyleSheet.create({
 });
 
 export default ConfirmacionTransferencias;
-
-
-
