@@ -65,37 +65,48 @@ const comprimirImagen = async (imagen) => {
 // ============================================
 // 📲 ENVIAR NOTIFICACIÓN DE TRANSFERENCIA
 // ============================================
-const enviarNotificacionTransferencia = async (usuarioId, titulo, mensaje, data = {}) => {
-  console.log('📲 [enviarNotificacionTransferencia] INICIO - usuarioId:', usuarioId, '(tipo:', typeof usuarioId, ')');
+// ============================================
+// ENVIAR NOTIFICACION DE TRANSFERENCIA (campana a todos + push al creador)
+// ============================================
+const enviarNotificacionTransferencia = async (usuarioIdCreador, titulo, mensaje, data = {}) => {
+  console.log('[enviarNotificacionTransferencia] INICIO - creador:', usuarioIdCreador, 'estado:', data.estado);
   try {
     const mongoose = require('mongoose');
-    if (!usuarioId || !mongoose.Types.ObjectId.isValid(usuarioId)) {
-      console.error('❌ usuarioId invalido:', usuarioId);
-      throw new Error('usuarioId invalido: ' + usuarioId);
+    if (!usuarioIdCreador || !mongoose.Types.ObjectId.isValid(usuarioIdCreador)) {
+      console.error('usuarioId creador invalido:', usuarioIdCreador);
+      throw new Error('usuarioId creador invalido: ' + usuarioIdCreador);
     }
-    const notifCreada = await Notificacion.create({
-      titulo,
-      mensaje,
-      tipo: 'transferencia',
-      usuario: usuarioId,
-      destinatario: usuarioId,
-      datos: data,
-    });
-    console.log('   ✅ Notificacion creada:', notifCreada._id, '- estado:', data.estado);
+    // 1) CAMPANA a TODOS los usuarios activos
+    const todosLosUsuarios = await User.find({ activo: true });
+    console.log('Creando campana de transferencia para ' + todosLosUsuarios.length + ' usuarios');
+    for (const usuarioNotif of todosLosUsuarios) {
+      try {
+        await Notificacion.create({
+          titulo,
+          mensaje,
+          tipo: 'transferencia',
+          usuario: usuarioNotif._id,
+          destinatario: usuarioNotif._id,
+          datos: data,
+        });
+      } catch (err) {
+        console.error('Error creando campana para ' + usuarioNotif.email + ':', err.message);
+      }
+    }
+    console.log('Campana de transferencia creada para todos');
+    // 2) PUSH solo al creador
     try {
-      await pushService.enviarNotificacionPush(usuarioId, {
+      await pushService.enviarNotificacionPush(usuarioIdCreador, {
         title: titulo,
         body: mensaje,
         data: { ...data, tipo: 'transferencia' },
       });
-      console.log('   ✅ Push enviado a:', usuarioId);
+      console.log('Push enviado al creador:', usuarioIdCreador);
     } catch (pushError) {
-      console.error('   ❌ Error push:', pushError.message);
+      console.error('Error push al creador:', pushError.message);
     }
   } catch (error) {
-    console.error('❌ Error enviarNotificacionTransferencia:');
-    console.error('   message:', error.message);
-    console.error('   name:', error.name);
+    console.error('Error enviarNotificacionTransferencia:', error.message, error.name);
   }
 };
 
