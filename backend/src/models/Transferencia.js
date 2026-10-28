@@ -1,4 +1,4 @@
-﻿const mongoose = require('mongoose');
+const mongoose = require('mongoose');
 
 const transferenciaSchema = new mongoose.Schema({
   responsable: { 
@@ -123,7 +123,7 @@ transferenciaSchema.index({ zonaSector: 1 });
 // si la anterior esta DENEGADA
 transferenciaSchema.index(
   { numeroDocumento: 1 },
-  { unique: true, partialFilterExpression: { estado: { $ne: 'DENEGADA' } } }
+  { unique: true, partialFilterExpression: { estado: { $in: ['SUBIDA', 'CONFIRMADA', 'INGRESADA', 'EN_REVISION'] } } }
 );
 
 // ============================================
