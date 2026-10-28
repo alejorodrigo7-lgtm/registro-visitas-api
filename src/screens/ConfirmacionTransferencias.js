@@ -1,16 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
-    View,
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
     ActivityIndicator,
-    TouchableOpacity,
     Alert,
-    TextInput,
-    Modal,
     Image,
+    Modal,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -18,60 +20,51 @@ import api from '../services/api';
 const ConfirmacionTransferencias = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [transferencias, setTransferencias] = useState([]);
-  const [transferenciasFiltradas, setTransferenciasFiltradas] = useState([]);
-  const [error, setError] = useState(null);
-  const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null);
 
-  // ========== Estado para foto ampliada ==========
-  const [modalFotoVisible, setModalFotoVisible] = useState(false);
-  const [fotoAmpliada, setFotoAmpliada] = useState(null);
+  // FILTRO POR FECHA
+  const [fechaInicio, setFechaInicio] = useState(null);
+  const [fechaFin, setFechaFin] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerMode, setDatePickerMode] = useState('start');
+  const [transferenciasFiltradas, setTransferenciasFiltradas] = useState([]);
 
-  // ========== 🆕 ESTADO PARA DENEGACIÓN CON NOTA ==========
-  const [modalDenegacionVisible, setModalDenegacionVisible] = useState(false);
-  const [transferenciaDenegar, setTransferenciaDenegar] = useState(null);
-  const [notaDenegacion, setNotaDenegacion] = useState('');
-  const [subiendoDenegacion, setSubiendoDenegacion] = useState(false);
+  // FILTRO POR BANCO
+  const [bancoSeleccionado, setBancoSeleccionado] = useState('TODOS');
+  const [mostrarFiltroBanco, setMostrarFiltroBanco] = useState(false);
+  const [bancosDisponibles, setBancosDisponibles] = useState([]);
+
+  // BUSQUEDA POR NOMBRE/CODIGO/DOCUMENTO
+  const [searchTerm, setSearchTerm] = useState('');
+  const [buscando, setBuscando] = useState(false);
+
+  // ✅ NUEVO: modal para denegar con observacion
+  const [modalDenegarVisible, setModalDenegarVisible] = useState(false);
+  const [motivoDenegacion, setMotivoDenegacion] = useState('');
+  const [transferenciaADenegar, setTransferenciaADenegar] = useState(null);
 
   const isAdminOrJefe = ['Admin', 'Jefe'].includes(user?.rol);
 
-  // ✅ VALIDAR IMAGEN (SOPORTA CLOUDINARY Y BASE64)
-  const validarImagen = (item) => {
+  const cargarTransferencias = async () => {
     try {
-      if (!item) return null;
-      
-      let imagen = item.imagenComprobante || item.soporte || null;
-      if (!imagen || typeof imagen !== 'string') return null;
-      
-      if (imagen.startsWith('http')) {
-        return imagen;
-      }
-      
-      if (imagen.startsWith('data:image')) {
-        return imagen;
-      }
-      
-      if (imagen.length < 100) return null;
-      
-      const base64Regex = /^[A-Za-z0-9+/=]+$/;
-      if (base64Regex.test(imagen.substring(0, 100))) {
-        return `data:image/jpeg;base64,${imagen}`;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  };
+      const response = await api.get('/transferencias/estado/SUBIDA');
+      const data = response.data.data || [];
+      setTransferencias(data);
+      setTransferenciasFiltradas(data);
 
-  // ============================================
-  // 📸 ABRIR FOTO AMPLIADA
-  // ============================================
-  const abrirFotoAmpliada = (imagen) => {
-    if (imagen) {
-      setFotoAmpliada(imagen);
-      setModalFotoVisible(true);
+      // Extraer bancos unicos
+      const bancosUnicos = [...new Set(data.map(t => t.bancoCuenta).filter(Boolean))];
+      bancosUnicos.sort();
+      setBancosDisponibles(bancosUnicos);
+    } catch (error) {
+      console.error('Error al cargar transferencias:', error);
+      Alert.alert('Error', 'No se pudieron cargar las transferencias');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -79,136 +72,238 @@ const ConfirmacionTransferencias = ({ navigation }) => {
     cargarTransferencias();
   }, []);
 
-  const cargarTransferencias = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      console.log('🔍 Cargando transferencias...');
-      
-      const response = await api.get('/transferencias/estado/SUBIDA');
-      
-      let datos = [];
-      if (Array.isArray(response.data)) {
-        datos = response.data;
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        datos = response.data.data;
-      } else if (response.data?.transferencias && Array.isArray(response.data.transferencias)) {
-        datos = response.data.transferencias;
+  const onRefresh = () => {
+    setRefreshing(true);
+    cargarTransferencias();
+  };
+
+  // ✅ FUNCIÓN PARA OBTENER LA IMAGEN
+  const getImagen = (item) => {
+    // ? PRIORIDAD 1: imagenComprobante
+    if (item.imagenComprobante) {
+      const img = item.imagenComprobante;
+      // Es URL de Cloudinary/HTTP
+      if (img.startsWith('http://') || img.startsWith('https://')) {
+        return img;
       }
-      
-      const itemsSeguros = datos.map(item => {
-        const imagenValida = validarImagen(item);
-        return {
-          _id: item._id || Math.random().toString(),
-          nombreUsuario: item.nombreUsuario || 'Sin nombre',
-          codigoIdentificador: item.codigoIdentificador || 'N/A',
-          numeroDocumento: item.numeroDocumento || 'N/A',
-          valor: typeof item.valor === 'number' ? item.valor : 0,
-          estado: item.estado || 'SUBIDA',
-          responsable: item.responsable || 'N/A',
-          fechaTransferencia: item.fechaTransferencia || null,
-          zonaSector: item.zonaSector || 'N/A',
-          barrio: item.barrio || 'N/A',
-          bancoCuenta: item.bancoCuenta || 'N/A',
-          imagenComprobante: imagenValida,
-          tieneImagen: imagenValida !== null,
-        };
-      });
-      
-      setTransferencias(itemsSeguros);
-      setTransferenciasFiltradas(itemsSeguros);
-      console.log('✅ Cargadas:', itemsSeguros.length);
-      
-    } catch (error) {
-      console.error('❌ Error:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
+      // Es Base64 con prefijo
+      if (img.startsWith('data:image')) {
+        return img;
+      }
+      // Es Base64 sin prefijo (largo > 100)
+      if (img.length > 100) {
+        return img;
+      }
+    }
+    
+    // ? PRIORIDAD 2: soporte (solo si es URL o Base64 válido)
+    if (item.soporte) {
+      const sop = item.soporte;
+      // Es URL de Cloudinary/HTTP
+      if (sop.startsWith('http://') || sop.startsWith('https://')) {
+        return sop;
+      }
+      // Es Base64 con prefijo
+      if (sop.startsWith('data:image')) {
+        return sop;
+      }
+      // Es Base64 sin prefijo (largo > 100)
+      if (sop.length > 100) {
+        return sop;
+      }
+    }
+    
+    return null;
+  };
+
+  const getImagenUri = (imagenData) => {
+    if (!imagenData) return null;
+    if (imagenData.startsWith('http://') || imagenData.startsWith('https://')) return imagenData;
+    if (imagenData.startsWith('data:image')) return imagenData;
+    if (imagenData.length > 100) return `data:image/jpeg;base64,${imagenData}`;
+    return null;
+  };
+
+  const tieneImagen = (item) => {
+    return getImagen(item) !== null;
+  };
+
+  // FILTRO POR FECHA
+  const aplicarFiltroFecha = (inicio, fin) => {
+    // Delegar a la funcion combinada que respeta tambien el filtro de banco
+    aplicarFiltrosCombinados(inicio, fin, bancoSeleccionado);
+  };
+
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      if (datePickerMode === 'start') {
+        setFechaInicio(selectedDate);
+        aplicarFiltroFecha(selectedDate, fechaFin);
+      } else {
+        setFechaFin(selectedDate);
+        aplicarFiltroFecha(fechaInicio, selectedDate);
+      }
     }
   };
 
-  // Filtrar
-  useEffect(() => {
-    if (!transferencias || transferencias.length === 0) {
-      setTransferenciasFiltradas([]);
-      return;
-    }
-    
+  const abrirDatePicker = (modo) => {
+    setDatePickerMode(modo);
+    setShowDatePicker(true);
+  };
+
+  const limpiarFiltroFecha = () => {
+    setFechaInicio(null);
+    setFechaFin(null);
+    // Respetar el filtro de banco activo
+    aplicarFiltrosCombinados(null, null, bancoSeleccionado);
+  };
+
+  const hayFiltroFecha = fechaInicio !== null || fechaFin !== null;
+
+  const formatFechaFiltro = (fecha) => {
+    if (!fecha) return 'Seleccionar';
+    return new Date(fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  // FILTRO POR BANCO
+  const aplicarFiltrosCombinados = (inicio, fin, banco) => {
     let filtradas = [...transferencias];
-    if (searchText.trim() !== '') {
-      const texto = searchText.trim().toLowerCase();
+    
+    if (inicio) {
+      const inicioDate = new Date(inicio);
+      inicioDate.setHours(0, 0, 0, 0);
       filtradas = filtradas.filter(t => {
-        return (
-          (t.nombreUsuario || '').toLowerCase().includes(texto) ||
-          (t.codigoIdentificador || '').toLowerCase().includes(texto) ||
-          (t.numeroDocumento || '').toLowerCase().includes(texto)
-        );
+        const fecha = new Date(t.fechaTransferencia || t.createdAt);
+        return fecha >= inicioDate;
       });
     }
+    
+    if (fin) {
+      const finDate = new Date(fin);
+      finDate.setHours(23, 59, 59, 999);
+      filtradas = filtradas.filter(t => {
+        const fecha = new Date(t.fechaTransferencia || t.createdAt);
+        return fecha <= finDate;
+      });
+    }
+    
+    if (banco && banco !== 'TODOS') {
+      filtradas = filtradas.filter(t => t.bancoCuenta === banco);
+    }
+    
     setTransferenciasFiltradas(filtradas);
-  }, [searchText, transferencias]);
+  };
 
-  // ✅ FUNCIÓN PARA APROBAR
-  const aprobarTransferencia = async (id) => {
+  const seleccionarBanco = (banco) => {
+    setBancoSeleccionado(banco);
+    setMostrarFiltroBanco(false);
+    // Buscar en backend con el nuevo filtro
+    setTimeout(() => buscarTransferenciasConFiltros(banco), 50);
+  };
+
+  const limpiarFiltroBanco = () => {
+    setBancoSeleccionado('TODOS');
+    aplicarFiltrosCombinados(fechaInicio, fechaFin, 'TODOS');
+  };
+
+  const hayFiltroBanco = bancoSeleccionado !== 'TODOS';
+
+  // BUSQUEDA POR NOMBRE/CODIGO/DOCUMENTO (busca en TODA la BD)
+  const buscarTransferencias = async () => {
+    setBuscando(true);
+    try {
+      const params = ['estado=SUBIDA'];
+      if (searchTerm && searchTerm.trim()) params.push('search=' + encodeURIComponent(searchTerm.trim()));
+      if (bancoSeleccionado && bancoSeleccionado !== 'TODOS') params.push('banco=' + encodeURIComponent(bancoSeleccionado));
+      if (fechaInicio) params.push('fechaInicio=' + encodeURIComponent(fechaInicio.toISOString()));
+      if (fechaFin) params.push('fechaFin=' + encodeURIComponent(fechaFin.toISOString()));
+      
+      const url = '/transferencias/buscar?' + params.join('&');
+      console.log('Buscando:', url);
+      const response = await api.get(url);
+      const data = response.data.data || [];
+      setTransferenciasFiltradas(data);
+      console.log('Encontradas:', data.length);
+    } catch (error) {
+      console.error('Error buscando:', error);
+      Alert.alert('Error', 'No se pudo realizar la busqueda');
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  // Helper: buscar con un banco especifico (evita problemas de estado async)
+  const buscarTransferenciasConFiltros = async (bancoParam) => {
+    setBuscando(true);
+    try {
+      const banco = bancoParam !== undefined ? bancoParam : bancoSeleccionado;
+      const params = ['estado=SUBIDA'];
+      if (searchTerm && searchTerm.trim()) params.push('search=' + encodeURIComponent(searchTerm.trim()));
+      if (banco && banco !== 'TODOS') params.push('banco=' + encodeURIComponent(banco));
+      if (fechaInicio) params.push('fechaInicio=' + encodeURIComponent(fechaInicio.toISOString()));
+      if (fechaFin) params.push('fechaFin=' + encodeURIComponent(fechaFin.toISOString()));
+      
+      const url = '/transferencias/buscar?' + params.join('&');
+      console.log('Buscando:', url);
+      const response = await api.get(url);
+      const data = response.data.data || [];
+      setTransferenciasFiltradas(data);
+    } catch (error) {
+      console.error('Error buscando:', error);
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  const confirmarTransferencia = async (id, estado) => {
     Alert.alert(
-      'Confirmar Aprobación',
-      '¿Estás seguro de aprobar esta transferencia?',
+      'Confirmar Transferencia',
+      `¿Estás seguro de ${estado === 'CONFIRMADA' ? 'aprobar' : 'denegar'} esta transferencia?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Aprobar',
+          text: estado === 'CONFIRMADA' ? 'Aprobar' : 'Denegar',
           onPress: async () => {
             try {
-              await api.put(`/transferencias/${id}/confirmar`, { estado: 'CONFIRMADA' });
-              Alert.alert('Éxito', 'Transferencia aprobada correctamente');
+              await api.put(`/transferencias/${id}/confirmar`, { estado });
+              Alert.alert('Éxito', `Transferencia ${estado === 'CONFIRMADA' ? 'confirmada' : 'denegada'} correctamente`);
               setModalVisible(false);
               cargarTransferencias();
             } catch (error) {
-              Alert.alert('Error', error.response?.data?.message || 'Error al aprobar');
+              Alert.alert('Error', error.response?.data?.message || 'Error al procesar');
             }
           },
         },
       ]
-    );
+
+  // ✅ NUEVA: abrir modal de denegacion (pide observacion)
+  const abrirModalDenegar = (id) => {
+    setTransferenciaADenegar(id);
+    setMotivoDenegacion('');
+    setModalDenegarVisible(true);
   };
 
-  // 🆕 FUNCIÓN PARA ABRIR MODAL DE DENEGACIÓN CON NOTA
-  const abrirModalDenegacion = (transferencia) => {
-    setTransferenciaDenegar(transferencia);
-    setNotaDenegacion('');
-    setModalDenegacionVisible(true);
-  };
-
-  // 🆕 CONFIRMAR DENEGACIÓN SOLO CON NOTA
+  // ✅ NUEVA: confirmar denegacion con observacion obligatoria
   const confirmarDenegacion = async () => {
-    if (!notaDenegacion.trim()) {
-      Alert.alert('Campo requerido', 'Debes escribir una nota explicando el motivo de la denegación');
+    if (!motivoDenegacion.trim()) {
+      Alert.alert('Observacion requerida', 'Debes escribir el motivo de la denegacion');
       return;
     }
 
-    setSubiendoDenegacion(true);
-
     try {
-      const body = {
+      await api.put(`/transferencias/${transferenciaADenegar}/confirmar`, {
         estado: 'DENEGADA',
-        notaDenegacion: notaDenegacion.trim(),
-      };
-
-      const response = await api.put(`/transferencias/${transferenciaDenegar._id}/confirmar`, body);
-
-      if (response.data) {
-        Alert.alert('Éxito', 'Transferencia denegada correctamente');
-        setModalDenegacionVisible(false);
-        setTransferenciaDenegar(null);
-        setNotaDenegacion('');
-        setModalVisible(false);
-        cargarTransferencias();
-      }
+        notaDenegacion: motivoDenegacion.trim(),
+      });
+      Alert.alert('Exito', 'Transferencia denegada correctamente');
+      setModalDenegarVisible(false);
+      setMotivoDenegacion('');
+      setTransferenciaADenegar(null);
+      setModalVisible(false);
+      cargarTransferencias();
     } catch (error) {
-      console.error('Error denegando:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Error al denegar la transferencia');
-    } finally {
-      setSubiendoDenegacion(false);
+      Alert.alert('Error', error.response?.data?.message || 'Error al denegar');
     }
   };
 
@@ -224,150 +319,224 @@ const ConfirmacionTransferencias = ({ navigation }) => {
   };
 
   const formatFecha = (fecha) => {
-    try {
-      if (!fecha) return 'Sin fecha';
-      const d = new Date(fecha);
-      if (isNaN(d.getTime())) return 'Fecha inválida';
-      return d.toLocaleDateString('es-ES');
-    } catch (e) { return 'Fecha inválida'; }
+    if (!fecha) return 'Sin fecha';
+    return new Date(fecha).toLocaleDateString('es-ES');
   };
 
   const formatValor = (valor) => {
-    try {
-      if (valor === undefined || valor === null) return '$0.00';
-      return `$${Number(valor).toFixed(2)}`;
-    } catch (e) { return '$0.00'; }
+    return `$${valor?.toFixed(2) || '0.00'}`;
   };
 
-  // ✅ RENDER DE IMAGEN
-  const renderImagen = (item) => {
-    if (!item || !item.tieneImagen || !item.imagenComprobante) return null;
-    
+  const renderTransferencia = (item) => {
     return (
-      <TouchableOpacity 
-        style={styles.imagenContainer}
+      <TouchableOpacity
+        key={item._id}
+        style={styles.transferenciaCard}
         onPress={() => {
-          const img = item.imagenComprobante;
-          if (img) abrirFotoAmpliada(img);
+          setTransferenciaSeleccionada(item);
+          setModalVisible(true);
         }}
-        activeOpacity={0.8}
       >
-        <Image
-          source={{ uri: item.imagenComprobante }}
-          style={styles.imagenMiniatura}
-          resizeMode="cover"
-          resizeMethod="resize"
-          fadeDuration={0}
-          onError={() => console.log('⚠️ Error cargando imagen')}
-        />
-        <View style={styles.imagenBadge}>
-          <Text style={styles.imagenBadgeText}>📷 Tocar para ampliar</Text>
+        <View style={styles.transferenciaHeader}>
+          <Text style={styles.transferenciaCodigo}>{item.codigoIdentificador}</Text>
+          <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(item.estado) }]}>
+            <Text style={styles.estadoBadgeText}>{item.estado}</Text>
+          </View>
         </View>
+
+        <Text style={styles.transferenciaNombre}>{item.nombreUsuario}</Text>
+        <Text style={styles.transferenciaDocumento}>Doc: {item.numeroDocumento}</Text>
+
+        {/* ✅ ZONA */}
+        <View style={styles.zonaContainer}>
+          <Text style={styles.zonaText}>📍 {item.zonaSector} - {item.barrio}</Text>
+        </View>
+
+        {/* ✅ NUEVO: BANCO Y CUENTA */}
+        <View style={styles.bancoContainer}>
+          <Text style={styles.bancoLabel}>🏦 Banco / Cuenta:</Text>
+          <Text style={styles.bancoText}>{item.bancoCuenta}</Text>
+        </View>
+
+        <View style={styles.transferenciaFooter}>
+          <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
+          <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
+          <Text style={styles.transferenciaInfo}>👤 {item.responsable}</Text>
+        </View>
+
+        {tieneImagen(item) && (
+          <View style={styles.imagenIndicator}>
+            <Text style={styles.imagenIndicatorText}>📷 Tiene comprobante</Text>
+          </View>
+        )}
+
+        {isAdminOrJefe && (
+          <View style={styles.accionesContainer}>
+            <TouchableOpacity
+              style={[styles.accionButton, styles.accionAprobar]}
+              onPress={() => confirmarTransferencia(item._id, 'CONFIRMADA')}
+            >
+              <Text style={styles.accionButtonText}>✅ Aprobar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.accionButton, styles.accionDenegar]}
+              onPress={() => abrirModalDenegar(item._id)}
+            >
+              <Text style={styles.accionButtonText}>❌ Denegar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </TouchableOpacity>
-    );
-  };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6C5CE7" />
         <Text style={styles.loadingText}>Cargando transferencias...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <Text style={styles.errorIcon}>❌</Text>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={cargarTransferencias}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>📋 Confirmación de Transferencias</Text>
-        <Text style={styles.subtitle}>
-          {transferenciasFiltradas.length} transferencia{transferenciasFiltradas.length !== 1 ? 's' : ''}
-          {searchText !== '' && ' (filtrado)'}
-        </Text>
       </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por nombre, código o documento..."
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholderTextColor="#B2BEC3"
-          />
-          {searchText !== '' && (
-            <TouchableOpacity onPress={() => setSearchText('')}>
-              <Text style={styles.clearIcon}>✕</Text>
+      {/* BUSCADOR POR NOMBRE/CODIGO/DOCUMENTO */}
+      <View style={styles.buscadorContainer}>
+        <TextInput
+          style={styles.buscadorInput}
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          placeholder="Buscar nombre, codigo o documento..."
+          onSubmitEditing={buscarTransferencias}
+          returnKeyType="search"
+        />
+        <TouchableOpacity style={styles.buscadorButton} onPress={buscarTransferencias}>
+          <Text style={styles.buscadorButtonText}>Buscar</Text>
+        </TouchableOpacity>
+        {searchTerm.trim() !== '' && (
+          <TouchableOpacity
+            style={styles.buscadorClearBtn}
+            onPress={() => {
+              setSearchTerm('');
+              setTimeout(() => buscarTransferencias(), 100);
+            }}
+          >
+            <Text style={styles.buscadorClearText}>X</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* FILTRO POR FECHA */}
+      <View style={styles.filtroFechaContainer}>
+        <View style={styles.filtroFechaRow}>
+          <TouchableOpacity
+            style={[styles.filtroFechaBtn, fechaInicio && styles.filtroFechaBtnActivo]}
+            onPress={() => abrirDatePicker('start')}
+          >
+            <Text style={styles.filtroFechaLabel}>Desde:</Text>
+            <Text style={styles.filtroFechaValor}>{formatFechaFiltro(fechaInicio)}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filtroFechaBtn, fechaFin && styles.filtroFechaBtnActivo]}
+            onPress={() => abrirDatePicker('end')}
+          >
+            <Text style={styles.filtroFechaLabel}>Hasta:</Text>
+            <Text style={styles.filtroFechaValor}>{formatFechaFiltro(fechaFin)}</Text>
+          </TouchableOpacity>
+
+          {hayFiltroFecha && (
+            <TouchableOpacity
+              style={styles.filtroFechaClear}
+              onPress={limpiarFiltroFecha}
+            >
+              <Text style={styles.filtroFechaClearText}>X</Text>
             </TouchableOpacity>
           )}
         </View>
+
+        {hayFiltroFecha && (
+          <Text style={styles.filtroFechaInfo}>
+            Mostrando {transferenciasFiltradas.length} de {transferencias.length} transferencias
+          </Text>
+        )}
       </View>
 
-      <ScrollView style={styles.listaContainer}>
+      {/* FILTRO POR BANCO */}
+      <View style={styles.filtroBancoContainer}>
+        <TouchableOpacity
+          style={[styles.filtroBancoBtn, hayFiltroBanco && styles.filtroBancoBtnActivo]}
+          onPress={() => setMostrarFiltroBanco(!mostrarFiltroBanco)}
+        >
+          <Text style={[styles.filtroBancoBtnText, hayFiltroBanco && styles.filtroBancoBtnTextActivo]}>
+            🏦 {hayFiltroBanco ? bancoSeleccionado : 'Banco / Cuenta'}
+          </Text>
+          {hayFiltroBanco && (
+            <TouchableOpacity onPress={limpiarFiltroBanco} style={styles.filtroBancoClear}>
+              <Text style={styles.filtroBancoClearText}>X</Text>
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+
+        {mostrarFiltroBanco && (
+          <ScrollView style={styles.filtroBancoLista} nestedScrollEnabled>
+            <TouchableOpacity
+              style={[styles.filtroBancoItem, bancoSeleccionado === 'TODOS' && styles.filtroBancoItemActivo]}
+              onPress={() => seleccionarBanco('TODOS')}
+            >
+              <Text style={[styles.filtroBancoItemText, bancoSeleccionado === 'TODOS' && styles.filtroBancoItemTextActivo]}>
+                🌐 Todos los bancos
+              </Text>
+            </TouchableOpacity>
+            {bancosDisponibles.map((banco) => (
+              <TouchableOpacity
+                key={banco}
+                style={[styles.filtroBancoItem, bancoSeleccionado === banco && styles.filtroBancoItemActivo]}
+                onPress={() => seleccionarBanco(banco)}
+              >
+                <Text style={[styles.filtroBancoItemText, bancoSeleccionado === banco && styles.filtroBancoItemTextActivo]}>
+                  🏦 {banco}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={
+            datePickerMode === 'start'
+              ? (fechaInicio || new Date())
+              : (fechaFin || new Date())
+          }
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDateChange}
+        />
+      )}
+
+      <ScrollView
+        style={styles.listaContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {transferenciasFiltradas.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📭</Text>
-            <Text style={styles.emptyText}>
-              {searchText !== '' ? 'No hay coincidencias' : 'No hay transferencias pendientes'}
-            </Text>
+            <Text style={styles.emptyText}>No hay transferencias pendientes</Text>
           </View>
         ) : (
-          transferenciasFiltradas.map((item) => (
-            <View key={item._id} style={styles.transferenciaCard}>
-              <View style={styles.transferenciaHeader}>
-                <Text style={styles.transferenciaCodigo}>{item.codigoIdentificador || 'N/A'}</Text>
-                <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(item.estado) }]}>
-                  <Text style={styles.estadoBadgeText}>{item.estado || 'SUBIDA'}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.transferenciaNombre}>{item.nombreUsuario || 'Sin nombre'}</Text>
-              <Text style={styles.transferenciaDocumento}>📄 Documento: {item.numeroDocumento || 'N/A'}</Text>
-
-              <View style={styles.transferenciaFooter}>
-                <Text style={styles.transferenciaInfo}>💰 {formatValor(item.valor)}</Text>
-                <Text style={styles.transferenciaInfo}>📅 {formatFecha(item.fechaTransferencia)}</Text>
-                <Text style={styles.transferenciaInfo}>👤 {item.responsable || 'N/A'}</Text>
-              </View>
-
-              {renderImagen(item)}
-
-              {isAdminOrJefe && (
-                <View style={styles.accionesContainer}>
-                  <TouchableOpacity
-                    style={[styles.accionButton, styles.accionAprobar]}
-                    onPress={() => aprobarTransferencia(item._id)}
-                  >
-                    <Text style={styles.accionButtonText}>✅ Aprobar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.accionButton, styles.accionDenegar]}
-                    onPress={() => abrirModalDenegacion(item)}
-                  >
-                    <Text style={styles.accionButtonText}>❌ Denegar</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          ))
+          transferenciasFiltradas.map(renderTransferencia)
         )}
         <View style={styles.footerSpacer} />
       </ScrollView>
 
-      {/* MODAL CON IMAGEN AMPLIADA */}
+      {/* ✅ MODAL DE DETALLE */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -380,63 +549,79 @@ const ConfirmacionTransferencias = ({ navigation }) => {
 
             {transferenciaSeleccionada && (
               <View>
-                <Text style={styles.modalLabel}>Código:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.codigoIdentificador || 'N/A'}</Text>
+                <Text style={styles.modalLabel}>C</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.codigoIdentificador}</Text>
 
                 <Text style={styles.modalLabel}>Nombre:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.nombreUsuario || 'Sin nombre'}</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.nombreUsuario}</Text>
 
                 <Text style={styles.modalLabel}>Documento:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.numeroDocumento || 'N/A'}</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.numeroDocumento}</Text>
 
                 <Text style={styles.modalLabel}>Valor:</Text>
                 <Text style={styles.modalValue}>{formatValor(transferenciaSeleccionada.valor)}</Text>
 
-                <Text style={styles.modalLabel}>Zona:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.zonaSector || 'N/A'} - {transferenciaSeleccionada.barrio || 'N/A'}</Text>
+                <Text style={styles.modalLabel}>Zona / Barrio:</Text>
+                <Text style={styles.modalValue}>
+                  📍 {transferenciaSeleccionada.zonaSector} - {transferenciaSeleccionada.barrio}
+                </Text>
 
-                <Text style={styles.modalLabel}>Banco:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.bancoCuenta || 'N/A'}</Text>
+                {/* ✅ BANCO Y CUENTA */}
+                <Text style={styles.modalLabel}>🏦 Banco / Cuenta:</Text>
+                <View style={styles.modalBancoContainer}>
+                  <Text style={styles.modalBancoText}>
+                    {transferenciaSeleccionada.bancoCuenta}
+                  </Text>
+                </View>
 
                 <Text style={styles.modalLabel}>Fecha:</Text>
                 <Text style={styles.modalValue}>{formatFecha(transferenciaSeleccionada.fechaTransferencia)}</Text>
 
                 <Text style={styles.modalLabel}>Responsable:</Text>
-                <Text style={styles.modalValue}>{transferenciaSeleccionada.responsable || 'N/A'}</Text>
+                <Text style={styles.modalValue}>{transferenciaSeleccionada.responsable}</Text>
 
                 <Text style={styles.modalLabel}>Estado:</Text>
                 <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(transferenciaSeleccionada.estado), alignSelf: 'flex-start' }]}>
-                  <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado || 'SUBIDA'}</Text>
+                  <Text style={styles.estadoBadgeText}>{transferenciaSeleccionada.estado}</Text>
                 </View>
 
-                {transferenciaSeleccionada.tieneImagen && transferenciaSeleccionada.imagenComprobante && (
-                  <View style={styles.modalImagenContainer}>
-                    <Text style={styles.modalLabel}>📷 Comprobante:</Text>
-                    <Image
-                      source={{ uri: transferenciaSeleccionada.imagenComprobante }}
-                      style={styles.modalImagen}
-                      resizeMode="contain"
-                      resizeMethod="resize"
-                      fadeDuration={0}
-                      onError={() => console.log('⚠️ Error en imagen modal')}
-                    />
-                  </View>
-                )}
+                {/* IMAGEN DEL COMPROBANTE */}
+                {(() => {
+                  const imagenData = getImagen(transferenciaSeleccionada);
+                  if (imagenData) {
+                    return (
+                      <View style={styles.imagenContainer}>
+                        <Text style={styles.modalLabel}>📷 Comprobante:</Text>
+                        <Image
+                          source={{
+                            uri: getImagenUri(imagenData)
+                          }}
+                          style={styles.modalImagen}
+                          resizeMode="contain"
+                          onError={(e) => console.log('❌ Error imagen:', e.nativeEvent.error)}
+                        />
+                      </View>
+                    );
+                  } else {
+                    return (
+                      <View style={styles.sinImagenContainer}>
+                        <Text style={styles.sinImagenText}>📭 Sin comprobante</Text>
+                      </View>
+                    );
+                  }
+                })()}
 
                 {isAdminOrJefe && transferenciaSeleccionada.estado === 'SUBIDA' && (
                   <View style={styles.modalBotones}>
                     <TouchableOpacity
                       style={[styles.modalButton, styles.modalAprobar]}
-                      onPress={() => aprobarTransferencia(transferenciaSeleccionada._id)}
+                      onPress={() => confirmarTransferencia(transferenciaSeleccionada._id, 'CONFIRMADA')}
                     >
                       <Text style={styles.modalButtonText}>✅ Aprobar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.modalButton, styles.modalDenegar]}
-                      onPress={() => {
-                        setModalVisible(false);
-                        abrirModalDenegacion(transferenciaSeleccionada);
-                      }}
+                      onPress={() => abrirModalDenegar(transferenciaSeleccionada._id)}
                     >
                       <Text style={styles.modalButtonText}>❌ Denegar</Text>
                     </TouchableOpacity>
@@ -445,132 +630,72 @@ const ConfirmacionTransferencias = ({ navigation }) => {
               </View>
             )}
 
-            <TouchableOpacity style={styles.modalCerrar} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.modalCerrar}
+              onPress={() => setModalVisible(false)}
+            >
               <Text style={styles.modalCerrarText}>Cerrar</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
       </Modal>
-
-      {/* 🆕 MODAL PARA DENEGAR SOLO CON NOTA */}
+    </View>
+      {/* ✅ NUEVO MODAL: DENEGAR CON OBSERVACION */}
       <Modal
+        visible={modalDenegarVisible}
         animationType="slide"
         transparent={true}
-        visible={modalDenegacionVisible}
-        onRequestClose={() => {
-          if (!subiendoDenegacion) {
-            setModalDenegacionVisible(false);
-            setTransferenciaDenegar(null);
-            setNotaDenegacion('');
-          }
-        }}
+        onRequestClose={() => setModalDenegarVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalDenegacionContent}>
-            <View style={styles.modalDenegacionHeader}>
-              <Text style={styles.modalDenegacionTitle}>❌ Denegar Transferencia</Text>
-              {!subiendoDenegacion && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setModalDenegacionVisible(false);
-                    setTransferenciaDenegar(null);
-                    setNotaDenegacion('');
-                  }}
-                  style={styles.modalDenegacionClose}
-                >
-                  <Text style={styles.modalDenegacionCloseText}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+          <View style={styles.modalDenegarContainer}>
+            <Text style={styles.modalDenegarTitle}>❌ Denegar Transferencia</Text>
+            <Text style={styles.modalDenegarSubtitle}>
+              Escribe el motivo de la denegación (obligatorio):
+            </Text>
 
-            <View style={styles.modalDenegacionBody}>
-              <Text style={styles.modalDenegacionSubtitle}>
-                Transferencia #{transferenciaDenegar?.numeroDocumento || 'N/A'}
-              </Text>
-              <Text style={styles.modalDenegacionSubtitle2}>
-                {transferenciaDenegar?.nombreUsuario || 'Sin nombre'}
-              </Text>
+            <TextInput
+              style={styles.modalDenegarInput}
+              placeholder="Ej: El comprobante no coincide con el monto..."
+              placeholderTextColor="#999"
+              value={motivoDenegacion}
+              onChangeText={setMotivoDenegacion}
+              multiline
+              numberOfLines={4}
+              maxLength={300}
+              autoFocus
+            />
 
-              {/* 📝 CAMPO PARA LA NOTA */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>📝 Nota de denegación *</Text>
-                <TextInput
-                  style={styles.textArea}
-                  multiline
-                  numberOfLines={4}
-                  placeholder="Escribe el motivo de la denegación..."
-                  placeholderTextColor="#B2BEC3"
-                  value={notaDenegacion}
-                  onChangeText={setNotaDenegacion}
-                  editable={!subiendoDenegacion}
-                />
-              </View>
+            <Text style={styles.modalDenegarCounter}>
+              {motivoDenegacion.length}/300
+            </Text>
 
-              {/* BOTONES DE ACCIÓN */}
-              <View style={styles.modalDenegacionFooter}>
-                <TouchableOpacity
-                  style={[styles.modalDenegacionBtn, styles.modalDenegacionBtnCancel]}
-                  onPress={() => {
-                    setModalDenegacionVisible(false);
-                    setTransferenciaDenegar(null);
-                    setNotaDenegacion('');
-                  }}
-                  disabled={subiendoDenegacion}
-                >
-                  <Text style={styles.modalDenegacionBtnText}>Cancelar</Text>
-                </TouchableOpacity>
+            <View style={styles.modalDenegarBotones}>
+              <TouchableOpacity
+                style={[styles.modalDenegarBtn, styles.modalDenegarCancelar]}
+                onPress={() => {
+                  setModalDenegarVisible(false);
+                  setMotivoDenegacion('');
+                  setTransferenciaADenegar(null);
+                }}
+              >
+                <Text style={styles.modalDenegarBtnText}>Cancelar</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.modalDenegacionBtn, 
-                    styles.modalDenegacionBtnConfirm,
-                    (!notaDenegacion.trim() || subiendoDenegacion) && styles.modalDenegacionBtnDisabled
-                  ]}
-                  onPress={confirmarDenegacion}
-                  disabled={!notaDenegacion.trim() || subiendoDenegacion}
-                >
-                  {subiendoDenegacion ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.modalDenegacionBtnText}>Denegar</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[styles.modalDenegarBtn, styles.modalDenegarConfirmar]}
+                onPress={confirmarDenegacion}
+                disabled={!motivoDenegacion.trim()}
+              >
+                <Text style={styles.modalDenegarBtnText}>❌ Denegar</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
-      {/* MODAL PARA FOTO AMPLIADA */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalFotoVisible}
-        onRequestClose={() => setModalFotoVisible(false)}
-      >
-        <View style={styles.fotoModalOverlay}>
-          <TouchableOpacity 
-            style={styles.fotoModalClose}
-            onPress={() => setModalFotoVisible(false)}
-          >
-            <Text style={styles.fotoModalCloseText}>✕ Cerrar</Text>
-          </TouchableOpacity>
-          {fotoAmpliada && (
-            <Image
-              source={{ uri: fotoAmpliada }}
-              style={styles.fotoAmpliada}
-              resizeMode="contain"
-              resizeMethod="resize"
-              fadeDuration={0}
-              onError={() => console.log('⚠️ Error en foto ampliada')}
-            />
-          )}
-        </View>
-      </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -587,72 +712,177 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
-  },
-  searchContainer: {
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  searchIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#2D3436',
-    paddingVertical: 4,
-  },
-  clearIcon: {
-    fontSize: 18,
-    color: '#FF6B6B',
-    fontWeight: 'bold',
-    paddingHorizontal: 4,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F7FA',
-    padding: 20,
   },
   loadingText: {
     marginTop: 10,
     color: '#636E72',
   },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 15,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#FF6B6B',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  retryButton: {
-    backgroundColor: '#6C5CE7',
-    paddingHorizontal: 30,
+  buscadorContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 15,
     paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  buscadorInput: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    padding: 10,
+    borderRadius: 10,
+    fontSize: 14,
+    marginRight: 8,
+  },
+  buscadorButton: {
+    backgroundColor: '#6C5CE7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 10,
   },
-  retryButtonText: {
+  buscadorButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  buscadorClearBtn: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginLeft: 6,
+  },
+  buscadorClearText: {
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: 'bold',
+  },
+  filtroFechaContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filtroFechaRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  filtroFechaBtn: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+  },
+  filtroFechaBtnActivo: {
+    backgroundColor: '#6C5CE720',
+    borderColor: '#6C5CE7',
+  },
+  filtroFechaLabel: {
+    fontSize: 11,
+    color: '#636E72',
+    marginBottom: 2,
+  },
+  filtroFechaValor: {
+    fontSize: 13,
+    color: '#2D3436',
+    fontWeight: '600',
+  },
+  filtroFechaClear: {
+    backgroundColor: '#FF6B6B',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filtroFechaClearText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  filtroFechaInfo: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#6C5CE7',
+    fontWeight: '500',
+  },
+  filtroBancoContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 15,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filtroBancoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+  },
+  filtroBancoBtnActivo: {
+    backgroundColor: '#6C5CE720',
+    borderColor: '#6C5CE7',
+  },
+  filtroBancoBtnText: {
+    fontSize: 13,
+    color: '#636E72',
+    fontWeight: '500',
+    flex: 1,
+  },
+  filtroBancoBtnTextActivo: {
+    color: '#6C5CE7',
+    fontWeight: '600',
+  },
+  filtroBancoClear: {
+    backgroundColor: '#6C5CE7',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  filtroBancoClearText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  filtroBancoLista: {
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8ECF1',
+    maxHeight: 250,
+  },
+  filtroBancoItem: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filtroBancoItemActivo: {
+    backgroundColor: '#6C5CE720',
+  },
+  filtroBancoItemText: {
+    fontSize: 13,
+    color: '#2D3436',
+  },
+  filtroBancoItemTextActivo: {
+    color: '#6C5CE7',
+    fontWeight: '600',
   },
   listaContainer: {
     flex: 1,
@@ -680,17 +910,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2D3436',
   },
-  transferenciaNombre: {
-    fontSize: 16,
-    color: '#2D3436',
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  transferenciaDocumento: {
-    fontSize: 14,
-    color: '#636E72',
-    marginBottom: 6,
-  },
   estadoBadge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -701,6 +920,50 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
+  transferenciaNombre: {
+    fontSize: 16,
+    color: '#2D3436',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  transferenciaDocumento: {
+    fontSize: 13,
+    color: '#0984E3',
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+
+  // ✅ ZONA
+  zonaContainer: {
+    marginBottom: 8,
+  },
+  zonaText: {
+    fontSize: 13,
+    color: '#6C5CE7',
+    fontWeight: '500',
+  },
+
+  // ✅ BANCO Y CUENTA
+  bancoContainer: {
+    marginBottom: 8,
+    backgroundColor: '#F0F4FF',
+    padding: 10,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#0984E3',
+  },
+  bancoLabel: {
+    fontSize: 11,
+    color: '#636E72',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  bancoText: {
+    fontSize: 13,
+    color: '#0984E3',
+    fontWeight: '600',
+  },
+
   transferenciaFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -711,31 +974,17 @@ const styles = StyleSheet.create({
     color: '#636E72',
     marginTop: 2,
   },
-  imagenContainer: {
-    marginTop: 10,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#F0F0F0',
-    position: 'relative',
-  },
-  imagenMiniatura: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
-  },
-  imagenBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+  imagenIndicator: {
+    marginTop: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: '#E8F8F5',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
   },
-  imagenBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
+  imagenIndicatorText: {
+    fontSize: 11,
+    color: '#00B894',
     fontWeight: '500',
   },
   accionesContainer: {
@@ -791,8 +1040,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    width: '95%',
-    maxHeight: '85%',
+    width: '90%',
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
@@ -812,14 +1061,43 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     marginBottom: 4,
   },
-  modalImagenContainer: {
+
+  // ✅ BANCO EN MODAL
+  modalBancoContainer: {
+    backgroundColor: '#F0F4FF',
+    padding: 12,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0984E3',
+    marginBottom: 4,
+  },
+  modalBancoText: {
+    fontSize: 15,
+    color: '#0984E3',
+    fontWeight: '600',
+  },
+
+  imagenContainer: {
     marginTop: 10,
+    alignItems: 'center',
   },
   modalImagen: {
     width: '100%',
-    height: 400,
+    height: 300,
     borderRadius: 10,
+    marginTop: 5,
     backgroundColor: '#F0F0F0',
+  },
+  sinImagenContainer: {
+    marginTop: 10,
+    padding: 20,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  sinImagenText: {
+    fontSize: 14,
+    color: '#636E72',
   },
   modalBotones: {
     flexDirection: 'row',
@@ -850,127 +1128,72 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
+  modalDenegarContainer: {
+    width: '90%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalDenegarTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FF6B6B',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalDenegarSubtitle: {
+    fontSize: 13,
+    color: '#636E72',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  modalDenegarInput: {
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#2D3436',
+    backgroundColor: '#F8F9FA',
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  modalDenegarCounter: {
+    fontSize: 11,
+    color: '#999',
+    textAlign: 'right',
+    marginTop: 4,
+    marginBottom: 15,
+  },
+  modalDenegarBotones: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalDenegarBtn: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalDenegarCancelar: {
+    backgroundColor: '#DFE6E9',
+  },
+  modalDenegarConfirmar: {
+    backgroundColor: '#FF6B6B',
+  },
+  modalDenegarBtnText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
   modalCerrarText: {
     color: '#2D3436',
     fontSize: 14,
     fontWeight: '500',
   },
-  // 🆕 ESTILOS PARA MODAL DE DENEGACIÓN CON NOTA
-  modalDenegacionContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    width: '90%',
-    maxHeight: '80%',
-  },
-  modalDenegacionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    paddingBottom: 12,
-  },
-  modalDenegacionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2D3436',
-  },
-  modalDenegacionClose: {
-    padding: 4,
-  },
-  modalDenegacionCloseText: {
-    fontSize: 20,
-    color: '#636E72',
-    fontWeight: 'bold',
-  },
-  modalDenegacionBody: {
-    flex: 1,
-  },
-  modalDenegacionSubtitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2D3436',
-    marginBottom: 4,
-  },
-  modalDenegacionSubtitle2: {
-    fontSize: 14,
-    color: '#636E72',
-    marginBottom: 16,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2D3436',
-    marginBottom: 8,
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: '#DFE6E9',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    backgroundColor: '#F8F9FA',
-    color: '#2D3436',
-  },
-  modalDenegacionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    gap: 10,
-  },
-  modalDenegacionBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  modalDenegacionBtnCancel: {
-    backgroundColor: '#DFE6E9',
-  },
-  modalDenegacionBtnConfirm: {
-    backgroundColor: '#FF6B6B',
-  },
-  modalDenegacionBtnDisabled: {
-    opacity: 0.5,
-  },
-  modalDenegacionBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  // ESTILOS PARA FOTO AMPLIADA
-  fotoModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fotoModalClose: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    zIndex: 10,
-    padding: 10,
-  },
-  fotoModalCloseText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  fotoAmpliada: {
-    width: '100%',
-    height: '80%',
-  },
 });
 
 export default ConfirmacionTransferencias;
+
+
+
