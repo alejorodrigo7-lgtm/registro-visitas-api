@@ -1,4 +1,4 @@
-const Transferencia = require('../models/Transferencia');
+﻿const Transferencia = require('../models/Transferencia');
 const User = require('../models/User');
 const Notificacion = require('../models/Notificacion');
 const pushService = require('../services/pushService');
@@ -141,21 +141,23 @@ exports.subirTransferencia = async (req, res) => {
       });
     }
 
-    // ✅ VALIDACIÓN: VERIFICAR DOCUMENTO DUPLICADO
-    const documentoExistente = await Transferencia.findOne({ 
-      numeroDocumento: numeroDocumento.trim() 
+    // Validacion: verificar documento duplicado SOLO entre transferencias NO denegadas
+    const documentoExistente = await Transferencia.findOne({
+      numeroDocumento: numeroDocumento.trim(),
+      estado: { $ne: 'DENEGADA' }
     });
-    
+
     if (documentoExistente) {
-      console.log(`❌ Documento duplicado: ${numeroDocumento}`);
+      console.log('Documento duplicado activo: ' + numeroDocumento + ' (estado: ' + documentoExistente.estado + ')');
       return res.status(400).json({
         success: false,
-        message: `El número de documento ${numeroDocumento} ya está registrado en otra transferencia`,
+        message: 'El numero de documento ' + numeroDocumento + ' ya esta registrado en otra transferencia activa (' + documentoExistente.estado + ')',
         campo: 'numeroDocumento',
         transferenciaExistente: {
           id: documentoExistente._id,
           fecha: documentoExistente.fechaTransferencia,
-          nombre: documentoExistente.nombreUsuario
+          nombre: documentoExistente.nombreUsuario,
+          estado: documentoExistente.estado
         }
       });
     }

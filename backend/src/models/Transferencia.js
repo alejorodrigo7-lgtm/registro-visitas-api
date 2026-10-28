@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 
 const transferenciaSchema = new mongoose.Schema({
   responsable: { 
@@ -23,12 +23,10 @@ const transferenciaSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
-  numeroDocumento: { 
-    type: String, 
-    required: true, 
-    trim: true,
-    unique: true,  // ✅ NUEVO: Evita duplicados
-    index: true    // ✅ NUEVO: Mejora búsquedas
+  numeroDocumento: {
+    type: String,
+    required: true,
+    trim: true
   },
   valor: { 
     type: Number, 
@@ -120,7 +118,13 @@ transferenciaSchema.index({ fechaTransferencia: -1 });
 transferenciaSchema.index({ zonaSector: 1 });
 
 // ✅ NUEVO: ÍNDICE ÚNICO PARA NÚMERO DE DOCUMENTO
-transferenciaSchema.index({ numeroDocumento: 1 }, { unique: true });
+// Indice unico parcial: solo aplica a transferencias NO denegadas
+// Permite volver a subir una transferencia con el mismo numeroDocumento
+// si la anterior esta DENEGADA
+transferenciaSchema.index(
+  { numeroDocumento: 1 },
+  { unique: true, partialFilterExpression: { estado: { $ne: 'DENEGADA' } } }
+);
 
 // ============================================
 // MIDDLEWARE PARA ACTUALIZAR updatedAt
