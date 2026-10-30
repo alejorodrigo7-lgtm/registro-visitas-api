@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const transferenciaController = require('../controllers/transferenciaController');
@@ -92,7 +92,7 @@ router.get('/verificar-documento/:numero',
       const { numero } = req.params;
       const Transferencia = require('../models/Transferencia');
       
-      const existe = await Transferencia.findOne({ numeroDocumento: numero });
+      const existe = await Transferencia.findOne({ numeroDocumento: numero, estado: { $ne: 'DENEGADA' } });
       
       res.json({
         success: true,
