@@ -134,7 +134,10 @@ const DashboardScreen = ({ navigation }) => {
 
   const formatDateAPI = (date) => {
     const d = new Date(date);
-    return d.toISOString().split('T')[0];
+    const anio = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return anio + '-' + mes + '-' + dia;
   };
 
   // ✅ FUNCIÓN AUXILIAR: PARSEAR FECHA SEGURA
@@ -1097,15 +1100,68 @@ const DashboardScreen = ({ navigation }) => {
         if (Object.keys(tipos).length === 0) {
           reporte += `- No hay servicios registrados\n`;
         } else {
-          const tiposOrdenados = Object.entries(tipos).sort((a, b) => {
-            const totalA = a[1].hoy + a[1].semana + a[1].mes;
-            const totalB = b[1].hoy + b[1].semana + b[1].mes;
-            return totalB - totalA;
-          });
+          const tiposOrdenados = Object.entries(tipos).sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
           for (const [nombre, datos] of tiposOrdenados) {
-            const total = datos.hoy + datos.semana + datos.mes;
-            reporte += `- ${nombre}: Total ${total} | Hoy ${datos.hoy} | Semana ${datos.semana} | Mes ${datos.mes}\n`;
+            const total = datos.total || 0;
+            const pct = stats.totalServicios > 0 ? ((total / stats.totalServicios) * 100).toFixed(1) : 0;
+            reporte += '- ' + nombre + ': ' + total + ' servicios (' + pct + '%)' + '\n';
           }
+        }
+
+        reporte += '\n';
+        reporte += '📍 POR BARRIO' + '\n';
+        reporte += '====================================' + '\n';
+        const barriosRep = stats.serviciosPorBarrio || {};
+        if (Object.keys(barriosRep).length === 0) {
+          reporte += '- No hay servicios en el rango' + '\n';
+        } else {
+          const barriosOrden = Object.entries(barriosRep).sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+          for (const [barrio, datos] of barriosOrden) {
+            const pctB = stats.totalServicios > 0 ? ((datos.total / stats.totalServicios) * 100).toFixed(1) : 0;
+            reporte += '- ' + barrio + ': ' + datos.total + ' servicios (' + pctB + '%)' + '\n';
+            const tiposOrd = Object.entries(datos.tipos || {}).sort((a, b) => b[1] - a[1]);
+            for (const [tipo, cant] of tiposOrd) {
+              reporte += '    - ' + tipo + ': ' + cant + '\n';
+            }
+          }
+        }
+
+        reporte += '\n';
+        reporte += '📊 COMPARATIVA DEL RANGO' + '\n';
+        reporte += '====================================' + '\n';
+        const tiposComp = Object.entries(stats.serviciosPorNombre || {});
+        const barriosComp = Object.entries(stats.serviciosPorBarrio || {});
+        const totalServ = stats.totalServicios || 0;
+        if (tiposComp.length > 0 || barriosComp.length > 0) {
+          const tOrd = [...tiposComp].sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+          const bOrd = [...barriosComp].sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+          const promTipo = tiposComp.length > 0 ? (totalServ / tiposComp.length).toFixed(1) : 0;
+          const promBarrio = barriosComp.length > 0 ? (totalServ / barriosComp.length).toFixed(1) : 0;
+          reporte += '- Total servicios: ' + totalServ + '\n';
+          reporte += '- Tipos distintos: ' + tiposComp.length + '\n';
+          reporte += '- Barrios distintos: ' + barriosComp.length + '\n';
+          reporte += '- Promedio por tipo: ' + promTipo + '\n';
+          reporte += '- Promedio por barrio: ' + promBarrio + '\n';
+          if (tOrd[0]) {
+            const pctT = totalServ > 0 ? ((tOrd[0][1].total / totalServ) * 100).toFixed(1) : 0;
+            reporte += '- Tipo mas frecuente: ' + tOrd[0][0] + ' (' + tOrd[0][1].total + ' - ' + pctT + '%)' + '\n';
+          }
+          if (bOrd[0]) {
+            const pctBB = totalServ > 0 ? ((bOrd[0][1].total / totalServ) * 100).toFixed(1) : 0;
+            reporte += '- Barrio con mas servicios: ' + bOrd[0][0] + ' (' + bOrd[0][1].total + ' - ' + pctBB + '%)' + '\n';
+          }
+          reporte += '\n';
+          reporte += 'TOP 5 TIPOS:' + '\n';
+          tOrd.slice(0, 5).forEach(([n, d], i) => {
+            reporte += '  ' + (i + 1) + '. ' + n + ' -> ' + d.total + '\n';
+          });
+          reporte += '\n';
+          reporte += 'TOP 5 BARRIOS:' + '\n';
+          bOrd.slice(0, 5).forEach(([n, d], i) => {
+            reporte += '  ' + (i + 1) + '. ' + n + ' -> ' + d.total + '\n';
+          });
+        } else {
+          reporte += '- No hay datos para comparar' + '\n';
         }
         break;
 
@@ -1386,23 +1442,97 @@ const DashboardScreen = ({ navigation }) => {
               {Object.keys(stats.serviciosPorNombre || {}).length === 0 ? (
                 <Text style={styles.emptyText}>No hay servicios registrados</Text>
               ) : (
-                Object.entries(stats.serviciosPorNombre || {}).map(([nombre, datos]) => {
-                  const total = datos.hoy + datos.semana + datos.mes;
-                  return (
-                    <View key={nombre} style={styles.servicioTipoItem}>
-                      <Text style={styles.servicioTipoNombre}>{nombre}</Text>
-                      <View style={styles.servicioTipoDetalles}>
-                        <Text style={styles.servicioTipoCantidad}>Total: {total}</Text>
-                        <Text style={styles.servicioTipoCantidad}>Hoy: {datos.hoy}</Text>
-                        <Text style={styles.servicioTipoCantidad}>Semana: {datos.semana}</Text>
-                        <Text style={styles.servicioTipoCantidad}>Mes: {datos.mes}</Text>
+                Object.entries(stats.serviciosPorNombre || {})
+                  .sort((a, b) => (b[1].total || 0) - (a[1].total || 0))
+                  .map(([nombre, datos]) => {
+                    const total = datos.total || 0;
+                    const pct = stats.totalServicios > 0 ? ((total / stats.totalServicios) * 100).toFixed(1) : 0;
+                    return (
+                      <View key={nombre} style={styles.servicioTipoItem}>
+                        <Text style={styles.servicioTipoNombre}>{nombre}</Text>
+                        <View style={styles.servicioTipoDetalles}>
+                          <Text style={styles.servicioTipoCantidad}>Total: {total} ({pct}%)</Text>
+                        </View>
                       </View>
-                    </View>
-                  );
-                })
+                    );
+                  })
               )}
             </View>
-          </View>
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📍 Por Barrio (con desglose por tipo)</Text>
+              {Object.keys(stats.serviciosPorBarrio || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay servicios en el rango</Text>
+              ) : (
+                Object.entries(stats.serviciosPorBarrio || {})
+                  .sort((a, b) => (b[1].total || 0) - (a[1].total || 0))
+                  .map(([barrio, datos]) => {
+                    const pct = stats.totalServicios > 0 ? ((datos.total / stats.totalServicios) * 100).toFixed(1) : 0;
+                    const tiposOrdenados = Object.entries(datos.tipos || {}).sort((a, b) => b[1] - a[1]);
+                    return (
+                      <View key={barrio} style={styles.servicioTipoItem}>
+                        <Text style={styles.servicioTipoNombre}>📍 {barrio} → {datos.total} servicios ({pct}%)</Text>
+                        <View style={{ marginTop: 6, marginLeft: 8 }}>
+                          {tiposOrdenados.map(([tipo, cant]) => (
+                            <Text key={tipo} style={{ fontSize: 12, color: '#636E72', marginBottom: 2 }}>
+                              • {tipo}: {cant}
+                            </Text>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  })
+              )}
+            </View>
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📊 Comparativa del Rango</Text>
+              {(() => {
+                const tipos = Object.entries(stats.serviciosPorNombre || {});
+                const barrios = Object.entries(stats.serviciosPorBarrio || {});
+                if (tipos.length === 0 && barrios.length === 0) return <Text style={styles.emptyText}>No hay datos</Text>;
+                const tiposOrden = [...tipos].sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+                const barriosOrden = [...barrios].sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+                const totalServ = stats.totalServicios || 0;
+                const tipoTop = tiposOrden[0];
+                const tipoBottom = tiposOrden[tiposOrden.length - 1];
+                const barrioTop = barriosOrden[0];
+                const barrioBottom = barriosOrden[barriosOrden.length - 1];
+                const promTipo = tipos.length > 0 ? (totalServ / tipos.length).toFixed(1) : 0;
+                const promBarrio = barrios.length > 0 ? (totalServ / barrios.length).toFixed(1) : 0;
+                return (
+                  <View>
+                    <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 4 }}>Total servicios: <Text style={{ fontWeight: '700', color: '#0984E3' }}>{totalServ}</Text></Text>
+                    <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 4 }}>Tipos distintos: <Text style={{ fontWeight: '700' }}>{tipos.length}</Text> | Barrios distintos: <Text style={{ fontWeight: '700' }}>{barrios.length}</Text></Text>
+                    <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 4 }}>Promedio por tipo: <Text style={{ fontWeight: '700' }}>{promTipo}</Text> | Promedio por barrio: <Text style={{ fontWeight: '700' }}>{promBarrio}</Text></Text>
+                    <View style={{ height: 1, backgroundColor: '#DFE6E9', marginVertical: 8 }} />
+                    {tipoTop && (
+                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>✅ Tipo más frecuente: <Text style={{ fontWeight: '700', color: '#00B894' }}>{tipoTop[0]}</Text> → {tipoTop[1].total} ({totalServ > 0 ? ((tipoTop[1].total / totalServ) * 100).toFixed(1) : 0}%)</Text>
+                    )}
+                    {tipoBottom && tipos.length > 1 && (
+                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>⚠️ Tipo menos frecuente: <Text style={{ fontWeight: '700', color: '#E17055' }}>{tipoBottom[0]}</Text> → {tipoBottom[1].total}</Text>
+                    )}
+                    {barrioTop && (
+                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>📍 Barrio con más servicios: <Text style={{ fontWeight: '700', color: '#0984E3' }}>{barrioTop[0]}</Text> → {barrioTop[1].total} ({totalServ > 0 ? ((barrioTop[1].total / totalServ) * 100).toFixed(1) : 0}%)</Text>
+                    )}
+                    {barrioBottom && barrios.length > 1 && (
+                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>📍 Barrio con menos servicios: <Text style={{ fontWeight: '700', color: '#E17055' }}>{barrioBottom[0]}</Text> → {barrioBottom[1].total}</Text>
+                    )}
+                    <View style={{ height: 1, backgroundColor: '#DFE6E9', marginVertical: 8 }} />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#2D3436', marginBottom: 4 }}>🏆 Top 5 Tipos</Text>
+                    {tiposOrden.slice(0, 5).map(([n, d], i) => (
+                      <Text key={n} style={{ fontSize: 12, color: '#636E72', marginBottom: 2 }}>{i + 1}. {n} → {d.total}</Text>
+                    ))}
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#2D3436', marginTop: 10, marginBottom: 4 }}>🏆 Top 5 Barrios</Text>
+                    {barriosOrden.slice(0, 5).map(([n, d], i) => (
+                      <Text key={n} style={{ fontSize: 12, color: '#636E72', marginBottom: 2 }}>{i + 1}. {n} → {d.total}</Text>
+                    ))}
+                  </View>
+                );
+              })()}
+            </View>
+
+            </View>
         );
 
       case 'desconexiones':
@@ -1500,78 +1630,6 @@ const DashboardScreen = ({ navigation }) => {
                   <Text style={styles.recentDate}>
                     {new Date(item.fechaSubida || item.createdAt).toLocaleDateString('es-EC')}
                   </Text>
-            <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>📍 Por Barrio (con desglose por tipo)</Text>
-              {Object.keys(stats.serviciosPorBarrio || {}).length === 0 ? (
-                <Text style={styles.emptyText}>No hay servicios en el rango</Text>
-              ) : (
-                Object.entries(stats.serviciosPorBarrio || {})
-                  .sort((a, b) => (b[1].total || 0) - (a[1].total || 0))
-                  .map(([barrio, datos]) => {
-                    const pct = stats.totalServicios > 0 ? ((datos.total / stats.totalServicios) * 100).toFixed(1) : 0;
-                    const tiposOrdenados = Object.entries(datos.tipos || {}).sort((a, b) => b[1] - a[1]);
-                    return (
-                      <View key={barrio} style={styles.servicioTipoItem}>
-                        <Text style={styles.servicioTipoNombre}>📍 {barrio} → {datos.total} servicios ({pct}%)</Text>
-                        <View style={{ marginTop: 6, marginLeft: 8 }}>
-                          {tiposOrdenados.map(([tipo, cant]) => (
-                            <Text key={tipo} style={{ fontSize: 12, color: '#636E72', marginBottom: 2 }}>
-                              • {tipo}: {cant}
-                            </Text>
-                          ))}
-                        </View>
-                      </View>
-                    );
-                  })
-              )}
-            </View>
-
-            <View style={styles.subSection}>
-              <Text style={styles.subSectionTitle}>📊 Comparativa del Rango</Text>
-              {(() => {
-                const tipos = Object.entries(stats.serviciosPorNombre || {});
-                const barrios = Object.entries(stats.serviciosPorBarrio || {});
-                if (tipos.length === 0 && barrios.length === 0) return <Text style={styles.emptyText}>No hay datos</Text>;
-                const tiposOrden = [...tipos].sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
-                const barriosOrden = [...barrios].sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
-                const totalServ = stats.totalServicios || 0;
-                const tipoTop = tiposOrden[0];
-                const tipoBottom = tiposOrden[tiposOrden.length - 1];
-                const barrioTop = barriosOrden[0];
-                const barrioBottom = barriosOrden[barriosOrden.length - 1];
-                const promTipo = tipos.length > 0 ? (totalServ / tipos.length).toFixed(1) : 0;
-                const promBarrio = barrios.length > 0 ? (totalServ / barrios.length).toFixed(1) : 0;
-                return (
-                  <View>
-                    <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 4 }}>Total servicios: <Text style={{ fontWeight: '700', color: '#0984E3' }}>{totalServ}</Text></Text>
-                    <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 4 }}>Tipos distintos: <Text style={{ fontWeight: '700' }}>{tipos.length}</Text> | Barrios distintos: <Text style={{ fontWeight: '700' }}>{barrios.length}</Text></Text>
-                    <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 4 }}>Promedio por tipo: <Text style={{ fontWeight: '700' }}>{promTipo}</Text> | Promedio por barrio: <Text style={{ fontWeight: '700' }}>{promBarrio}</Text></Text>
-                    <View style={{ height: 1, backgroundColor: '#DFE6E9', marginVertical: 8 }} />
-                    {tipoTop && (
-                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>✅ Tipo más frecuente: <Text style={{ fontWeight: '700', color: '#00B894' }}>{tipoTop[0]}</Text> → {tipoTop[1].total} ({totalServ > 0 ? ((tipoTop[1].total / totalServ) * 100).toFixed(1) : 0}%)</Text>
-                    )}
-                    {tipoBottom && tipos.length > 1 && (
-                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>⚠️ Tipo menos frecuente: <Text style={{ fontWeight: '700', color: '#E17055' }}>{tipoBottom[0]}</Text> → {tipoBottom[1].total}</Text>
-                    )}
-                    {barrioTop && (
-                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>📍 Barrio con más servicios: <Text style={{ fontWeight: '700', color: '#0984E3' }}>{barrioTop[0]}</Text> → {barrioTop[1].total} ({totalServ > 0 ? ((barrioTop[1].total / totalServ) * 100).toFixed(1) : 0}%)</Text>
-                    )}
-                    {barrioBottom && barrios.length > 1 && (
-                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>📍 Barrio con menos servicios: <Text style={{ fontWeight: '700', color: '#E17055' }}>{barrioBottom[0]}</Text> → {barrioBottom[1].total}</Text>
-                    )}
-                    <View style={{ height: 1, backgroundColor: '#DFE6E9', marginVertical: 8 }} />
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#2D3436', marginBottom: 4 }}>🏆 Top 5 Tipos</Text>
-                    {tiposOrden.slice(0, 5).map(([n, d], i) => (
-                      <Text key={n} style={{ fontSize: 12, color: '#636E72', marginBottom: 2 }}>{i + 1}. {n} → {d.total}</Text>
-                    ))}
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#2D3436', marginTop: 10, marginBottom: 4 }}>🏆 Top 5 Barrios</Text>
-                    {barriosOrden.slice(0, 5).map(([n, d], i) => (
-                      <Text key={n} style={{ fontSize: 12, color: '#636E72', marginBottom: 2 }}>{i + 1}. {n} → {d.total}</Text>
-                    ))}
-                  </View>
-                );
-              })()}
-            </View>
                 </View>
               ))}
             </View>
