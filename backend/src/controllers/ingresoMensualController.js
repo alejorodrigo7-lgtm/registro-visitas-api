@@ -147,3 +147,161 @@ exports.getIngresoMensual = async (req, res) => {
     res.status(500).json({ success: false, message: err.message || 'Error del servidor' });
   }
 };
+
+// ============================================
+// GET /api/ingreso-mensual/manual?mes=X&anio=Y
+// Devuelve los valores guardados (si existen) o null
+// ============================================
+exports.getManual = async (req, res) => {
+  try {
+    const IngresoMensualManual = require('../models/IngresoMensualManual');
+    const hoy = new Date();
+    const mes = parseInt(req.query.mes, 10) || (hoy.getMonth() + 1);
+    const anio = parseInt(req.query.anio, 10) || hoy.getFullYear();
+
+    const manual = await IngresoMensualManual.findOne({ mes, anio });
+    res.json({
+      success: true,
+      existe: !!manual,
+      data: manual || null,
+    });
+  } catch (error) {
+    console.error('Error obteniendo manual:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================
+// PUT /api/ingreso-mensual/manual
+// Body: { mes, anio, zonas: [...], totalGeneral }
+// Guarda o actualiza los valores editados
+// ============================================
+exports.guardarManual = async (req, res) => {
+  try {
+    const IngresoMensualManual = require('../models/IngresoMensualManual');
+    const { mes, anio, zonas, totalGeneral } = req.body;
+
+    if (!mes || !anio || !zonas || !Array.isArray(zonas)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan campos: mes, anio, zonas (array)',
+      });
+    }
+
+    // Recalcular totales por si el cliente no los mandó bien
+    let totalGeneralCalc = 0;
+    const zonasLimp = zonas.map(z => {
+      const cz = {
+        zona: z.zona,
+        cobrosVisitas: Number(z.cobrosVisitas) || 0,
+        transferencias: Number(z.transferencias) || 0,
+        oficinaTola: Number(z.oficinaTola) || 0,
+        otrasOficinas: Number(z.otrasOficinas) || 0,
+      };
+      cz.totalZona = cz.cobrosVisitas + cz.transferencias + cz.oficinaTola + cz.otrasOficinas;
+      totalGeneralCalc += cz.totalZona;
+      return cz;
+    });
+
+    const editadoPor = {
+      usuarioId: req.user?._id,
+      nombre: req.user?.nombre || req.user?.email || '',
+    };
+
+    const doc = await IngresoMensualManual.findOneAndUpdate(
+      { mes, anio },
+      {
+        $set: {
+          zonas: zonasLimp,
+          totalGeneral: totalGeneralCalc,
+          editadoPor,
+          fechaEdicion: new Date(),
+        },
+        $setOnInsert: { mes, anio },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Ingreso mensual guardado correctamente',
+      data: doc,
+    });
+  } catch (error) {
+    console.error('Error guardando manual:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================
+// POST /api/ingreso-mensual/resumen-html
+// Body: { mes, anio, zonas: [...], totalGeneral }
+// Devuelve HTML del reporte
+// ============================================
+exports.generarResumenHTML = async (req, res) => {
+  try {
+    const { mes, anio, zonas, totalGeneral } = req.body;
+
+    if (!zonas || !Array.isArray(zonas) || zonas.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere el array de zonas',
+      });
+    }
+
+    const nombreMes = NOMBRES_MES[mes] || 'Mes desconocido';
+    const fmt = (n) => '$' + (Number(n) || 0).toFixed(2);
+
+    const zonasHTML = zonas.map(z => `
+      <div class="zona">
+        <h3>${z.zona}</h3>
+        <table>
+          <tr><td>Cobros Visitas:</td><td class="right">${fmt(z.cobrosVisitas)}</td></tr>
+          <tr><td>Transferencias:</td><td class="right">${fmt(z.transferencias)}</td></tr>
+          <tr><td>Ingreso Oficina Tola:</td><td class="right">${fmt(z.oficinaTola)}</td></tr>
+          <tr><td>Ingreso Otras Oficinas:</td><td class="right">${fmt(z.otrasOficinas)}</td></tr>
+          <tr class="total"><td>TOTAL ${z.zona}:</td><td class="right">${fmt(z.totalZona)}</td></tr>
+        </table>
+      </div>
+    `).join('');
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; padding: 20px; color: #333; }
+  h1 { font-size: 20px; color: #6C5CE7; margin-bottom: 4px; }
+  h2 { font-size: 14px; color: #666; font-weight: normal; margin-top: 0; }
+  .zona { margin-bottom: 18px; padding: 12px; border-left: 5px solid #6C5CE7; background: #F8F9FA; }
+  .zona h3 { margin: 0 0 8px 0; color: #6C5CE7; font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 4px 0; }
+  td.right { text-align: right; font-weight: 600; }
+  tr.total td { border-top: 2px solid #6C5CE7; padding-top: 8px; font-weight: bold; color: #6C5CE7; }
+  .total-general { margin-top: 20px; padding: 15px; background: #6C5CE7; color: #FFF; text-align: center; border-radius: 8px; }
+  .total-general .label { font-size: 12px; text-transform: uppercase; }
+  .total-general .value { font-size: 24px; font-weight: bold; }
+  .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #999; }
+</style>
+</head>
+<body>
+  <h1>📊 Ingreso Mensual</h1>
+  <h2>${nombreMes} ${anio}</h2>
+  ${zonasHTML}
+  <div class="total-general">
+    <div class="label">Total General</div>
+    <div class="value">${fmt(totalGeneral)}</div>
+  </div>
+  <div class="footer">Generado el ${new Date().toLocaleString('es-EC')}</div>
+</body>
+</html>
+    `;
+
+    res.json({ success: true, data: { html } });
+  } catch (error) {
+    console.error('Error generando resumen HTML:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

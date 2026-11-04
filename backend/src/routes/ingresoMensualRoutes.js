@@ -14,4 +14,28 @@ router.get('/',
   controller.getIngresoMensual
 );
 
+// ============================================
+// GET /api/ingreso-mensual/manual?mes=X&anio=Y
+// ============================================
+router.get('/manual',
+  authorize('Admin', 'Jefe'),
+  controller.getManual
+);
+
+// ============================================
+// PUT /api/ingreso-mensual/manual
+// ============================================
+router.put('/manual',
+  authorize('Admin', 'Jefe'),
+  controller.guardarManual
+);
+
+// ============================================
+// POST /api/ingreso-mensual/resumen-html
+// ============================================
+router.post('/resumen-html',
+  authorize('Admin', 'Jefe'),
+  controller.generarResumenHTML
+);
+
 module.exports = router;
