@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -83,6 +83,7 @@ const DashboardScreen = ({ navigation }) => {
     serviciosSemana: 0,
     serviciosMes: 0,
     serviciosPorNombre: {},
+    serviciosPorBarrio: {},
     totalDesconexiones: 0,
     desconexionesPendientes: 0,
     desconexionesEjecutadas: 0,
@@ -421,6 +422,7 @@ const DashboardScreen = ({ navigation }) => {
       let totalServicios = 0, serviciosActivos = 0, serviciosFinalizados = 0, serviciosPendientes = 0;
       let serviciosHoy = 0, serviciosSemana = 0, serviciosMes = 0;
       let serviciosPorNombre = {};
+      let serviciosPorBarrio = {};
 
       try {
         console.log('🔍 Cargando servicios con fechas...');
@@ -456,11 +458,13 @@ const DashboardScreen = ({ navigation }) => {
           const fecha = parseFechaSegura(s.createdAt || s.fechaCreacion);
           const fechaStr = formatFechaSegura(fecha);
           const nombreServicio = s.nombreServicio || 'Sin especificar';
+          const barrio = s.barrio || 'Sin barrio';
 
+          // === POR TIPO ===
           if (!serviciosPorNombre[nombreServicio]) {
-            serviciosPorNombre[nombreServicio] = { hoy: 0, semana: 0, mes: 0 };
+            serviciosPorNombre[nombreServicio] = { total: 0, hoy: 0, semana: 0, mes: 0 };
           }
-
+          serviciosPorNombre[nombreServicio].total++;
           if (fechaStr === hoyStr) {
             serviciosHoy++;
             serviciosPorNombre[nombreServicio].hoy++;
@@ -469,10 +473,20 @@ const DashboardScreen = ({ navigation }) => {
             serviciosSemana++;
             serviciosPorNombre[nombreServicio].semana++;
           }
-          if (fecha.getMonth() === mesActual) {
+          if (fecha.getMonth() === mesActual && fecha.getFullYear() === new Date().getFullYear()) {
             serviciosMes++;
             serviciosPorNombre[nombreServicio].mes++;
           }
+
+          // === POR BARRIO ===
+          if (!serviciosPorBarrio[barrio]) {
+            serviciosPorBarrio[barrio] = { total: 0, tipos: {} };
+          }
+          serviciosPorBarrio[barrio].total++;
+          if (!serviciosPorBarrio[barrio].tipos[nombreServicio]) {
+            serviciosPorBarrio[barrio].tipos[nombreServicio] = 0;
+          }
+          serviciosPorBarrio[barrio].tipos[nombreServicio]++;
         });
 
       } catch (error) {
@@ -768,6 +782,7 @@ const DashboardScreen = ({ navigation }) => {
         serviciosSemana,
         serviciosMes,
         serviciosPorNombre,
+        serviciosPorBarrio,
         totalDesconexiones,
         desconexionesPendientes,
         desconexionesEjecutadas,
@@ -1485,11 +1500,84 @@ const DashboardScreen = ({ navigation }) => {
                   <Text style={styles.recentDate}>
                     {new Date(item.fechaSubida || item.createdAt).toLocaleDateString('es-EC')}
                   </Text>
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📍 Por Barrio (con desglose por tipo)</Text>
+              {Object.keys(stats.serviciosPorBarrio || {}).length === 0 ? (
+                <Text style={styles.emptyText}>No hay servicios en el rango</Text>
+              ) : (
+                Object.entries(stats.serviciosPorBarrio || {})
+                  .sort((a, b) => (b[1].total || 0) - (a[1].total || 0))
+                  .map(([barrio, datos]) => {
+                    const pct = stats.totalServicios > 0 ? ((datos.total / stats.totalServicios) * 100).toFixed(1) : 0;
+                    const tiposOrdenados = Object.entries(datos.tipos || {}).sort((a, b) => b[1] - a[1]);
+                    return (
+                      <View key={barrio} style={styles.servicioTipoItem}>
+                        <Text style={styles.servicioTipoNombre}>📍 {barrio} → {datos.total} servicios ({pct}%)</Text>
+                        <View style={{ marginTop: 6, marginLeft: 8 }}>
+                          {tiposOrdenados.map(([tipo, cant]) => (
+                            <Text key={tipo} style={{ fontSize: 12, color: '#636E72', marginBottom: 2 }}>
+                              • {tipo}: {cant}
+                            </Text>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  })
+              )}
+            </View>
+
+            <View style={styles.subSection}>
+              <Text style={styles.subSectionTitle}>📊 Comparativa del Rango</Text>
+              {(() => {
+                const tipos = Object.entries(stats.serviciosPorNombre || {});
+                const barrios = Object.entries(stats.serviciosPorBarrio || {});
+                if (tipos.length === 0 && barrios.length === 0) return <Text style={styles.emptyText}>No hay datos</Text>;
+                const tiposOrden = [...tipos].sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+                const barriosOrden = [...barrios].sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+                const totalServ = stats.totalServicios || 0;
+                const tipoTop = tiposOrden[0];
+                const tipoBottom = tiposOrden[tiposOrden.length - 1];
+                const barrioTop = barriosOrden[0];
+                const barrioBottom = barriosOrden[barriosOrden.length - 1];
+                const promTipo = tipos.length > 0 ? (totalServ / tipos.length).toFixed(1) : 0;
+                const promBarrio = barrios.length > 0 ? (totalServ / barrios.length).toFixed(1) : 0;
+                return (
+                  <View>
+                    <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 4 }}>Total servicios: <Text style={{ fontWeight: '700', color: '#0984E3' }}>{totalServ}</Text></Text>
+                    <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 4 }}>Tipos distintos: <Text style={{ fontWeight: '700' }}>{tipos.length}</Text> | Barrios distintos: <Text style={{ fontWeight: '700' }}>{barrios.length}</Text></Text>
+                    <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 4 }}>Promedio por tipo: <Text style={{ fontWeight: '700' }}>{promTipo}</Text> | Promedio por barrio: <Text style={{ fontWeight: '700' }}>{promBarrio}</Text></Text>
+                    <View style={{ height: 1, backgroundColor: '#DFE6E9', marginVertical: 8 }} />
+                    {tipoTop && (
+                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>✅ Tipo más frecuente: <Text style={{ fontWeight: '700', color: '#00B894' }}>{tipoTop[0]}</Text> → {tipoTop[1].total} ({totalServ > 0 ? ((tipoTop[1].total / totalServ) * 100).toFixed(1) : 0}%)</Text>
+                    )}
+                    {tipoBottom && tipos.length > 1 && (
+                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>⚠️ Tipo menos frecuente: <Text style={{ fontWeight: '700', color: '#E17055' }}>{tipoBottom[0]}</Text> → {tipoBottom[1].total}</Text>
+                    )}
+                    {barrioTop && (
+                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>📍 Barrio con más servicios: <Text style={{ fontWeight: '700', color: '#0984E3' }}>{barrioTop[0]}</Text> → {barrioTop[1].total} ({totalServ > 0 ? ((barrioTop[1].total / totalServ) * 100).toFixed(1) : 0}%)</Text>
+                    )}
+                    {barrioBottom && barrios.length > 1 && (
+                      <Text style={{ fontSize: 13, color: '#2D3436', marginBottom: 4 }}>📍 Barrio con menos servicios: <Text style={{ fontWeight: '700', color: '#E17055' }}>{barrioBottom[0]}</Text> → {barrioBottom[1].total}</Text>
+                    )}
+                    <View style={{ height: 1, backgroundColor: '#DFE6E9', marginVertical: 8 }} />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#2D3436', marginBottom: 4 }}>🏆 Top 5 Tipos</Text>
+                    {tiposOrden.slice(0, 5).map(([n, d], i) => (
+                      <Text key={n} style={{ fontSize: 12, color: '#636E72', marginBottom: 2 }}>{i + 1}. {n} → {d.total}</Text>
+                    ))}
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#2D3436', marginTop: 10, marginBottom: 4 }}>🏆 Top 5 Barrios</Text>
+                    {barriosOrden.slice(0, 5).map(([n, d], i) => (
+                      <Text key={n} style={{ fontSize: 12, color: '#636E72', marginBottom: 2 }}>{i + 1}. {n} → {d.total}</Text>
+                    ))}
+                  </View>
+                );
+              })()}
+            </View>
                 </View>
               ))}
             </View>
           </View>
         );
+
     }
   };
 
