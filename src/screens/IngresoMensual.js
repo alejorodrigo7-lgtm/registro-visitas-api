@@ -10,6 +10,9 @@ import {
   Modal,
   FlatList,
   RefreshControl,
+  TextInput,
+  Linking,
+  Alert,
 } from 'react-native';
 import api from '../services/api';
 
@@ -43,6 +46,10 @@ const IngresoMensual = ({ navigation }) => {
   const [refrescando, setRefrescando] = useState(false);
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
+  const [zonasEdit, setZonasEdit] = useState([]);
+  const [totalGeneralEdit, setTotalGeneralEdit] = useState(0);
+  const [guardando, setGuardando] = useState(false);
+  const [hayManual, setHayManual] = useState(false);
 
   const nombreMes = MESES.find(m => m.num === mes)?.nombre || '';
 
@@ -51,14 +58,38 @@ const IngresoMensual = ({ navigation }) => {
     else setCargando(true);
     setError(null);
     try {
-      const resp = await api.get('/ingreso-mensual', {
-        params: { mes, anio },
-      });
-      if (resp.data.success) {
-        setDatos(resp.data);
-      } else {
+      const resp = await api.get('/ingreso-mensual', { params: { mes, anio } });
+      if (!resp.data.success) {
         setError(resp.data.message || 'No se pudo cargar');
+        return;
       }
+      setDatos(resp.data);
+
+      let manual = null;
+      try {
+        const respManual = await api.get('/ingreso-mensual/manual', { params: { mes, anio } });
+        if (respManual.data.success && respManual.data.existe) {
+          manual = respManual.data.data;
+          setHayManual(true);
+        } else {
+          setHayManual(false);
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar manual:', e.message);
+        setHayManual(false);
+      }
+
+      const zonasBase = manual?.zonas || resp.data.zonas || [];
+      const zonasListas = zonasBase.map(z => ({
+        zona: z.zona,
+        cobrosVisitas: Number(z.cobrosVisitas) || 0,
+        transferencias: Number(z.transferencias) || 0,
+        oficinaTola: Number(z.oficinaTola) || 0,
+        otrasOficinas: Number(z.otrasOficinas) || 0,
+        totalZona: Number(z.totalZona) || 0,
+      }));
+      setZonasEdit(zonasListas);
+      setTotalGeneralEdit(manual?.totalGeneral || resp.data.totalGeneral || 0);
     } catch (err) {
       console.error('Error cargando ingreso mensual:', err);
       setError(err.response?.data?.message || err.message || 'Error de conexion');
@@ -72,33 +103,111 @@ const IngresoMensual = ({ navigation }) => {
     cargar();
   }, [cargar]);
 
+  const editarValorZona = (indexZona, campo, valorTexto) => {
+    const numero = parseFloat(valorTexto.replace(/[^0-9.]/g, '')) || 0;
+    setZonasEdit(prev => {
+      const copia = [...prev];
+      copia[indexZona] = { ...copia[indexZona], [campo]: numero };
+      copia[indexZona].totalZona =
+        (copia[indexZona].cobrosVisitas || 0) +
+        (copia[indexZona].transferencias || 0) +
+        (copia[indexZona].oficinaTola || 0) +
+        (copia[indexZona].otrasOficinas || 0);
+      const nuevoTotal = copia.reduce((s, z) => s + (z.totalZona || 0), 0);
+      setTotalGeneralEdit(nuevoTotal);
+      return copia;
+    });
+  };
+
+  const guardarCambios = async () => {
+    try {
+      setGuardando(true);
+      const resp = await api.put('/ingreso-mensual/manual', {
+        mes, anio, zonas: zonasEdit, totalGeneral: totalGeneralEdit,
+      });
+      if (resp.data.success) {
+        setHayManual(true);
+        Alert.alert('Guardado', 'Los valores se guardaron correctamente');
+      } else {
+        Alert.alert('Error', resp.data.message || 'No se pudo guardar');
+      }
+    } catch (err) {
+      console.error('Error guardando:', err);
+      Alert.alert('Error', err.response?.data?.message || 'No se pudo guardar');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const convertirHTMLaTexto = (html) => {
+    let texto = html;
+    texto = texto.replace(/<head[\s\S]*?<\/head>/gi, '');
+    texto = texto.replace(/<br\s*\/?>/gi, '\n');
+    texto = texto.replace(/<\/p>/gi, '\n');
+    texto = texto.replace(/<\/tr>/gi, '\n');
+    texto = texto.replace(/<\/h[1-6]>/gi, '\n');
+    texto = texto.replace(/<\/li>/gi, '\n');
+    texto = texto.replace(/<\/td>/gi, ' | ');
+    texto = texto.replace(/<[^>]+>/g, '');
+    texto = texto.replace(/&nbsp;/g, ' ');
+    texto = texto.replace(/&lt;/g, '<');
+    texto = texto.replace(/&gt;/g, '>');
+    texto = texto.replace(/&quot;/g, '"');
+    texto = texto.replace(/[ \t]+/g, ' ');
+    texto = texto.replace(/\n{3,}/g, '\n\n');
+    return texto.trim();
+  };
+
+  const abrirCorreoConReporte = async () => {
+    try {
+      const resp = await api.post('/ingreso-mensual/resumen-html', {
+        mes, anio, zonas: zonasEdit, totalGeneral: totalGeneralEdit,
+      });
+      if (!resp.data.success) {
+        Alert.alert('Error', resp.data.message || 'No se pudo generar el reporte');
+        return;
+      }
+      const html = resp.data.data.html;
+      const textoPlano = convertirHTMLaTexto(html);
+      const asunto = encodeURIComponent('Ingreso Mensual - ' + nombreMes + ' ' + anio);
+      const cuerpo = encodeURIComponent(textoPlano);
+      const url = 'mailto:alejorodrigo7@gmail.com?cc=cordobaisabelag@gmail.com,isabellacordobag@hotmail.com&subject=' + asunto + '&body=' + cuerpo;
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) {
+        Alert.alert('Error', 'No hay app de correo configurada en este dispositivo');
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (err) {
+      console.error('Error abriendo correo:', err);
+      Alert.alert('Error', err.message || 'No se pudo abrir la app de correo');
+    }
+  };
+
   const fmt = (n) => '$' + (Number(n) || 0).toFixed(2);
 
-  const renderZona = (zona) => {
+  const renderZona = (zona, index) => {
     const color = COLORES_ZONA[zona.zona] || '#636E72';
     return (
       <View key={zona.zona} style={[styles.zonaCard, { borderLeftColor: color, borderLeftWidth: 5 }]}>
         <Text style={[styles.zonaTitulo, { color }]}>{zona.zona}</Text>
-
         <View style={styles.fila}>
           <Text style={styles.filaLabel}>Cobros Visitas</Text>
-          <Text style={styles.filaValor}>{fmt(zona.cobrosVisitas)}</Text>
+          <TextInput style={styles.inputValor} value={String(zona.cobrosVisitas)} onChangeText={(t) => editarValorZona(index, 'cobrosVisitas', t)} keyboardType="decimal-pad" />
         </View>
         <View style={styles.fila}>
           <Text style={styles.filaLabel}>Transferencias</Text>
-          <Text style={styles.filaValor}>{fmt(zona.transferencias)}</Text>
+          <TextInput style={styles.inputValor} value={String(zona.transferencias)} onChangeText={(t) => editarValorZona(index, 'transferencias', t)} keyboardType="decimal-pad" />
         </View>
         <View style={styles.fila}>
           <Text style={styles.filaLabel}>Ingreso Oficina Tola</Text>
-          <Text style={styles.filaValor}>{fmt(zona.oficinaTola)}</Text>
+          <TextInput style={styles.inputValor} value={String(zona.oficinaTola)} onChangeText={(t) => editarValorZona(index, 'oficinaTola', t)} keyboardType="decimal-pad" />
         </View>
         <View style={styles.fila}>
           <Text style={styles.filaLabel}>Ingreso Otras Oficinas</Text>
-          <Text style={styles.filaValor}>{fmt(zona.otrasOficinas)}</Text>
+          <TextInput style={styles.inputValor} value={String(zona.otrasOficinas)} onChangeText={(t) => editarValorZona(index, 'otrasOficinas', t)} keyboardType="decimal-pad" />
         </View>
-
         <View style={styles.separador} />
-
         <View style={styles.filaTotal}>
           <Text style={styles.totalLabel}>TOTAL {zona.zona}</Text>
           <Text style={[styles.totalValor, { color }]}>{fmt(zona.totalZona)}</Text>
@@ -109,19 +218,13 @@ const IngresoMensual = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={
-          <RefreshControl refreshing={refrescando} onRefresh={() => cargar(true)} />
-        }
-      >
+      <ScrollView contentContainerStyle={styles.scroll} refreshControl={<RefreshControl refreshing={refrescando} onRefresh={() => cargar(true)} />}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Ingreso Mensual</Text>
           <TouchableOpacity style={styles.selectorMes} onPress={() => setModalMes(true)}>
             <Text style={styles.selectorMesText}>{nombreMes} {anio} ▼</Text>
           </TouchableOpacity>
         </View>
-
         {cargando && !datos ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color="#0984E3" />
@@ -136,43 +239,33 @@ const IngresoMensual = ({ navigation }) => {
           </View>
         ) : datos ? (
           <>
-            {datos.zonas.map(renderZona)}
-
+            {zonasEdit.map((z, i) => renderZona(z, i))}
             <View style={styles.totalGeneralCard}>
               <Text style={styles.totalGeneralLabel}>TOTAL GENERAL</Text>
-              <Text style={styles.totalGeneralValor}>{fmt(datos.totalGeneral)}</Text>
+              <Text style={styles.totalGeneralValor}>{fmt(totalGeneralEdit)}</Text>
             </View>
-
-            <Text style={styles.footer}>
-              Mes: {datos.nombreMes}
-            </Text>
+            {hayManual && (
+              <Text style={styles.avisoManual}>Estos valores fueron editados manualmente</Text>
+            )}
+            <TouchableOpacity style={[styles.btnAccion, styles.btnGuardar]} onPress={guardarCambios} disabled={guardando}>
+              {guardando ? (<ActivityIndicator color="#FFF" />) : (<Text style={styles.btnAccionText}>Guardar cambios</Text>)}
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.btnAccion, styles.btnCorreo]} onPress={abrirCorreoConReporte}>
+              <Text style={styles.btnAccionText}>Abrir en App de Correo</Text>
+            </TouchableOpacity>
+            <Text style={styles.footer}>Mes: {datos.nombreMes}</Text>
           </>
         ) : null}
       </ScrollView>
-
-      <Modal
-        visible={modalMes}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalMes(false)}
-      >
+      <Modal visible={modalMes} transparent animationType="slide" onRequestClose={() => setModalMes(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Seleccionar mes</Text>
-            <FlatList
-              data={MESES}
-              keyExtractor={(item) => String(item.num)}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.modalItem, item.num === mes && styles.modalItemActive]}
-                  onPress={() => { setMes(item.num); setModalMes(false); }}
-                >
-                  <Text style={[styles.modalItemText, item.num === mes && styles.modalItemTextActive]}>
-                    {item.nombre} {anio}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
+            <FlatList data={MESES} keyExtractor={(item) => String(item.num)} renderItem={({ item }) => (
+              <TouchableOpacity style={[styles.modalItem, item.num === mes && styles.modalItemActive]} onPress={() => { setMes(item.num); setModalMes(false); }}>
+                <Text style={[styles.modalItemText, item.num === mes && styles.modalItemTextActive]}>{item.nombre} {anio}</Text>
+              </TouchableOpacity>
+            )} />
             <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalMes(false)}>
               <Text style={styles.modalCancelarText}>Cancelar</Text>
             </TouchableOpacity>
@@ -188,97 +281,42 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 40 },
   header: { marginBottom: 16 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#2D3436', marginBottom: 12 },
-  selectorMes: {
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#DFE6E9',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
+  selectorMes: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DFE6E9', borderRadius: 8, paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center' },
   selectorMesText: { fontSize: 16, color: '#2D3436', fontWeight: '600' },
   loadingBox: { paddingVertical: 60, alignItems: 'center' },
   loadingText: { marginTop: 12, color: '#636E72', fontSize: 14 },
   errorBox: { padding: 20, alignItems: 'center', backgroundColor: '#FFF5F5', borderRadius: 12 },
   errorText: { color: '#D63031', fontSize: 14, textAlign: 'center', marginBottom: 12 },
-  reintentarBtn: {
-    backgroundColor: '#0984E3',
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
+  reintentarBtn: { backgroundColor: '#0984E3', paddingVertical: 10, paddingHorizontal: 24, borderRadius: 8 },
   reintentarText: { color: '#FFF', fontWeight: '700' },
-  zonaCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  zonaCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   zonaTitulo: { fontSize: 16, fontWeight: '700', marginBottom: 12, letterSpacing: 0.5 },
-  fila: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
+  fila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
   filaLabel: { fontSize: 14, color: '#636E72' },
   filaValor: { fontSize: 14, color: '#2D3436', fontWeight: '600' },
-  separador: {
-    height: 1,
-    backgroundColor: '#DFE6E9',
-    marginVertical: 10,
-  },
-  filaTotal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  separador: { height: 1, backgroundColor: '#DFE6E9', marginVertical: 10 },
+  filaTotal: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { fontSize: 14, fontWeight: '700', color: '#2D3436' },
   totalValor: { fontSize: 18, fontWeight: '700' },
-  totalGeneralCard: {
-    backgroundColor: '#2D3436',
-    borderRadius: 12,
-    padding: 20,
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  totalGeneralLabel: {
-    color: '#DFE6E9',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
+  totalGeneralCard: { backgroundColor: '#2D3436', borderRadius: 12, padding: 20, marginTop: 8, alignItems: 'center' },
+  totalGeneralLabel: { color: '#DFE6E9', fontSize: 13, fontWeight: '600', letterSpacing: 1, marginBottom: 6 },
   totalGeneralValor: { color: '#FFF', fontSize: 28, fontWeight: '700' },
   footer: { textAlign: 'center', color: '#B2BEC3', fontSize: 12, marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    paddingBottom: 30,
-    maxHeight: '70%',
-  },
+  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 20, paddingBottom: 30, maxHeight: '70%' },
   modalTitle: { fontSize: 18, fontWeight: '700', color: '#2D3436', textAlign: 'center', marginBottom: 15 },
   modalItem: { paddingVertical: 14, paddingHorizontal: 24 },
   modalItemActive: { backgroundColor: '#E8F4FD' },
   modalItemText: { fontSize: 16, color: '#2D3436' },
   modalItemTextActive: { color: '#0984E3', fontWeight: '700' },
-  modalCancelar: {
-    marginTop: 10,
-    marginHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 8,
-    backgroundColor: '#F1F2F6',
-    alignItems: 'center',
-  },
+  modalCancelar: { marginTop: 10, marginHorizontal: 20, paddingVertical: 14, borderRadius: 8, backgroundColor: '#F1F2F6', alignItems: 'center' },
   modalCancelarText: { fontSize: 15, color: '#636E72', fontWeight: '600' },
+  inputValor: { backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#DFE6E9', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, fontSize: 14, fontWeight: '600', color: '#2D3436', minWidth: 90, textAlign: 'right' },
+  avisoManual: { textAlign: 'center', color: '#E17055', fontSize: 12, fontWeight: '600', marginTop: 10, marginBottom: 10 },
+  btnAccion: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 10, marginTop: 10 },
+  btnGuardar: { backgroundColor: '#00B894' },
+  btnCorreo: { backgroundColor: '#0984E3' },
+  btnAccionText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
 });
 
 export default IngresoMensual;
