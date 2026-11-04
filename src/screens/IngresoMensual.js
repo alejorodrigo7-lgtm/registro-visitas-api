@@ -82,10 +82,10 @@ const IngresoMensual = ({ navigation }) => {
       const zonasBase = manual?.zonas || resp.data.zonas || [];
       const zonasListas = zonasBase.map(z => ({
         zona: z.zona,
-        cobrosVisitas: Number(z.cobrosVisitas) || 0,
-        transferencias: Number(z.transferencias) || 0,
-        oficinaTola: Number(z.oficinaTola) || 0,
-        otrasOficinas: Number(z.otrasOficinas) || 0,
+        cobrosVisitas: String(z.cobrosVisitas ?? 0),
+        transferencias: String(z.transferencias ?? 0),
+        oficinaTola: String(z.oficinaTola ?? 0),
+        otrasOficinas: String(z.otrasOficinas ?? 0),
         totalZona: Number(z.totalZona) || 0,
       }));
       setZonasEdit(zonasListas);
@@ -104,16 +104,32 @@ const IngresoMensual = ({ navigation }) => {
   }, [cargar]);
 
   const editarValorZona = (indexZona, campo, valorTexto) => {
-    const numero = parseFloat(valorTexto.replace(/[^0-9.]/g, '')) || 0;
+    // Solo permitir digitos y un punto decimal
+    let limpio = valorTexto.replace(/[^0-9.]/g, '');
+    // Solo permitir un punto
+    const partes = limpio.split('.');
+    if (partes.length > 2) {
+      limpio = partes[0] + '.' + partes.slice(1).join('');
+    }
+    // Limitar a 2 decimales
+    if (partes.length === 2 && partes[1].length > 2) {
+      limpio = partes[0] + '.' + partes[1].slice(0, 2);
+    }
+
     setZonasEdit(prev => {
       const copia = [...prev];
-      copia[indexZona] = { ...copia[indexZona], [campo]: numero };
+      // Guardar el texto tal cual para mostrar
+      copia[indexZona] = { ...copia[indexZona], [campo]: limpio };
+
+      // Calcular totales con parseFloat
+      const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
       copia[indexZona].totalZona =
-        (copia[indexZona].cobrosVisitas || 0) +
-        (copia[indexZona].transferencias || 0) +
-        (copia[indexZona].oficinaTola || 0) +
-        (copia[indexZona].otrasOficinas || 0);
-      const nuevoTotal = copia.reduce((s, z) => s + (z.totalZona || 0), 0);
+        num(copia[indexZona].cobrosVisitas) +
+        num(copia[indexZona].transferencias) +
+        num(copia[indexZona].oficinaTola) +
+        num(copia[indexZona].otrasOficinas);
+
+      const nuevoTotal = copia.reduce((s, z) => s + num(z.totalZona), 0);
       setTotalGeneralEdit(nuevoTotal);
       return copia;
     });
@@ -193,19 +209,19 @@ const IngresoMensual = ({ navigation }) => {
         <Text style={[styles.zonaTitulo, { color }]}>{zona.zona}</Text>
         <View style={styles.fila}>
           <Text style={styles.filaLabel}>Cobros Visitas</Text>
-          <TextInput style={styles.inputValor} value={String(zona.cobrosVisitas)} onChangeText={(t) => editarValorZona(index, 'cobrosVisitas', t)} keyboardType="decimal-pad" />
+          <TextInput style={styles.inputValor} value={String(zona.cobrosVisitas ?? '')} onChangeText={(t) => editarValorZona(index, 'cobrosVisitas', t)} keyboardType="decimal-pad" />
         </View>
         <View style={styles.fila}>
           <Text style={styles.filaLabel}>Transferencias</Text>
-          <TextInput style={styles.inputValor} value={String(zona.transferencias)} onChangeText={(t) => editarValorZona(index, 'transferencias', t)} keyboardType="decimal-pad" />
+          <TextInput style={styles.inputValor} value={String(zona.transferencias ?? '')} onChangeText={(t) => editarValorZona(index, 'transferencias', t)} keyboardType="decimal-pad" />
         </View>
         <View style={styles.fila}>
           <Text style={styles.filaLabel}>Ingreso Oficina Tola</Text>
-          <TextInput style={styles.inputValor} value={String(zona.oficinaTola)} onChangeText={(t) => editarValorZona(index, 'oficinaTola', t)} keyboardType="decimal-pad" />
+          <TextInput style={styles.inputValor} value={String(zona.oficinaTola ?? '')} onChangeText={(t) => editarValorZona(index, 'oficinaTola', t)} keyboardType="decimal-pad" />
         </View>
         <View style={styles.fila}>
           <Text style={styles.filaLabel}>Ingreso Otras Oficinas</Text>
-          <TextInput style={styles.inputValor} value={String(zona.otrasOficinas)} onChangeText={(t) => editarValorZona(index, 'otrasOficinas', t)} keyboardType="decimal-pad" />
+          <TextInput style={styles.inputValor} value={String(zona.otrasOficinas ?? '')} onChangeText={(t) => editarValorZona(index, 'otrasOficinas', t)} keyboardType="decimal-pad" />
         </View>
         <View style={styles.separador} />
         <View style={styles.filaTotal}>
