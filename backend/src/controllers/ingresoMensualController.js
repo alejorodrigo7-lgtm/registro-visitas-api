@@ -7,8 +7,8 @@ const IngresoOficina = require('../models/IngresoOficina');
 // ============================================
 const MAPA_BARRIOS = {
   'TOLA': ['TOLA 1', 'TOLA 2', 'LOMA GRANDE', 'EL DORADO'],
-  'SAN JOSE DE CHILIBULO': ['CHILIBULO'],
-  'MAGDALENA': ['SANTA ANA', 'MAGDALENA', 'ATAHULPA OCCIDENTAL']
+  'SAN JOSE DE CHILIBULO': ['SAN JOSE DE CHILIBULO', 'CHILIBULO'],
+  'MAGDALENA': ['SANTA ANA', 'MAGDALENA', 'LA MAGDALENA', 'ATAHUALPA OCCIDENTAL', 'ATAHULPA OCCIDENTAL']
 };
 
 const ZONAS = ['TOLA', 'SAN JOSE DE CHILIBULO', 'MAGDALENA'];
@@ -18,8 +18,11 @@ const normalizar = (s) => String(s || '').trim().toUpperCase();
 // Devuelve la zona de un barrio o null si no matchea
 const zonaDeBarrio = (barrio) => {
   const b = normalizar(barrio);
+  if (!b) return null;
   for (const zona of ZONAS) {
-    if (MAPA_BARRIOS[zona].includes(b)) return zona;
+    for (const key of MAPA_BARRIOS[zona]) {
+      if (b === key || b.includes(key) || key.includes(b)) return zona;
+    }
   }
   return null;
 };
