@@ -297,10 +297,12 @@ const DashboardScreen = ({ navigation }) => {
 
         if (transferenciasRes.data.success) {
           const transferencias = transferenciasRes.data.data || [];
-          totalTransferencias = transferencias.length;
-          transferenciasPendientes = transferencias.filter(t => t.estado === 'pendiente').length;
-          transferenciasAprobadas = transferencias.filter(t => t.estado === 'aprobado').length;
-          transferenciasDenegadas = transferencias.filter(t => t.estado === 'denegado').length;
+          // ✅ Solo las NO denegadas cuentan para totales
+          const transferenciasNoDenegadas = transferencias.filter(t => t.estado !== 'DENEGADA');
+          totalTransferencias = transferenciasNoDenegadas.length;
+          transferenciasPendientes = transferencias.filter(t => t.estado === 'SUBIDA').length;
+          transferenciasAprobadas = transferencias.filter(t => t.estado === 'CONFIRMADA').length;
+          transferenciasDenegadas = transferencias.filter(t => t.estado === 'DENEGADA').length;
 
           const hoyStr = new Date().toISOString().split('T')[0];
           const mesActual = new Date().getMonth();
@@ -308,6 +310,9 @@ const DashboardScreen = ({ navigation }) => {
           semanaAtras.setDate(semanaAtras.getDate() - 7);
 
           transferencias.forEach(t => {
+            // ✅ EXCLUIR DENEGADAS de todos los totales
+            if (t.estado === 'DENEGADA') return;
+
             // ✅ EXTRAER BANCO Y NÚMERO DE CUENTA COMPLETO
             let bancoNombre = 'OTRO';
             let numeroCuenta = '';
