@@ -56,6 +56,7 @@ const TomarServicio = ({ navigation }) => {
     'TV DEFICIENTE',
     'CORTE TV',
     'CORTE INTERNET',
+  'RETIRO DE EQUIPO',
   ];
 
   // ============================================
