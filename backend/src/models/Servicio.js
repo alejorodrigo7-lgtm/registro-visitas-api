@@ -1,4 +1,4 @@
-﻿// ✅ MODELO CORREGIDO - VERSIÓN FINAL CON CLOUDINARY
+// ? MODELO CORREGIDO - VERSI�N FINAL CON CLOUDINARY
 
 const mongoose = require('mongoose');
 
@@ -16,10 +16,11 @@ const servicioSchema = new mongoose.Schema({
       'INSTALACION TV',
       'SIN INTERNET (FOCO ROJO)',
       'INTERNET DEFICIENTE',
-      'SIN SEÑAL DE TV',
+      'SIN SE�AL DE TV',
       'TV DEFICIENTE',
       'CORTE TV',
-      'CORTE INTERNET'
+      'CORTE INTERNET',
+      'RETIRO DE EQUIPO'
     ],
     required: true,
   },
@@ -28,17 +29,17 @@ const servicioSchema = new mongoose.Schema({
   responsable: { type: String, required: true },
   responsableId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   
-  // ✅ CAMPO PARA IMAGEN (URL DE CLOUDINARY)
+  // ? CAMPO PARA IMAGEN (URL DE CLOUDINARY)
   imagen: { type: String, default: '' },
   
-  // ✅ CAMPO CORRECTO: tecnico como objeto completo
+  // ? CAMPO CORRECTO: tecnico como objeto completo
   tecnico: {
     _id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     nombre: { type: String },
     email: { type: String }
   },
   
-  // ✅ CAMPO CORRECTO: jefe como objeto completo
+  // ? CAMPO CORRECTO: jefe como objeto completo
   jefe: {
     _id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     nombre: { type: String },
@@ -65,7 +66,7 @@ const servicioSchema = new mongoose.Schema({
     fecha: { type: Date },
   },
   
-  // ✅ CAMPOS NUEVOS: GESTIÓN
+  // ? CAMPOS NUEVOS: GESTI�N
   origen: {
     type: String,
     enum: ['tecnico', 'gestion'],
@@ -114,20 +115,20 @@ const servicioSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-// ✅ ÍNDICES
+// ? �NDICES
 servicioSchema.index({ codigoIdentificador: 1 });
 servicioSchema.index({ cliente: 1 });
 servicioSchema.index({ estado: 1 });
 servicioSchema.index({ activo: 1 });
 servicioSchema.index({ 'tecnico._id': 1 });
 
-// ✅ MIDDLEWARE: Actualizar updatedAt antes de guardar
+// ? MIDDLEWARE: Actualizar updatedAt antes de guardar
 servicioSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   next();
 });
 
-// ✅ MIDDLEWARE: Filtrar solo servicios activos en find
+// ? MIDDLEWARE: Filtrar solo servicios activos en find
 servicioSchema.pre('find', function() {
   this.where({ activo: true });
 });
@@ -140,7 +141,7 @@ servicioSchema.pre('findById', function() {
   this.where({ activo: true });
 });
 
-// ✅ MÉTODOS
+// ? M�TODOS
 servicioSchema.methods.softDelete = async function() {
   this.activo = false;
   this.updatedAt = new Date();
@@ -153,7 +154,7 @@ servicioSchema.methods.restore = async function() {
   return await this.save();
 };
 
-// ✅ STATICS
+// ? STATICS
 servicioSchema.statics.findActive = function() {
   return this.find({ activo: true });
 };
@@ -162,5 +163,5 @@ servicioSchema.statics.findInactive = function() {
   return this.find({ activo: false });
 };
 
-// ✅ EXPORTAR CORRECTAMENTE
+// ? EXPORTAR CORRECTAMENTE
 module.exports = mongoose.model('Servicio', servicioSchema);
